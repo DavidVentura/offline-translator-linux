@@ -10,14 +10,14 @@ export component TextInputArea {
         background: AppTheme.background;
 
         VerticalLayout {
-            padding: 16px;
-
-            TextEdit {
+            TextInput {
                 text <=> root.text;
                 font-size: 16px;
                 wrap: word-wrap;
                 vertical-stretch: 1;
-                edited => { root.changed(); }
+                edited => {
+                    root.changed();
+                }
             }
         }
     }

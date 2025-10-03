@@ -1,0 +1,60 @@
+import { TopBar } from "top-bar.slint";
+import { TextInputArea } from "text-input-area.slint";
+import { TranslationOutputArea } from "translation-output-area.slint";
+import { FloatingActionButton } from "floating-action-button.slint";
+import { AppTheme } from "theme.slint";
+
+export component TranslationScreen {
+    in-out property <string> source-language: "Dutch";
+    in-out property <string> target-language: "English";
+    in-out property <string> input-text;
+    in-out property <string> output-text;
+
+    in property <image> swap-icon;
+    in property <image> settings-icon;
+    in property <image> history-icon;
+    in property <image> camera-icon;
+
+    callback swap-languages();
+    callback settings-clicked();
+    callback history-clicked();
+    callback camera-clicked();
+    callback text-changed();
+
+    VerticalLayout {
+        TopBar {
+            source-language <=> root.source-language;
+            target-language <=> root.target-language;
+            swap-icon: root.swap-icon;
+            settings-icon: root.settings-icon;
+            history-icon: root.history-icon;
+
+            swap-languages => { root.swap-languages(); }
+            settings-clicked => { root.settings-clicked(); }
+            history-clicked => { root.history-clicked(); }
+        }
+
+        TextInputArea {
+            text <=> root.input-text;
+            vertical-stretch: 1;
+            changed => { root.text-changed(); }
+        }
+
+        Rectangle {
+            height: 1px;
+            background: AppTheme.border;
+        }
+
+        TranslationOutputArea {
+            translation-text: root.output-text;
+            vertical-stretch: 1;
+        }
+    }
+
+    FloatingActionButton {
+        icon: root.camera-icon;
+        x: parent.width - self.width - 24px;
+        y: parent.height - self.height - 24px;
+        clicked => { root.camera-clicked(); }
+    }
+}

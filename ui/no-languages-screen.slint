@@ -1,0 +1,36 @@
+import { Button } from "std-widgets.slint";
+import { AppTheme } from "theme.slint";
+
+export component NoLanguagesScreen {
+    callback manage-languages-clicked();
+
+    Rectangle {
+        background: AppTheme.background;
+
+        VerticalLayout {
+            alignment: center;
+            spacing: 24px;
+            padding: 32px;
+
+            Text {
+                text: "No Languages Available";
+                font-size: 24px;
+                color: AppTheme.text-primary;
+                horizontal-alignment: center;
+            }
+
+            Text {
+                text: "Download language packs to start translating";
+                font-size: 16px;
+                color: AppTheme.text-secondary;
+                horizontal-alignment: center;
+                wrap: word-wrap;
+            }
+
+            Button {
+                text: "Manage Languages";
+                clicked => { root.manage-languages-clicked(); }
+            }
+        }
+    }
+}

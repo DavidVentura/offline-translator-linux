@@ -30,7 +30,9 @@ export component TopBar {
             IconButton {
                 icon: root.swap-icon;
                 size: 20px;
-                clicked => { root.swap-languages(); }
+                clicked => {
+                    root.swap-languages();
+                }
             }
 
             LanguageSelector {
@@ -41,13 +43,9 @@ export component TopBar {
             IconButton {
                 icon: root.settings-icon;
                 size: 20px;
-                clicked => { root.settings-clicked(); }
-            }
-
-            IconButton {
-                icon: root.history-icon;
-                size: 20px;
-                clicked => { root.history-clicked(); }
+                clicked => {
+                    root.settings-clicked();
+                }
             }
         }
     }

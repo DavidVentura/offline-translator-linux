@@ -1,0 +1,49 @@
+import { IconButton } from "icon-button.slint";
+import { AppTheme } from "theme.slint";
+
+export component ManageLanguagesScreen {
+    in property <image> back-icon;
+    callback back-clicked();
+
+    Rectangle {
+        background: AppTheme.background;
+
+        VerticalLayout {
+            HorizontalLayout {
+                padding: 16px;
+                height: 56px;
+
+                IconButton {
+                    icon: root.back-icon;
+                    size: 24px;
+                    clicked => { root.back-clicked(); }
+                }
+
+                Text {
+                    text: "Manage Languages";
+                    font-size: 20px;
+                    color: AppTheme.text-primary;
+                    vertical-alignment: center;
+                    horizontal-stretch: 1;
+                }
+            }
+
+            Rectangle {
+                height: 1px;
+                background: AppTheme.border;
+            }
+
+            VerticalLayout {
+                padding: 32px;
+                alignment: center;
+
+                Text {
+                    text: "Language management coming soon...";
+                    font-size: 16px;
+                    color: AppTheme.text-secondary;
+                    horizontal-alignment: center;
+                }
+            }
+        }
+    }
+}

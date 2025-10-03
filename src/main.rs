@@ -12,6 +12,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("loaded");
     translator.load_language_pair("en", "es").unwrap();
 
+    ui.set_has_languages(false);
+
     ui.on_swap_languages({
         let ui_handle = ui.as_weak();
         move || {
@@ -20,12 +22,6 @@ fn main() -> Result<(), Box<dyn Error>> {
             let target = ui.get_target_language();
             ui.set_source_language(target.into());
             ui.set_target_language(source.into());
-        }
-    });
-
-    ui.on_settings_clicked({
-        move || {
-            println!("Settings clicked");
         }
     });
 
