@@ -12,12 +12,10 @@ export component TranslationScreen {
 
     in property <image> swap-icon;
     in property <image> settings-icon;
-    in property <image> history-icon;
     in property <image> camera-icon;
 
     callback swap-languages();
     callback settings-clicked();
-    callback history-clicked();
     callback camera-clicked();
     callback text-changed();
 
@@ -27,17 +25,21 @@ export component TranslationScreen {
             target-language <=> root.target-language;
             swap-icon: root.swap-icon;
             settings-icon: root.settings-icon;
-            history-icon: root.history-icon;
 
-            swap-languages => { root.swap-languages(); }
-            settings-clicked => { root.settings-clicked(); }
-            history-clicked => { root.history-clicked(); }
+            swap-languages => {
+                root.swap-languages();
+            }
+            settings-clicked => {
+                root.settings-clicked();
+            }
         }
 
         TextInputArea {
             text <=> root.input-text;
             vertical-stretch: 1;
-            changed => { root.text-changed(); }
+            changed => {
+                root.text-changed();
+            }
         }
 
         Rectangle {
@@ -55,6 +57,8 @@ export component TranslationScreen {
         icon: root.camera-icon;
         x: parent.width - self.width - 24px;
         y: parent.height - self.height - 24px;
-        clicked => { root.camera-clicked(); }
+        clicked => {
+            root.camera-clicked();
+        }
     }
 }

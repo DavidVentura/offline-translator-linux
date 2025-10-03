@@ -1,0 +1,76 @@
+import { AppTheme } from "theme.slint";
+
+export component TabbedView {
+    in property <string> tab1-title: "Tab 1";
+    in property <string> tab2-title: "Tab 2";
+    in-out property <int> active-tab: 0;
+
+    @children
+
+    VerticalLayout {
+        Rectangle {
+            height: 48px;
+            HorizontalLayout {
+                padding-left: 16px;
+                padding-right: 16px;
+                spacing: 0px;
+
+                Rectangle {
+                    width: 50%;
+
+                    tab1-area := TouchArea {
+                        clicked => {
+                            root.active-tab = 0;
+                        }
+
+                        VerticalLayout {
+                            alignment: center;
+
+                            Text {
+                                text: root.tab1-title;
+                                font-size: 14px;
+                                color: root.active-tab == 0 ? AppTheme.text-primary : AppTheme.text-secondary;
+                                horizontal-alignment: center;
+                            }
+                        }
+                    }
+                }
+
+                Rectangle {
+                    width: 50%;
+
+                    tab2-area := TouchArea {
+                        clicked => {
+                            root.active-tab = 1;
+                        }
+
+                        VerticalLayout {
+                            alignment: center;
+
+                            Text {
+                                text: root.tab2-title;
+                                font-size: 14px;
+                                color: root.active-tab == 1 ? AppTheme.text-primary : AppTheme.text-secondary;
+                                horizontal-alignment: center;
+                            }
+                        }
+                    }
+                }
+            }
+
+            Rectangle {
+                width: parent.width / 2;
+                y: parent.height - self.height;
+                x: root.active-tab == 0 ? 0px : parent.width / 2;
+                height: 2px;
+                background: AppTheme.primary;
+                animate x { duration: 150ms; }
+            }
+        }
+
+        Rectangle {
+            height: 1px;
+            background: AppTheme.border;
+        }
+    }
+}

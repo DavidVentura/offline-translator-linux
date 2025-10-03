@@ -1,0 +1,56 @@
+import { ScrollView } from "std-widgets.slint";
+import { LanguageItem } from "language-item.slint";
+import { Language } from "language.slint";
+import { AppTheme } from "theme.slint";
+
+export component ManageLanguagesComponent {
+    in property <image> download-icon;
+    in property <image> delete-icon;
+    in property <[Language]> installed-languages;
+    in property <[Language]> available-languages;
+
+    callback download-language(Language);
+    callback delete-language(Language);
+
+    ScrollView {
+        VerticalLayout {
+            alignment: LayoutAlignment.start;
+            spacing: 8px;
+            padding: 16px;
+
+            if installed-languages.length > 0: Text {
+                text: "Installed";
+                font-size: 18px;
+                font-weight: 600;
+                color: AppTheme.text-primary;
+            }
+
+            for lang in installed-languages: LanguageItem {
+                language: lang;
+                is-installed: true;
+                download-icon: root.download-icon;
+                delete-icon: root.delete-icon;
+                action-clicked => {
+                    root.delete-language(lang);
+                }
+            }
+
+            if available-languages.length > 0: Text {
+                text: "Available";
+                font-size: 18px;
+                font-weight: 600;
+                color: AppTheme.text-primary;
+            }
+
+            for lang in available-languages: LanguageItem {
+                language: lang;
+                is-installed: false;
+                download-icon: root.download-icon;
+                delete-icon: root.delete-icon;
+                action-clicked => {
+                    root.download-language(lang);
+                }
+            }
+        }
+    }
+}

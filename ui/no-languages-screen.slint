@@ -1,36 +1,104 @@
 import { Button } from "std-widgets.slint";
+import { IconButton } from "icon-button.slint";
+import { TabbedView } from "tabbed-view.slint";
+import { ManageLanguagesComponent } from "manage-languages-component.slint";
+import { Language } from "language.slint";
 import { AppTheme } from "theme.slint";
 
 export component NoLanguagesScreen {
-    callback manage-languages-clicked();
+    in-out property <int> active-tab: 0;
+    in property <image> settings-icon;
+    in property <image> download-icon;
+    in property <image> delete-icon;
+    in property <[Language]> installed-languages;
+    in property <[Language]> available-languages;
+
+    callback settings-clicked();
+    callback download-language(Language);
+    callback delete-language(Language);
+    callback done-clicked();
 
     Rectangle {
         background: AppTheme.background;
 
         VerticalLayout {
-            alignment: center;
-            spacing: 24px;
-            padding: 32px;
+            HorizontalLayout {
+                padding-left: 16px;
+                padding-right: 16px;
+                padding: 4px;
+                alignment: LayoutAlignment.space-between;
+                Text {
+                    text: "Language Setup";
+                    font-size: 20px;
+                    color: AppTheme.text-primary;
+                    vertical-alignment: center;
+                    horizontal-stretch: 1;
+                }
 
-            Text {
-                text: "Language setup";
-                font-size: 24px;
-                color: AppTheme.text-primary;
-                horizontal-alignment: center;
+                IconButton {
+                    icon: root.settings-icon;
+                    size: 24px;
+                    clicked => {
+                        root.settings-clicked();
+                    }
+                }
             }
 
-            Text {
-                text: "Download language packs to start translating";
-                font-size: 16px;
-                color: AppTheme.text-secondary;
-                horizontal-alignment: center;
-                wrap: word-wrap;
+            HorizontalLayout {
+                padding-left: 16px;
+                padding-right: 16px;
+
+                Text {
+                    text: "Download language packs to start translating";
+                    font-size: 14px;
+                    color: AppTheme.text-secondary;
+                    wrap: word-wrap;
+                }
             }
 
-            Button {
-                text: "Manage Languages";
-                clicked => {
-                    root.manage-languages-clicked();
+            TabbedView {
+                tab1-title: "Languages";
+                tab2-title: "Dictionaries";
+                active-tab <=> root.active-tab;
+            }
+
+            if root.active-tab == 0: ManageLanguagesComponent {
+                vertical-stretch: 1;
+                download-icon: root.download-icon;
+                delete-icon: root.delete-icon;
+                installed-languages: root.installed-languages;
+                available-languages: root.available-languages;
+
+                download-language(lang) => {
+                    root.download-language(lang);
+                }
+                delete-language(lang) => {
+                    root.delete-language(lang);
+                }
+            }
+
+            if root.active-tab == 1: VerticalLayout {
+                vertical-stretch: 1;
+                alignment: center;
+                padding: 32px;
+
+                Text {
+                    text: "Dictionaries coming soon...";
+                    font-size: 16px;
+                    color: AppTheme.text-secondary;
+                    horizontal-alignment: center;
+                }
+            }
+
+            HorizontalLayout {
+                padding: 16px;
+
+                Button {
+                    enabled: root.installed-languages.length > 0;
+                    text: "Done";
+                    clicked => {
+                        root.done-clicked();
+                    }
                 }
             }
         }
