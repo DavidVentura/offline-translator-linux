@@ -1,0 +1,16 @@
+[package]
+name = "offline-translator-linux"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+#bergamot-sys = { git = "https://github.com/DavidVentura/bergamot-sys.git", version = "0.1.0" }
+bergamot-sys = { path = "../bergamot-sys" }
+slint = { version = "1.13.1", default-features = false, features = ["backend-default", "compat-1-2", "renderer-femtovg", "std"] }
+
+[build-dependencies]
+slint-build = "1.13.1"
+
+[profile.dev]
+#debug = false
+debug = "line-tables-only"

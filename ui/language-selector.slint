@@ -1,0 +1,16 @@
+import { ComboBox } from "std-widgets.slint";
+import { AppTheme } from "theme.slint";
+
+export component LanguageSelector {
+    in-out property <string> current-value: "English";
+    in property <[string]> model: ["English", "Dutch", "French", "German", "Spanish"];
+
+    HorizontalLayout {
+        padding: 4px;
+
+        ComboBox {
+            current-value <=> root.current-value;
+            model: root.model;
+        }
+    }
+}

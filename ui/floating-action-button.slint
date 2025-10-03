@@ -1,0 +1,28 @@
+import { AppTheme } from "theme.slint";
+
+export component FloatingActionButton {
+    in property <image> icon;
+    callback clicked();
+
+    width: 56px;
+    height: 56px;
+
+    touch-area := TouchArea {
+        clicked => { root.clicked(); }
+    }
+
+    Rectangle {
+        border-radius: 28px;
+        background: touch-area.pressed ? #6B2FCC : AppTheme.primary;
+        drop-shadow-blur: 8px;
+        drop-shadow-color: #00000040;
+        drop-shadow-offset-y: 4px;
+
+        Image {
+            source: root.icon;
+            width: 24px;
+            height: 24px;
+            colorize: AppTheme.on-primary;
+        }
+    }
+}

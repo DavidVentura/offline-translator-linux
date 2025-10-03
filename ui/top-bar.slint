@@ -1,0 +1,54 @@
+import { LanguageSelector } from "language-selector.slint";
+import { IconButton } from "icon-button.slint";
+import { AppTheme } from "theme.slint";
+
+export component TopBar {
+    in-out property <string> source-language: "Dutch";
+    in-out property <string> target-language: "English";
+    in property <image> swap-icon;
+    in property <image> settings-icon;
+    in property <image> history-icon;
+
+    callback swap-languages();
+    callback settings-clicked();
+    callback history-clicked();
+
+    height: 56px;
+
+    Rectangle {
+        background: AppTheme.background;
+
+        HorizontalLayout {
+            padding: 8px;
+            spacing: 8px;
+
+            LanguageSelector {
+                current-value <=> root.source-language;
+                horizontal-stretch: 1;
+            }
+
+            IconButton {
+                icon: root.swap-icon;
+                size: 20px;
+                clicked => { root.swap-languages(); }
+            }
+
+            LanguageSelector {
+                current-value <=> root.target-language;
+                horizontal-stretch: 1;
+            }
+
+            IconButton {
+                icon: root.settings-icon;
+                size: 20px;
+                clicked => { root.settings-clicked(); }
+            }
+
+            IconButton {
+                icon: root.history-icon;
+                size: 20px;
+                clicked => { root.history-clicked(); }
+            }
+        }
+    }
+}

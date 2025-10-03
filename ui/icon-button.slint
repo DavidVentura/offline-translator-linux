@@ -1,0 +1,26 @@
+import { AppTheme } from "theme.slint";
+
+export component IconButton {
+    in property <image> icon;
+    in property <length> size: 24px;
+    callback clicked();
+
+    width: size + 16px;
+    height: size + 16px;
+
+    touch-area := TouchArea {
+        clicked => { root.clicked(); }
+    }
+
+    Rectangle {
+        border-radius: 8px;
+        background: touch-area.pressed ? AppTheme.surface : transparent;
+
+        Image {
+            source: root.icon;
+            width: root.size;
+            height: root.size;
+            colorize: AppTheme.icon-color;
+        }
+    }
+}

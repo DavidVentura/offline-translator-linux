@@ -1,0 +1,21 @@
+import { AppTheme } from "theme.slint";
+
+export component TranslationOutputArea {
+    in property <string> translation-text;
+
+    Rectangle {
+        background: AppTheme.surface;
+
+        VerticalLayout {
+            padding: 16px;
+
+            Text {
+                text: root.translation-text;
+                font-size: 16px;
+                color: AppTheme.text-primary;
+                wrap: word-wrap;
+                vertical-stretch: 1;
+            }
+        }
+    }
+}

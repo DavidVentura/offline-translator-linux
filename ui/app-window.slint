@@ -1,0 +1,67 @@
+import { TopBar } from "top-bar.slint";
+import { TextInputArea } from "text-input-area.slint";
+import { TranslationOutputArea } from "translation-output-area.slint";
+import { FloatingActionButton } from "floating-action-button.slint";
+import { AppTheme } from "theme.slint";
+
+export component AppWindow inherits Window {
+    title: "Offline Translator";
+    background: AppTheme.background;
+    preferred-width: 400px;
+    preferred-height: 800px;
+
+    in-out property <string> source-language: "Dutch";
+    in-out property <string> target-language: "English";
+    in-out property <string> input-text;
+    in-out property <string> output-text;
+
+    in property <image> swap-icon: @image-url("../assets/swap.svg");
+    in property <image> settings-icon: @image-url("../assets/settings.svg");
+    in property <image> history-icon: @image-url("../assets/history.svg");
+    in property <image> camera-icon: @image-url("../assets/camera.svg");
+
+    callback swap-languages();
+    callback settings-clicked();
+    callback history-clicked();
+    callback camera-clicked();
+    callback process-text(string) -> string;
+
+    VerticalLayout {
+        TopBar {
+            source-language <=> root.source-language;
+            target-language <=> root.target-language;
+            swap-icon: root.swap-icon;
+            settings-icon: root.settings-icon;
+            history-icon: root.history-icon;
+
+            swap-languages => { root.swap-languages(); }
+            settings-clicked => { root.settings-clicked(); }
+            history-clicked => { root.history-clicked(); }
+        }
+
+        TextInputArea {
+            text <=> root.input-text;
+            vertical-stretch: 1;
+            changed => {
+                root.output-text = root.process-text(root.input-text);
+            }
+        }
+
+        Rectangle {
+            height: 1px;
+            background: AppTheme.border;
+        }
+
+        TranslationOutputArea {
+            translation-text: root.output-text;
+            vertical-stretch: 1;
+        }
+    }
+
+    FloatingActionButton {
+        icon: root.camera-icon;
+        x: parent.width - self.width - 24px;
+        y: parent.height - self.height - 24px;
+        clicked => { root.camera-clicked(); }
+    }
+}

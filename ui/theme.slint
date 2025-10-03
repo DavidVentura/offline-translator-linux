@@ -1,0 +1,13 @@
+export global AppTheme {
+    in-out property <bool> dark-mode: true;
+
+    out property <brush> background: dark-mode ? #1E1E2E : #FFFFFF;
+    out property <brush> surface: dark-mode ? #2A2A3E : #F5F5F5;
+    out property <brush> primary: #7C3AED;
+    out property <brush> on-primary: #FFFFFF;
+    out property <brush> text-primary: dark-mode ? #E0E0E0 : #1E1E1E;
+    out property <brush> text-secondary: dark-mode ? #A0A0A0 : #606060;
+    out property <brush> border: dark-mode ? #3A3A4E : #E0E0E0;
+    out property <brush> icon-color: dark-mode ? #E0E0E0 : #1E1E1E;
+    out property <brush> placeholder: dark-mode ? #606060 : #A0A0A0;
+}
