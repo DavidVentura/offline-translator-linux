@@ -8,9 +8,10 @@ export component TextInputArea {
 
     Rectangle {
         background: AppTheme.background;
-
         VerticalLayout {
+            padding: 16px;
             TextInput {
+                single-line: false;
                 text <=> root.text;
                 font-size: 16px;
                 wrap: word-wrap;

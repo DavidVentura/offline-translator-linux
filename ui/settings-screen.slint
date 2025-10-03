@@ -10,13 +10,13 @@ export component SettingsScreen {
 
         VerticalLayout {
             HorizontalLayout {
-                padding: 16px;
-                height: 56px;
-
+                padding: 4px;
                 IconButton {
                     icon: root.back-icon;
                     size: 24px;
-                    clicked => { root.back-clicked(); }
+                    clicked => {
+                        root.back-clicked();
+                    }
                 }
 
                 Text {

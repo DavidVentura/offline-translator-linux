@@ -36,6 +36,7 @@ export component TranslationScreen {
 
         TextInputArea {
             text <=> root.input-text;
+            horizontal-stretch: 1;
             vertical-stretch: 1;
             changed => {
                 root.text-changed();
@@ -43,7 +44,10 @@ export component TranslationScreen {
         }
 
         Rectangle {
-            height: 1px;
+            height: 4px;
+            width: parent.width / 2;
+            x: parent.width / 4;
+            border-radius: 2px;
             background: AppTheme.border;
         }
 

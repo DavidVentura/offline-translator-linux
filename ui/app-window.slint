@@ -9,11 +9,12 @@ import { AppTheme } from "theme.slint";
 export component AppWindow inherits Window {
     title: "Offline Translator";
     background: AppTheme.background;
+    min-width: 450px;
     preferred-width: 500px;
     preferred-height: 800px;
 
     out property <bool> has-languages: installed-languages.length > 0;
-    in-out property <Screen> current-screen: Screen.NoLanguages; // FIXME has-languages ? Screen.Translation : Screen.NoLanguages;
+    in-out property <Screen> current-screen: Screen.Translation; // FIXME has-languages ? Screen.Translation : Screen.NoLanguages;
 
     in-out property <string> source-language: "Dutch";
     in-out property <string> target-language: "English";

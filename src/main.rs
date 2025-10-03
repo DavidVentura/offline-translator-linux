@@ -10,7 +10,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     let ui = AppWindow::new()?;
     let mut translator =
         Translator::new("/home/david/git/firefox-translations-models/models/tiny/enes".to_string());
-    println!("loaded");
     translator.load_language_pair("en", "es").unwrap();
 
     let available_languages = Rc::new(VecModel::from(vec![
