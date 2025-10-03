@@ -3,6 +3,7 @@ import { TranslationScreen } from "translation-screen.slint";
 import { NoLanguagesScreen } from "no-languages-screen.slint";
 import { SettingsScreen } from "settings-screen.slint";
 import { ManageLanguagesScreen } from "manage-languages-screen.slint";
+import { Language } from "language.slint";
 import { AppTheme } from "theme.slint";
 
 export component AppWindow inherits Window {
@@ -19,16 +20,23 @@ export component AppWindow inherits Window {
     in-out property <string> input-text;
     in-out property <string> output-text;
 
+    in-out property <[Language]> installed-languages;
+    in-out property <[Language]> available-languages;
+
     in property <image> swap-icon: @image-url("../assets/swap.svg");
     in property <image> settings-icon: @image-url("../assets/settings.svg");
     in property <image> history-icon: @image-url("../assets/history.svg");
     in property <image> camera-icon: @image-url("../assets/camera.svg");
     in property <image> back-icon: @image-url("../assets/back.svg");
+    in property <image> download-icon: @image-url("../assets/download.svg");
+    in property <image> delete-icon: @image-url("../assets/delete.svg");
 
     callback swap-languages();
     callback history-clicked();
     callback camera-clicked();
     callback process-text(string) -> string;
+    callback download-language(Language);
+    callback delete-language(Language);
 
     if current-screen == Screen.NoLanguages: NoLanguagesScreen {
         width: 100%;
@@ -80,8 +88,19 @@ export component AppWindow inherits Window {
         width: 100%;
         height: 100%;
         back-icon: root.back-icon;
+        download-icon: root.download-icon;
+        delete-icon: root.delete-icon;
+        installed-languages: root.installed-languages;
+        available-languages: root.available-languages;
+
         back-clicked => {
             root.current-screen = root.has-languages ? Screen.Translation : Screen.NoLanguages;
+        }
+        download-language(lang) => {
+            root.download-language(lang);
+        }
+        delete-language(lang) => {
+            root.delete-language(lang);
         }
     }
 }

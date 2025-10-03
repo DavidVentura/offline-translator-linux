@@ -12,6 +12,39 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("loaded");
     translator.load_language_pair("en", "es").unwrap();
 
+    let available_languages = slint::VecModel::from(vec![
+        Language {
+            code: "es".into(),
+            name: "Spanish".into(),
+            size: "45 MB".into(),
+        },
+        Language {
+            code: "fr".into(),
+            name: "French".into(),
+            size: "50 MB".into(),
+        },
+        Language {
+            code: "de".into(),
+            name: "German".into(),
+            size: "48 MB".into(),
+        },
+        Language {
+            code: "nl".into(),
+            name: "Dutch".into(),
+            size: "42 MB".into(),
+        },
+    ]);
+
+    let installed_languages = slint::VecModel::from(vec![
+        Language {
+            code: "en".into(),
+            name: "English".into(),
+            size: "40 MB".into(),
+        },
+    ]);
+
+    ui.set_available_languages(std::rc::Rc::new(available_languages).into());
+    ui.set_installed_languages(std::rc::Rc::new(installed_languages).into());
     ui.set_has_languages(false);
 
     ui.on_swap_languages({
@@ -44,6 +77,18 @@ fn main() -> Result<(), Box<dyn Error>> {
             .unwrap()
             .join("\n")
             .into()
+    });
+
+    ui.on_download_language({
+        move |lang| {
+            println!("Download language: {} ({})", lang.name, lang.code);
+        }
+    });
+
+    ui.on_delete_language({
+        move |lang| {
+            println!("Delete language: {} ({})", lang.name, lang.code);
+        }
     });
 
     ui.run()?;

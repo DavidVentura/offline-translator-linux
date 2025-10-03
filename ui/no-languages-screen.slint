@@ -13,7 +13,7 @@ export component NoLanguagesScreen {
             padding: 32px;
 
             Text {
-                text: "No Languages Available";
+                text: "Language setup";
                 font-size: 24px;
                 color: AppTheme.text-primary;
                 horizontal-alignment: center;
@@ -29,7 +29,9 @@ export component NoLanguagesScreen {
 
             Button {
                 text: "Manage Languages";
-                clicked => { root.manage-languages-clicked(); }
+                clicked => {
+                    root.manage-languages-clicked();
+                }
             }
         }
     }
