@@ -1,9 +1,11 @@
 use slint::{self, Model, ModelExt, VecModel};
 use std::error::Error;
+mod download;
 mod translate;
+use std::path::Path;
 use std::rc::Rc;
 use std::sync::mpsc;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use translate::Translator;
 
 slint::include_modules!();
@@ -70,12 +72,18 @@ fn main() -> Result<(), Box<dyn Error>> {
             match msg {
                 IoEvent::DownloadRequest(code) => {
                     println!("Download language: {} ", code);
-                    std::thread::sleep(Duration::from_millis(100));
-                    ui_handle
-                        .upgrade_in_event_loop(|ui: AppWindow| {
-                            ui.invoke_language_downloaded(code.into());
-                        })
-                        .unwrap();
+
+                    let url = "https://translator.davidv.dev/dictionaries/1/en.dict";
+                    let output_path = Path::new("/tmp").join(format!("{}.zip", code));
+
+                    match download::download_file(&url, &output_path, code.clone(), &ui_handle) {
+                        Ok(_) => {
+                            println!("Download completed for {}", code);
+                        }
+                        Err(e) => {
+                            eprintln!("Download failed for {}: {}", code, e);
+                        }
+                    }
                 }
                 IoEvent::TranslationRequest { text, from, to } => {
                     let lines: Vec<&str> = text.split("\n").collect();
@@ -124,6 +132,12 @@ fn main() -> Result<(), Box<dyn Error>> {
                     break;
                 }
             }
+        }
+    });
+
+    ui.on_download_progress({
+        move |code, percent| {
+            println!("Download progress for {}: {:.1}%", code, percent);
         }
     });
 
