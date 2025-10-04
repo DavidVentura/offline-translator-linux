@@ -70,7 +70,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             match msg {
                 IoEvent::DownloadRequest(code) => {
                     println!("Download language: {} ", code);
-                    std::thread::sleep(Duration::from_millis(500));
+                    std::thread::sleep(Duration::from_millis(100));
                     ui_handle
                         .upgrade_in_event_loop(|ui: AppWindow| {
                             ui.invoke_language_downloaded(code.into());

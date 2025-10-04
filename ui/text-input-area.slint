@@ -1,24 +1,23 @@
-import { TextEdit } from "std-widgets.slint";
+import { TextEdit, ScrollView } from "std-widgets.slint";
 import { AppTheme } from "theme.slint";
 
-export component TextInputArea {
+export component TextInputArea inherits ScrollView {
     in-out property <string> text;
     in property <string> placeholder-text: "Enter text";
     callback changed();
 
-    Rectangle {
-        background: AppTheme.background;
-        VerticalLayout {
-            padding: 16px;
-            TextInput {
-                single-line: false;
-                text <=> root.text;
-                font-size: 16px;
-                wrap: word-wrap;
-                vertical-stretch: 1;
-                edited => {
-                    root.changed();
-                }
+    forward-focus: input;
+    VerticalLayout {
+        padding-left: 16px;
+        padding-right: 16px;
+        input := TextInput {
+            single-line: false;
+            text <=> root.text;
+            font-size: 16px;
+            wrap: word-wrap;
+            edited => {
+                root.changed();
+                root.viewport-y = root.viewport-height;
             }
         }
     }

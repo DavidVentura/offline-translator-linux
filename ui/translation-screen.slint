@@ -4,6 +4,7 @@ import { TranslationOutputArea } from "translation-output-area.slint";
 import { FloatingActionButton } from "floating-action-button.slint";
 import { AppTheme } from "theme.slint";
 import { Language } from "language.slint";
+import { VerticalBox, ScrollView } from "std-widgets.slint";
 
 
 export component TranslationScreen {
@@ -25,7 +26,8 @@ export component TranslationScreen {
     callback set-from(string);
     callback set-to(string);
 
-    VerticalLayout {
+    VerticalBox {
+        vertical-stretch: 1;
         TopBar {
             source-language: root.source-language;
             target-language: root.target-language;
@@ -48,27 +50,28 @@ export component TranslationScreen {
             }
         }
 
+        // why is vertical-stretch broken on these??
         TextInputArea {
+            height: 40%;
             text <=> root.input-text;
-            horizontal-stretch: 1;
-            vertical-stretch: 1;
             changed => {
                 root.text-changed();
             }
         }
 
-        Rectangle {
-            height: 4px;
-            width: parent.width / 2;
-            x: parent.width / 4;
-            border-radius: 2px;
-            background: AppTheme.border;
-        }
-
         TranslationOutputArea {
+            height: 45%;
             translation-text: root.output-text;
-            vertical-stretch: 1;
         }
+    }
+
+    Rectangle {
+        height: 4px;
+        width: parent.width / 2;
+        x: parent.width / 4;
+        y: parent.height / 2;
+        border-radius: 2px;
+        background: AppTheme.border;
     }
 
     FloatingActionButton {
