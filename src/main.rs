@@ -10,14 +10,16 @@ slint::include_modules!();
 
 enum IoEvent {
     DownloadRequest(String),
+    TranslationRequest {
+        text: String,
+        from: String,
+        to: String,
+    },
     Shutdown,
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
     let ui = AppWindow::new()?;
-    let mut translator =
-        Translator::new("/home/david/git/firefox-translations-models/models/tiny/enes".to_string());
-    translator.load_language_pair("en", "es").unwrap();
 
     let available_languages = Rc::new(VecModel::from(vec![
         Language {
@@ -58,6 +60,12 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let ui_handle = ui.as_weak();
     let jh = std::thread::spawn(move || {
+        let mut translator =
+            Translator::new("/home/david/git/offline-translator-linux/lang-data/".to_string());
+        translator
+            .load_language_pair("en", "es")
+            .expect("Couldn't load lang");
+
         while let Ok(msg) = bus_rx.recv() {
             match msg {
                 IoEvent::DownloadRequest(code) => {
@@ -66,6 +74,20 @@ fn main() -> Result<(), Box<dyn Error>> {
                     ui_handle
                         .upgrade_in_event_loop(|ui: AppWindow| {
                             ui.invoke_language_downloaded(code.into());
+                        })
+                        .unwrap();
+                }
+                IoEvent::TranslationRequest { text, from, to } => {
+                    let lines: Vec<&str> = text.split("\n").collect();
+                    let start = Instant::now();
+                    let result = match translator.translate(&from, &to, lines.as_slice()) {
+                        Ok(result) => result.join("\n"),
+                        Err(message) => message,
+                    };
+                    println!("translation took {:?}", start.elapsed());
+                    ui_handle
+                        .upgrade_in_event_loop(move |ui: AppWindow| {
+                            ui.set_output_text(result.into());
                         })
                         .unwrap();
                 }
@@ -128,25 +150,21 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     });
 
+    let translate_tx = bus_tx.clone();
     ui.on_process_text({
         let ui_handle = ui.as_weak();
         move |input| {
             let ui = ui_handle.unwrap();
-            let lines: Vec<&str> = input.split("\n").collect();
             let source = ui.get_source_language();
             let target = ui.get_target_language();
 
-            let start = Instant::now();
-            let res = match translator.translate(
-                source.code.as_str(),
-                target.code.as_str(),
-                lines.as_slice(),
-            ) {
-                Ok(result) => result.join("\n").into(),
-                Err(message) => message.into(),
-            };
-            println!("translation took {:?}", start.elapsed());
-            ui.set_output_text(res);
+            translate_tx
+                .send(IoEvent::TranslationRequest {
+                    text: input.to_string(),
+                    from: source.code.to_string(),
+                    to: target.code.to_string(),
+                })
+                .unwrap();
         }
     });
 

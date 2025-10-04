@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::path::Path;
 
 use bergamot_sys::{BlockingService, TranslationModel};
 
@@ -28,14 +29,33 @@ impl Translator {
         let data_path = &self.data_path;
         let model_fname = format!("model.{from_lang}{to_lang}.intgemm.alphas.bin");
         let src_vocab = format!("vocab.{from_lang}{to_lang}.spm");
-        let tgt_vocab = format!("vocab.{from_lang}{to_lang}.spm"); // TODO
+        let tgt_vocab = format!("vocab.{from_lang}{to_lang}.spm"); // TODO ja zh ko
+
+        let model_path = Path::new(data_path).join(&model_fname);
+        let src_vocab_path = Path::new(data_path).join(&src_vocab);
+        let tgt_vocab_path = Path::new(data_path).join(&tgt_vocab);
+
+        if !model_path.exists() {
+            return Err(format!("Model file not found: {}", model_path.display()));
+        }
+        if !src_vocab_path.exists() {
+            return Err(format!("Source vocab file not found: {}", src_vocab_path.display()));
+        }
+        if !tgt_vocab_path.exists() {
+            return Err(format!("Target vocab file not found: {}", tgt_vocab_path.display()));
+        }
+
+        let model_path_str = model_path.to_str().ok_or("Model path is not valid UTF-8")?;
+        let src_vocab_path_str = src_vocab_path.to_str().ok_or("Source vocab path is not valid UTF-8")?;
+        let tgt_vocab_path_str = tgt_vocab_path.to_str().ok_or("Target vocab path is not valid UTF-8")?;
+
         let config = format!(
             r#"
 models:
-  - {data_path}/{model_fname}
+  - {model_path_str}
 vocabs:
-  - {data_path}/{src_vocab}
-  - {data_path}/{tgt_vocab}
+  - {src_vocab_path_str}
+  - {tgt_vocab_path_str}
 beam-size: 1
 normalize: 1.0
 word-penalty: 0
