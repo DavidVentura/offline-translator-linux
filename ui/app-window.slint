@@ -14,15 +14,15 @@ export component AppWindow inherits Window {
     preferred-height: 800px;
 
     out property <bool> has-languages: installed-languages.length > 0;
-    in-out property <Screen> current-screen: Screen.Translation; // FIXME has-languages ? Screen.Translation : Screen.NoLanguages;
+    in-out property <Screen> current-screen;
+    in property <Language> source-language;
+    in property <Language> target-language;
+    out property <string> input-text;
+    in property <string> output-text;
 
-    in-out property <string> source-language: "Dutch";
-    in-out property <string> target-language: "English";
-    in-out property <string> input-text;
-    in-out property <string> output-text;
-
-    in-out property <[Language]> installed-languages;
-    in-out property <[Language]> available-languages;
+    in property <[Language]> installed-languages;
+    in property <[Language]> available-languages;
+    in property <[string]> installed-language-names;
 
     in property <image> swap-icon: @image-url("../assets/swap.svg");
     in property <image> settings-icon: @image-url("../assets/settings.svg");
@@ -33,9 +33,11 @@ export component AppWindow inherits Window {
 
     callback swap-languages();
     callback camera-clicked();
-    callback process-text(string) -> string;
+    callback process-text(string);
     callback download-language(Language);
     callback delete-language(Language);
+    callback set-from(string);
+    callback set-to(string);
 
     if current-screen == Screen.NoLanguages: NoLanguagesScreen {
         width: 100%;
@@ -63,10 +65,12 @@ export component AppWindow inherits Window {
     if current-screen == Screen.Translation: TranslationScreen {
         width: 100%;
         height: 100%;
-        source-language <=> root.source-language;
-        target-language <=> root.target-language;
+        source-language: root.source-language;
+        target-language: root.target-language;
         input-text <=> root.input-text;
-        output-text <=> root.output-text;
+        output-text: root.output-text;
+        installed-languages: root.installed-languages;
+        installed-language-names: root.installed-language-names;
         swap-icon: root.swap-icon;
         settings-icon: root.settings-icon;
         camera-icon: root.camera-icon;
@@ -81,7 +85,13 @@ export component AppWindow inherits Window {
             root.camera-clicked();
         }
         text-changed => {
-            root.output-text = root.process-text(root.input-text);
+            root.process-text(root.input-text);
+        }
+        set-from(name) => {
+            root.set-from(name);
+        }
+        set-to(name) => {
+            root.set-to(name);
         }
     }
 

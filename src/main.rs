@@ -1,4 +1,4 @@
-use slint::{self, Model, VecModel};
+use slint::{self, Model, ModelExt, VecModel};
 use std::error::Error;
 mod translate;
 use std::rc::Rc;
@@ -13,6 +13,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     translator.load_language_pair("en", "es").unwrap();
 
     let available_languages = Rc::new(VecModel::from(vec![
+        Language {
+            code: "en".into(),
+            name: "English".into(),
+            size: "45 MB".into(),
+        },
         Language {
             code: "es".into(),
             name: "Spanish".into(),
@@ -36,17 +41,34 @@ fn main() -> Result<(), Box<dyn Error>> {
     ]));
 
     let installed_languages = Rc::new(VecModel::from(vec![]));
+    let installed_language_names = Rc::new(
+        installed_languages
+            .clone()
+            .map(|lang: Language| lang.name.clone()),
+    );
+
     ui.set_available_languages(available_languages.clone().into());
     ui.set_installed_languages(installed_languages.clone().into());
+    ui.set_installed_language_names(installed_language_names.into());
 
+    if installed_languages.row_count() > 0 {
+        ui.set_current_screen(Screen::Translation);
+    } else {
+        ui.set_current_screen(Screen::NoLanguages);
+    }
     ui.on_swap_languages({
         let ui_handle = ui.as_weak();
         move || {
             let ui = ui_handle.unwrap();
             let source = ui.get_source_language();
             let target = ui.get_target_language();
-            ui.set_source_language(target.into());
-            ui.set_target_language(source.into());
+
+            println!("flip {source:?} {target:?}");
+            ui.set_source_language(target);
+            ui.set_target_language(source);
+            let source = ui.get_source_language();
+            let target = ui.get_target_language();
+            println!("got {source:?} {target:?}");
         }
     });
 
@@ -56,13 +78,24 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     });
 
-    ui.on_process_text(move |input| {
-        let lines: Vec<&str> = input.split("\n").collect();
-        translator
-            .translate("en", "es", lines.as_slice())
-            .unwrap()
-            .join("\n")
-            .into()
+    ui.on_process_text({
+        let ui_handle = ui.as_weak();
+        move |input| {
+            let ui = ui_handle.unwrap();
+            let lines: Vec<&str> = input.split("\n").collect();
+            let source = ui.get_source_language();
+            let target = ui.get_target_language();
+
+            let res = match translator.translate(
+                source.code.as_str(),
+                target.code.as_str(),
+                lines.as_slice(),
+            ) {
+                Ok(result) => result.join("\n").into(),
+                Err(message) => message.into(),
+            };
+            ui.set_output_text(res);
+        }
     });
 
     ui.on_download_language({
@@ -92,6 +125,40 @@ fn main() -> Result<(), Box<dyn Error>> {
                 }
             }
             available.push(lang);
+        }
+    });
+
+    ui.on_set_from({
+        let ui_handle = ui.as_weak();
+        let installed = installed_languages.clone();
+        move |name| {
+            let ui = ui_handle.unwrap();
+            for i in 0..installed.row_count() {
+                if let Some(lang) = installed.row_data(i) {
+                    if lang.name == name {
+                        println!("set from {lang:?}");
+                        ui.set_source_language(lang);
+                        break;
+                    }
+                }
+            }
+        }
+    });
+
+    ui.on_set_to({
+        let ui_handle = ui.as_weak();
+        let installed = installed_languages.clone();
+        move |name| {
+            let ui = ui_handle.unwrap();
+            for i in 0..installed.row_count() {
+                if let Some(lang) = installed.row_data(i) {
+                    if lang.name == name {
+                        println!("set to {lang:?}");
+                        ui.set_target_language(lang);
+                        break;
+                    }
+                }
+            }
         }
     });
 

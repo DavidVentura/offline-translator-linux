@@ -3,13 +3,17 @@ import { TextInputArea } from "text-input-area.slint";
 import { TranslationOutputArea } from "translation-output-area.slint";
 import { FloatingActionButton } from "floating-action-button.slint";
 import { AppTheme } from "theme.slint";
+import { Language } from "language.slint";
+
 
 export component TranslationScreen {
-    in-out property <string> source-language: "Dutch";
-    in-out property <string> target-language: "English";
+    in-out property <Language> source-language;
+    in-out property <Language> target-language;
     in-out property <string> input-text;
     in-out property <string> output-text;
 
+    in property <[Language]> installed-languages;
+    in property <[string]> installed-language-names;
     in property <image> swap-icon;
     in property <image> settings-icon;
     in property <image> camera-icon;
@@ -18,11 +22,15 @@ export component TranslationScreen {
     callback settings-clicked();
     callback camera-clicked();
     callback text-changed();
+    callback set-from(string);
+    callback set-to(string);
 
     VerticalLayout {
         TopBar {
-            source-language <=> root.source-language;
-            target-language <=> root.target-language;
+            source-language: root.source-language;
+            target-language: root.target-language;
+            installed-languages: root.installed-languages;
+            installed-language-names: root.installed-language-names;
             swap-icon: root.swap-icon;
             settings-icon: root.settings-icon;
 
@@ -31,6 +39,12 @@ export component TranslationScreen {
             }
             settings-clicked => {
                 root.settings-clicked();
+            }
+            set-from(name) => {
+                root.set-from(name);
+            }
+            set-to(name) => {
+                root.set-to(name);
             }
         }
 

@@ -1,15 +1,20 @@
 import { LanguageSelector } from "language-selector.slint";
 import { IconButton } from "icon-button.slint";
 import { AppTheme } from "theme.slint";
+import { Language } from "language.slint";
 
 export component TopBar {
-    in-out property <string> source-language: "Dutch";
-    in-out property <string> target-language: "English";
+    in property <Language> source-language;
+    in property <Language> target-language;
+    in property <[Language]> installed-languages;
+    in property <[string]> installed-language-names;
     in property <image> swap-icon;
     in property <image> settings-icon;
 
     callback swap-languages();
     callback settings-clicked();
+    callback set-from(string);
+    callback set-to(string);
 
     height: 56px;
 
@@ -21,8 +26,12 @@ export component TopBar {
             spacing: 8px;
 
             LanguageSelector {
-                current-value <=> root.source-language;
+                current-language: root.source-language;
+                language-names: root.installed-language-names;
                 horizontal-stretch: 1;
+                language-selected(name) => {
+                    root.set-from(name);
+                }
             }
 
             IconButton {
@@ -34,8 +43,12 @@ export component TopBar {
             }
 
             LanguageSelector {
-                current-value <=> root.target-language;
+                current-language: root.target-language;
+                language-names: root.installed-language-names;
                 horizontal-stretch: 1;
+                language-selected(name) => {
+                    root.set-to(name);
+                }
             }
 
             IconButton {
