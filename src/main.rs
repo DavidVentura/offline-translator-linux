@@ -2,9 +2,16 @@ use slint::{self, Model, ModelExt, VecModel};
 use std::error::Error;
 mod translate;
 use std::rc::Rc;
+use std::sync::mpsc;
+use std::time::{Duration, Instant};
 use translate::Translator;
 
 slint::include_modules!();
+
+enum IoEvent {
+    DownloadRequest(String),
+    Shutdown,
+}
 
 fn main() -> Result<(), Box<dyn Error>> {
     let ui = AppWindow::new()?;
@@ -47,6 +54,30 @@ fn main() -> Result<(), Box<dyn Error>> {
             .map(|lang: Language| lang.name.clone()),
     );
 
+    let (bus_tx, bus_rx) = mpsc::channel::<IoEvent>();
+
+    let ui_handle = ui.as_weak();
+    let jh = std::thread::spawn(move || {
+        while let Ok(msg) = bus_rx.recv() {
+            match msg {
+                IoEvent::DownloadRequest(code) => {
+                    println!("Download language: {} ", code);
+                    std::thread::sleep(Duration::from_millis(500));
+                    ui_handle
+                        .upgrade_in_event_loop(|ui: AppWindow| {
+                            ui.invoke_language_downloaded(code.into());
+                        })
+                        .unwrap();
+                }
+                IoEvent::Shutdown => {
+                    println!("shutdown signal, exiting");
+                    break;
+                }
+            }
+        }
+        println!("all senders done, closing");
+    });
+
     ui.set_available_languages(available_languages.clone().into());
     ui.set_installed_languages(installed_languages.clone().into());
     ui.set_installed_language_names(installed_language_names.into());
@@ -56,6 +87,25 @@ fn main() -> Result<(), Box<dyn Error>> {
     } else {
         ui.set_current_screen(Screen::NoLanguages);
     }
+
+    // event loop -> UI
+    ui.on_language_downloaded({
+        let available = available_languages.clone();
+        let installed = installed_languages.clone();
+        move |code| {
+            println!("lang downloaded ui {code:?}");
+            for i in 0..available.row_count() {
+                let lang = available.row_data(i).unwrap();
+                if lang.code == code {
+                    available.remove(i);
+                    installed.push(lang);
+                    break;
+                }
+            }
+        }
+    });
+
+    // UI -> backend
     ui.on_swap_languages({
         let ui_handle = ui.as_weak();
         move || {
@@ -86,6 +136,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             let source = ui.get_source_language();
             let target = ui.get_target_language();
 
+            let start = Instant::now();
             let res = match translator.translate(
                 source.code.as_str(),
                 target.code.as_str(),
@@ -94,22 +145,17 @@ fn main() -> Result<(), Box<dyn Error>> {
                 Ok(result) => result.join("\n").into(),
                 Err(message) => message.into(),
             };
+            println!("translation took {:?}", start.elapsed());
             ui.set_output_text(res);
         }
     });
 
+    let dl_tx = bus_tx.clone();
     ui.on_download_language({
-        let installed = installed_languages.clone();
-        let available = available_languages.clone();
         move |lang| {
-            println!("Download language: {} ({})", lang.name, lang.code);
-            installed.push(lang.clone());
-            for i in 0..available.row_count() {
-                if available.row_data(i).unwrap().code == lang.code {
-                    available.remove(i);
-                    break;
-                }
-            }
+            dl_tx
+                .send(IoEvent::DownloadRequest(lang.code.to_string()))
+                .unwrap();
         }
     });
 
@@ -163,6 +209,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     });
 
     ui.run()?;
+    bus_tx.send(IoEvent::Shutdown).unwrap();
+    drop(bus_tx);
+    drop(ui);
+    jh.join().unwrap();
 
     Ok(())
 }
