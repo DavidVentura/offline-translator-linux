@@ -1,11 +1,12 @@
-use slint::{self, Model, ModelExt, VecModel};
-use std::error::Error;
 mod download;
+mod eventloop;
+mod index;
 mod translate;
-use std::path::Path;
+
+use slint::{self, ComponentHandle, Model, ModelExt, VecModel};
+use std::error::Error;
 use std::rc::Rc;
-use std::sync::mpsc;
-use std::time::Instant;
+use std::sync::mpsc::{self, Sender};
 use translate::Translator;
 
 slint::include_modules!();
@@ -60,53 +61,13 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let (bus_tx, bus_rx) = mpsc::channel::<IoEvent>();
 
+    let mut translator =
+        Translator::new("/home/david/git/offline-translator-linux/lang-data/".to_string());
+    translator
+        .load_language_pair("en", "es")
+        .expect("Couldn't load lang");
     let ui_handle = ui.as_weak();
-    let jh = std::thread::spawn(move || {
-        let mut translator =
-            Translator::new("/home/david/git/offline-translator-linux/lang-data/".to_string());
-        translator
-            .load_language_pair("en", "es")
-            .expect("Couldn't load lang");
-
-        while let Ok(msg) = bus_rx.recv() {
-            match msg {
-                IoEvent::DownloadRequest(code) => {
-                    println!("Download language: {} ", code);
-
-                    let url = "https://translator.davidv.dev/dictionaries/1/en.dict";
-                    let output_path = Path::new("/tmp").join(format!("{}.zip", code));
-
-                    match download::download_file(&url, &output_path, code.clone(), &ui_handle) {
-                        Ok(_) => {
-                            println!("Download completed for {}", code);
-                        }
-                        Err(e) => {
-                            eprintln!("Download failed for {}: {}", code, e);
-                        }
-                    }
-                }
-                IoEvent::TranslationRequest { text, from, to } => {
-                    let lines: Vec<&str> = text.split("\n").collect();
-                    let start = Instant::now();
-                    let result = match translator.translate(&from, &to, lines.as_slice()) {
-                        Ok(result) => result.join("\n"),
-                        Err(message) => message,
-                    };
-                    println!("translation took {:?}", start.elapsed());
-                    ui_handle
-                        .upgrade_in_event_loop(move |ui: AppWindow| {
-                            ui.set_output_text(result.into());
-                        })
-                        .unwrap();
-                }
-                IoEvent::Shutdown => {
-                    println!("shutdown signal, exiting");
-                    break;
-                }
-            }
-        }
-        println!("all senders done, closing");
-    });
+    let jh = std::thread::spawn(move || eventloop::run_eventloop(bus_rx, ui_handle, translator));
 
     ui.set_available_languages(available_languages.clone().into());
     ui.set_installed_languages(installed_languages.clone().into());
@@ -118,6 +79,32 @@ fn main() -> Result<(), Box<dyn Error>> {
         ui.set_current_screen(Screen::NoLanguages);
     }
 
+    setup_eventloop_callbacks(
+        &ui,
+        installed_languages.clone(),
+        available_languages.clone(),
+    );
+    setup_ui_callbacks(
+        &ui,
+        bus_tx.clone(),
+        installed_languages.clone(),
+        available_languages.clone(),
+    );
+
+    ui.run()?;
+    bus_tx.send(IoEvent::Shutdown).unwrap();
+    drop(bus_tx);
+    drop(ui);
+    jh.join().unwrap();
+
+    Ok(())
+}
+
+fn setup_eventloop_callbacks(
+    ui: &AppWindow,
+    installed_languages: Rc<VecModel<Language>>,
+    available_languages: Rc<VecModel<Language>>,
+) {
     // event loop -> UI
     ui.on_language_downloaded({
         let available = available_languages.clone();
@@ -140,7 +127,13 @@ fn main() -> Result<(), Box<dyn Error>> {
             println!("Download progress for {}: {:.1}%", code, percent);
         }
     });
-
+}
+fn setup_ui_callbacks(
+    ui: &AppWindow,
+    bus_tx: Sender<IoEvent>,
+    installed_languages: Rc<VecModel<Language>>,
+    available_languages: Rc<VecModel<Language>>,
+) {
     // UI -> backend
     ui.on_swap_languages({
         let ui_handle = ui.as_weak();
@@ -239,12 +232,4 @@ fn main() -> Result<(), Box<dyn Error>> {
             }
         }
     });
-
-    ui.run()?;
-    bus_tx.send(IoEvent::Shutdown).unwrap();
-    drop(bus_tx);
-    drop(ui);
-    jh.join().unwrap();
-
-    Ok(())
 }
