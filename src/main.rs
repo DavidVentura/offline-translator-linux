@@ -1,3 +1,4 @@
+mod data;
 mod download;
 mod eventloop;
 mod index;
