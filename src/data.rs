@@ -1,1 +1,1 @@
-pub const INDEX_JSON: &str = include_str!("../data/index.json");
+pub const INDEX_JSON: &[u8] = include_bytes!("../data/index.json.gz");

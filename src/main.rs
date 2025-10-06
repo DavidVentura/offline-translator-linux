@@ -4,8 +4,10 @@ mod eventloop;
 mod index;
 mod translate;
 
+use flate2::read::GzDecoder;
 use slint::{self, ComponentHandle, FilterModel, MapModel, Model, VecModel};
 use std::error::Error;
+use std::io::Read;
 use std::rc::Rc;
 use std::sync::mpsc::{self, Sender};
 use translate::Translator;
@@ -17,7 +19,7 @@ slint::include_modules!();
 
 enum IoEvent {
     DownloadRequest(String),
-    LoadLanguages,
+    StartupLoadLanguages,
     TranslationRequest {
         text: String,
         from: String,
@@ -30,22 +32,62 @@ fn main() -> Result<(), Box<dyn Error>> {
     let ui = AppWindow::new()?;
 
     let data_path = "/home/david/git/offline-translator-linux/lang-data/".to_string();
-    let mut translator = Translator::new(data_path.clone());
+    let translator = Translator::new(data_path.clone());
+    let (bus_tx, bus_rx) = mpsc::channel::<IoEvent>();
+    let default_index = read_default_index();
 
-    let default_index: Index =
-        miniserde::json::from_str(INDEX_JSON).expect("Failed to deserialize Index");
+    setup_language_models(&ui, &default_index, bus_tx.clone());
 
+    let ui_handle = ui.as_weak();
+    let jh = std::thread::spawn(move || {
+        eventloop::run_eventloop(bus_rx, ui_handle, translator, default_index, &data_path)
+    });
+
+    ui.set_current_screen(Screen::NoLanguages);
+
+    bus_tx.send(IoEvent::StartupLoadLanguages).unwrap();
+    ui.run()?;
+    bus_tx.send(IoEvent::Shutdown).unwrap();
+    drop(bus_tx);
+    drop(ui);
+    jh.join().unwrap();
+
+    Ok(())
+}
+
+fn read_default_index() -> Index {
+    let mut decoder = GzDecoder::new(INDEX_JSON);
+    let mut index_json = String::new();
+    decoder
+        .read_to_string(&mut index_json)
+        .expect("Failed to decompress gzip data");
+
+    let mut default_index: Index =
+        miniserde::json::from_str(&index_json).expect("Failed to deserialize Index");
+
+    default_index.languages.push(IndexLanguage {
+        code: "en".to_string(),
+        name: "English".to_string(),
+        script: "Latin".to_string(),
+        from: None,
+        to: None,
+        extra_files: vec![],
+    });
+    default_index
+}
+
+fn setup_language_models(ui: &AppWindow, default_index: &Index, bus_tx: Sender<IoEvent>) {
     let all_languages: Vec<IndexLanguage> = default_index.languages.iter().cloned().collect();
 
     let from_languages = all_languages
         .iter()
-        .filter(|il| il.from.is_some())
+        .filter(|il| il.from.is_some() || il.code == "en")
         .map(|il| Language::from(il))
         .collect::<Vec<Language>>();
 
     let to_languages = all_languages
         .iter()
-        .filter(|il| il.to.is_some())
+        .filter(|il| il.to.is_some() || il.code == "en")
         .map(|il| Language::from(il))
         .collect::<Vec<Language>>();
 
@@ -59,7 +101,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let all_installed_languages = Rc::new(FilterModel::new(
         ui_all_languages.clone(),
-        |l: &Language| l.installed,
+        |l: &Language| l.installed || l.code == "en",
     ));
     let not_installed_languages = Rc::new(FilterModel::new(
         ui_all_languages.clone(),
@@ -90,16 +132,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         |lang: Language| lang.name,
     ));
 
-    let (bus_tx, bus_rx) = mpsc::channel::<IoEvent>();
-
-    translator
-        .load_language_pair("en", "es")
-        .expect("Couldn't load lang");
-    let ui_handle = ui.as_weak();
-    let jh = std::thread::spawn(move || {
-        eventloop::run_eventloop(bus_rx, ui_handle, translator, default_index, &data_path)
-    });
-
     ui.set_all_languages(ui_all_languages.clone().into());
     ui.set_installed_from_languages(ui_from_languages.clone().into());
     ui.set_installed_to_languages(ui_to_languages.clone().into());
@@ -113,23 +145,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     ui.set_installed_to_languages(installed_to_languages.clone().into());
     ui.set_installed_to_language_names(installed_to_language_names.clone().into());
 
-    if all_installed_languages.row_count() > 0 {
-        ui.set_current_screen(Screen::Translation);
-    } else {
-        ui.set_current_screen(Screen::NoLanguages);
-    }
-
+    // setup callbacks
     setup_eventloop_callbacks(&ui, ui_all_languages.clone());
-    setup_ui_callbacks(&ui, bus_tx.clone(), ui_all_languages.clone());
-
-    bus_tx.send(IoEvent::LoadLanguages);
-    ui.run()?;
-    bus_tx.send(IoEvent::Shutdown).unwrap();
-    drop(bus_tx);
-    drop(ui);
-    jh.join().unwrap();
-
-    Ok(())
+    setup_ui_callbacks(&ui, bus_tx, ui_all_languages.clone());
 }
 
 fn setup_eventloop_callbacks(ui: &AppWindow, all_languages: Rc<VecModel<Language>>) {
@@ -154,6 +172,7 @@ fn setup_eventloop_callbacks(ui: &AppWindow, all_languages: Rc<VecModel<Language
         }
     });
 }
+
 fn setup_ui_callbacks(
     ui: &AppWindow,
     bus_tx: Sender<IoEvent>,

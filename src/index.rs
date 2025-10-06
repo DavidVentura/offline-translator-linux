@@ -12,7 +12,9 @@ pub struct IndexFile {
     pub name: String,
     pub size_bytes: u32,
     pub release_date: u64,
+    pub url: String,
 }
+
 #[derive(Clone, Serialize, Deserialize)]
 pub struct PairData {
     pub model: IndexFile,
@@ -70,7 +72,10 @@ impl From<&IndexLanguage> for Language {
             name: value.name.clone().into(),
             size: pretty_size(size_bytes).into(),
             direction: match (&value.from, &value.to) {
-                (None, None) => panic!("language with no from and no to"),
+                (None, None) => {
+                    assert!(value.code == "en");
+                    Direction::Both
+                }
                 (Some(_), None) => Direction::FromOnly,
                 (None, Some(_)) => Direction::ToOnly,
                 (Some(_), Some(_)) => Direction::Both,
@@ -86,7 +91,16 @@ mod tests {
 
     #[test]
     fn test_deserialize_index() {
-        let json = crate::data::INDEX_JSON;
-        let _index: Index = miniserde::json::from_str(json).expect("Failed to deserialize Index");
+        use flate2::read::GzDecoder;
+        use std::io::Read;
+
+        let json_gz = crate::data::INDEX_JSON;
+        let mut decoder = GzDecoder::new(json_gz);
+        let mut json = String::new();
+        decoder
+            .read_to_string(&mut json)
+            .expect("Failed to decompress gzip data");
+
+        let _index: Index = miniserde::json::from_str(&json).expect("Failed to deserialize Index");
     }
 }

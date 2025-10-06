@@ -1624,6 +1624,7 @@ name = "offline-translator-linux"
 version = "0.1.0"
 dependencies = [
  "bergamot-sys",
+ "flate2",
  "i-slint-renderer-femtovg",
  "miniserde",
  "slint",
