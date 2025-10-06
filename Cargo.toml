@@ -7,11 +7,9 @@ edition = "2024"
 #bergamot-sys = { git = "https://github.com/DavidVentura/bergamot-sys.git", version = "0.1.0" }
 bergamot-sys = { path = "../bergamot-sys" }
 miniserde = "0.1.43"
-slint = { version = "1.13.1", default-features = false, features = ["backend-default", "compat-1-2", "renderer-femtovg", "std"] }
 ureq = "3.1.2"
-#slint = { version = "1.13.1", default-features = false, features = ["backend-default", "compat-1-2", "renderer-software", "std"] }
-#slint = { version = "1.13.1", default-features = false, features = ["backend-qt", "std", "compat-1-2", "renderer-femtovg"] }
-#i-slint-renderer-femtovg = { version = "1.13.1", features = ["opengl"] }
+slint = { version = "1.13.1", default-features = false, features = ["backend-qt", "std", "compat-1-2"] }
+i-slint-renderer-femtovg = { version = "1.13.1", features = ["opengl"] }
 
 [build-dependencies]
 slint-build = "1.13.1"
@@ -19,3 +17,6 @@ slint-build = "1.13.1"
 [profile.dev]
 #debug = false
 debug = "line-tables-only"
+
+[profile.release]
+lto = "thin"

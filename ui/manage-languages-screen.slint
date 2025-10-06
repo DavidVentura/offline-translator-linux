@@ -8,7 +8,7 @@ export component ManageLanguagesScreen {
     in property <image> download-icon;
     in property <image> delete-icon;
     in property <[Language]> installed-languages;
-    in property <[Language]> available-languages;
+    in property <[Language]> not-installed-languages;
 
     callback back-clicked();
     callback download-language(Language);
@@ -48,7 +48,7 @@ export component ManageLanguagesScreen {
                 download-icon: root.download-icon;
                 delete-icon: root.delete-icon;
                 installed-languages: root.installed-languages;
-                available-languages: root.available-languages;
+                not-installed-languages: root.not-installed-languages;
 
                 download-language(lang) => {
                     root.download-language(lang);

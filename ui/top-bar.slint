@@ -6,8 +6,9 @@ import { Language } from "language.slint";
 export component TopBar {
     in property <Language> source-language;
     in property <Language> target-language;
-    in property <[Language]> installed-languages;
-    in property <[string]> installed-language-names;
+    in property <[string]> installed-from-language-names;
+    in property <[string]> installed-to-language-names;
+
     in property <image> swap-icon;
     in property <image> settings-icon;
 
@@ -25,7 +26,7 @@ export component TopBar {
 
             LanguageSelector {
                 current-language: root.source-language;
-                language-names: root.installed-language-names;
+                language-names: root.installed-from-language-names;
                 horizontal-stretch: 1;
                 language-selected(name) => {
                     root.set-from(name);
@@ -42,7 +43,7 @@ export component TopBar {
 
             LanguageSelector {
                 current-language: root.target-language;
-                language-names: root.installed-language-names;
+                language-names: root.installed-to-language-names;
                 horizontal-stretch: 1;
                 language-selected(name) => {
                     root.set-to(name);

@@ -13,16 +13,21 @@ export component AppWindow inherits Window {
     preferred-width: 500px;
     preferred-height: 800px;
 
-    out property <bool> has-languages: installed-languages.length > 0;
+    out property <bool> has-languages: all-installed-languages.length > 0;
     in-out property <Screen> current-screen;
     in property <Language> source-language;
     in property <Language> target-language;
     out property <string> input-text;
     in property <string> output-text;
 
-    in property <[Language]> installed-languages;
-    in property <[Language]> available-languages;
-    in property <[string]> installed-language-names;
+    in property <[Language]> all-languages;
+    in property <[Language]> all-installed-languages;
+    in property <[Language]> not-installed-languages;
+    in property <[Language]> installed-from-languages;
+    in property <[Language]> installed-to-languages;
+
+    in property <[string]> installed-from-language-names; // hack, combobox should take model
+    in property <[string]> installed-to-language-names;
 
     in property <image> swap-icon: @image-url("../assets/swap.svg");
     in property <image> settings-icon: @image-url("../assets/settings.svg");
@@ -50,8 +55,8 @@ export component AppWindow inherits Window {
         settings-icon: root.settings-icon;
         download-icon: root.download-icon;
         delete-icon: root.delete-icon;
-        installed-languages: root.installed-languages;
-        available-languages: root.available-languages;
+        installed-languages: root.all-installed-languages;
+        not-installed-languages: root.not-installed-languages;
 
         settings-clicked => {
             root.current-screen = Screen.Settings;
@@ -74,8 +79,9 @@ export component AppWindow inherits Window {
         target-language: root.target-language;
         input-text <=> root.input-text;
         output-text: root.output-text;
-        installed-languages: root.installed-languages;
-        installed-language-names: root.installed-language-names;
+        installed-languages: root.all-installed-languages;
+        installed-from-language-names: root.installed-from-language-names;
+        installed-to-language-names: root.installed-to-language-names;
         swap-icon: root.swap-icon;
         settings-icon: root.settings-icon;
         camera-icon: root.camera-icon;
@@ -115,8 +121,8 @@ export component AppWindow inherits Window {
         back-icon: root.back-icon;
         download-icon: root.download-icon;
         delete-icon: root.delete-icon;
-        installed-languages: root.installed-languages;
-        available-languages: root.available-languages;
+        installed-languages: root.all-installed-languages;
+        not-installed-languages: root.not-installed-languages;
 
         back-clicked => {
             root.current-screen = root.has-languages ? Screen.Translation : Screen.NoLanguages;

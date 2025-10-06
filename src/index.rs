@@ -1,36 +1,34 @@
 use miniserde::{Deserialize, Serialize};
 
-use crate::Language;
+use crate::{Direction, Language};
 
 #[derive(Serialize, Deserialize)]
 pub struct Index {
-    languages: Vec<IndexLanguage>,
+    pub languages: Vec<IndexLanguage>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct IndexFile {
-    name: String,
-    size_bytes: u32,
+    pub name: String,
+    pub size_bytes: u32,
+    pub release_date: u64,
 }
-#[derive(Serialize, Deserialize)]
-pub struct ModelFiles {
-    model: IndexFile,
-    lex: IndexFile,
-    src_vocab: IndexFile,
-    tgt_vocab: IndexFile,
-}
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct PairData {
-    files: ModelFiles,
-    release_date: u64,
+    pub model: IndexFile,
+    pub lex: IndexFile,
+    pub src_vocab: IndexFile,
+    pub tgt_vocab: IndexFile,
 }
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct IndexLanguage {
-    code: String,
-    name: String,
-    script: String, // TODO: Enum?
-    from: Option<PairData>,
-    to: Option<PairData>,
+    pub code: String,
+    pub name: String,
+    pub script: String, // TODO: Enum?
+    pub from: Option<PairData>,
+    pub to: Option<PairData>,
+    pub extra_files: Vec<IndexFile>,
+    // TODO extra files
 }
 
 const ONE_MB: u32 = 1024 * 1024;
@@ -44,24 +42,40 @@ fn pretty_size(size_bytes: u32) -> String {
     }
 }
 
-impl From<IndexLanguage> for Language {
-    fn from(value: IndexLanguage) -> Self {
-        let size_bytes = value
-            .from
-            .iter()
-            .chain(value.to.iter())
-            .map(|pd| {
-                pd.files.model.size_bytes
-                    + pd.files.lex.size_bytes
-                    + pd.files.src_vocab.size_bytes
-                    + pd.files.tgt_vocab.size_bytes
-            })
-            .sum();
+impl IndexLanguage {
+    pub fn files(&self) -> Vec<IndexFile> {
+        let mut ret = Vec::new();
+        if let Some(from) = &self.from {
+            ret.push(from.model.clone());
+            ret.push(from.lex.clone());
+            ret.push(from.src_vocab.clone());
+            ret.push(from.tgt_vocab.clone());
+        }
+        if let Some(to) = &self.to {
+            ret.push(to.model.clone());
+            ret.push(to.lex.clone());
+            ret.push(to.src_vocab.clone());
+            ret.push(to.tgt_vocab.clone());
+        }
+        ret.append(&mut self.extra_files.clone());
+        ret
+    }
+}
+impl From<&IndexLanguage> for Language {
+    fn from(value: &IndexLanguage) -> Self {
+        let size_bytes = value.files().iter().map(|f| f.size_bytes).sum();
 
         Self {
-            code: value.code.into(),
-            name: value.name.into(),
+            code: value.code.clone().into(),
+            name: value.name.clone().into(),
             size: pretty_size(size_bytes).into(),
+            direction: match (&value.from, &value.to) {
+                (None, None) => panic!("language with no from and no to"),
+                (Some(_), None) => Direction::FromOnly,
+                (None, Some(_)) => Direction::ToOnly,
+                (Some(_), Some(_)) => Direction::Both,
+            },
+            installed: false,
         }
     }
 }

@@ -1,20 +1,58 @@
+use std::collections::HashSet;
 use std::path::Path;
 use std::sync::mpsc::Receiver;
 use std::time::Instant;
 
 use crate::download;
+use crate::index::Index;
 use crate::translate::Translator;
 use crate::{AppWindow, IoEvent};
+
+const BASE_MODEL_URL: &'static str = "";
 
 pub fn run_eventloop(
     bus_rx: Receiver<IoEvent>,
     ui_handle: slint::Weak<AppWindow>,
     translator: Translator,
+    index: Index,
+    data_path: &str,
 ) {
     while let Ok(msg) = bus_rx.recv() {
         match msg {
+            IoEvent::LoadLanguages => {
+                let load_start = Instant::now();
+                let avail_files = std::fs::read_dir(data_path).expect("bad data path");
+                let avail_files: HashSet<String> = HashSet::from_iter(
+                    avail_files
+                        .into_iter()
+                        .map(|f| f.unwrap().file_name().into_string().unwrap()),
+                );
+
+                for lang in &index.languages {
+                    let lang_files: HashSet<String> =
+                        HashSet::from_iter(lang.files().iter().map(|f| f.name.clone()));
+                    if avail_files.is_superset(&lang_files) {
+                        let code = lang.code.clone();
+                        ui_handle
+                            .upgrade_in_event_loop(move |ui: AppWindow| {
+                                ui.invoke_language_downloaded(code.into());
+                            })
+                            .expect("Failed to update UI");
+                    }
+                }
+                println!("Load took {:?}", load_start.elapsed());
+            }
             IoEvent::DownloadRequest(code) => {
                 println!("Download language: {} ", code);
+
+                let lang = index
+                    .languages
+                    .iter()
+                    .filter(|l| l.code == code)
+                    .next()
+                    .expect("Received illegal code for download");
+
+                let files = lang.files();
 
                 let url = "https://translator.davidv.dev/dictionaries/1/en.dict";
                 let output_path = Path::new("/tmp").join(format!("{}.zip", code));

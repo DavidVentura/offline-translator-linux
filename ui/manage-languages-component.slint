@@ -7,7 +7,7 @@ export component ManageLanguagesComponent {
     in property <image> download-icon;
     in property <image> delete-icon;
     in property <[Language]> installed-languages;
-    in property <[Language]> available-languages;
+    in property <[Language]> not-installed-languages;
 
     callback download-language(Language);
     callback delete-language(Language);
@@ -35,14 +35,14 @@ export component ManageLanguagesComponent {
                 }
             }
 
-            if available-languages.length > 0: Text {
+            if not-installed-languages.length > 0: Text {
                 text: "Available";
                 font-size: 18px;
                 font-weight: 600;
                 color: AppTheme.text-primary;
             }
 
-            for lang in available-languages: LanguageItem {
+            for lang in not-installed-languages: LanguageItem {
                 language: lang;
                 is-installed: false;
                 download-icon: root.download-icon;
