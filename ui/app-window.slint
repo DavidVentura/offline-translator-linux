@@ -13,7 +13,7 @@ export component AppWindow inherits Window {
     preferred-width: 600px;
     preferred-height: 800px;
 
-    out property <bool> has-languages: all-installed-languages.length > 0;
+    out property <bool> has-languages: all-installed-languages.length > 1; // english
     in-out property <Screen> current-screen;
     in property <Language> source-language;
     in property <Language> target-language;

@@ -1627,6 +1627,7 @@ dependencies = [
  "flate2",
  "i-slint-renderer-femtovg",
  "miniserde",
+ "rayon",
  "slint",
  "slint-build",
  "ureq",

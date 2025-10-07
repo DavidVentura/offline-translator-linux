@@ -18,6 +18,7 @@ slint::include_modules!();
 
 enum IoEvent {
     DownloadRequest(String),
+    DeleteLanguage(String),
     SetDataPath(String),
     TranslationRequest {
         text: String,
@@ -160,23 +161,34 @@ fn setup_eventloop_callbacks(ui: &AppWindow, all_languages: Rc<VecModel<Language
         }
     });
 
+    let downloaded = all_languages.clone();
     ui.on_language_downloaded({
         move |code| {
             println!("lang downloaded ui {code:?}");
-            for i in 0..all_languages.row_count() {
-                let mut lang = all_languages.row_data(i).unwrap();
+            for i in 0..downloaded.row_count() {
+                let mut lang = downloaded.row_data(i).unwrap();
                 if lang.code == code {
                     lang.installed = true;
-                    all_languages.set_row_data(i, lang);
+                    lang.download_progress = 0f32;
+                    downloaded.set_row_data(i, lang);
                     break;
                 }
             }
         }
     });
 
+    let progress = all_languages.clone();
     ui.on_download_progress({
         move |code, percent| {
-            println!("Download progress for {}: {:.1}%", code, percent);
+            println!("Download progress for {}: {:.1}%", code, percent * 100.0);
+            for i in 0..progress.row_count() {
+                let mut lang = progress.row_data(i).unwrap();
+                if lang.code == code {
+                    lang.download_progress = percent;
+                    progress.set_row_data(i, lang);
+                    break;
+                }
+            }
         }
     });
 }
@@ -236,10 +248,14 @@ fn setup_ui_callbacks(
         }
     });
 
+    let del_tx = bus_tx.clone();
     ui.on_delete_language({
         let all_languages = all_languages.clone();
         move |lang| {
             println!("Delete language: {} ({})", lang.name, lang.code);
+            del_tx
+                .send(IoEvent::DeleteLanguage(lang.code.to_string()))
+                .unwrap();
             for i in 0..all_languages.row_count() {
                 let mut row_lang = all_languages.row_data(i).unwrap();
                 if row_lang.code == lang.code {

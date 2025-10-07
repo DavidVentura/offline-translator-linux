@@ -81,6 +81,7 @@ impl From<&IndexLanguage> for Language {
                 (Some(_), Some(_)) => Direction::Both,
             },
             installed: false,
+            download_progress: 0f32,
         }
     }
 }

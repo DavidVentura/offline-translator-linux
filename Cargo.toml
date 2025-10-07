@@ -11,6 +11,7 @@ ureq = "3.1.2"
 slint = { version = "1.13.1", default-features = false, features = ["backend-qt", "std", "compat-1-2"] }
 i-slint-renderer-femtovg = { version = "1.13.1", features = ["opengl"] }
 flate2 = "1.0"
+rayon = "1.10"
 
 [build-dependencies]
 slint-build = "1.13.1"

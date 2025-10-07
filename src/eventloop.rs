@@ -1,7 +1,12 @@
 use std::collections::HashSet;
 use std::path::Path;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::mpsc::Receiver;
-use std::time::Instant;
+use std::thread;
+use std::time::{Duration, Instant};
+
+use rayon::prelude::*;
 
 use crate::index::{Index, IndexLanguage};
 use crate::translate::Translator;
@@ -10,10 +15,12 @@ use crate::{Screen, download};
 
 pub fn run_eventloop(bus_rx: Receiver<IoEvent>, ui_handle: slint::Weak<AppWindow>, index: Index) {
     let mut translator = None::<Translator>;
+    let mut data_path = String::new();
 
     while let Ok(msg) = bus_rx.recv() {
         match msg {
-            IoEvent::SetDataPath(data_path) => {
+            IoEvent::SetDataPath(path) => {
+                data_path = path;
                 ui_handle
                     .upgrade_in_event_loop(move |ui: AppWindow| {
                         ui.invoke_languages_cleared();
@@ -34,7 +41,9 @@ pub fn run_eventloop(bus_rx: Receiver<IoEvent>, ui_handle: slint::Weak<AppWindow
                         HashSet::from_iter(lang.files().iter().map(|f| f.name.clone()));
                     if avail_files.is_superset(&lang_files) {
                         let code = lang.code.clone();
-                        has_languages = true;
+                        if code != "en" {
+                            has_languages = true;
+                        }
                         ui_handle
                             .upgrade_in_event_loop(move |ui: AppWindow| {
                                 ui.invoke_language_downloaded(code.into());
@@ -43,15 +52,9 @@ pub fn run_eventloop(bus_rx: Receiver<IoEvent>, ui_handle: slint::Weak<AppWindow
                     }
                 }
 
-                ui_handle
-                    .upgrade_in_event_loop(move |ui: AppWindow| {
-                        ui.invoke_language_downloaded("en".into());
-                    })
-                    .expect("Failed to update UI");
-
                 if has_languages {
                     println!("has langs");
-                    translator = Some(Translator::new(data_path));
+                    translator = Some(Translator::new(data_path.clone()));
                     ui_handle
                         .upgrade_in_event_loop(move |ui: AppWindow| {
                             ui.set_current_screen(Screen::Translation);
@@ -69,9 +72,38 @@ pub fn run_eventloop(bus_rx: Receiver<IoEvent>, ui_handle: slint::Weak<AppWindow
                     .iter()
                     .filter(|l| l.code == code)
                     .next()
-                    .expect("Received illegal code for download");
+                    .expect("Received illegal code for download")
+                    .clone();
 
-                download(&lang, ui_handle.clone());
+                let ui_handle_clone = ui_handle.clone();
+                let data_path_clone = data_path.clone();
+                let jh = std::thread::spawn(move || {
+                    download(&lang, ui_handle_clone, &data_path_clone);
+                });
+                jh.join().expect("thread panicked");
+                if translator.is_none() {
+                    translator = Some(Translator::new(data_path.clone()));
+                    println!("init translator on download");
+                }
+            }
+            IoEvent::DeleteLanguage(code) => {
+                println!("Deleting language: {}", code);
+
+                if let Some(lang) = index.languages.iter().find(|l| l.code == code) {
+                    let mut files = lang.files();
+                    files.sort_by(|a, b| a.name.cmp(&b.name));
+                    files.dedup_by_key(|f| f.name.clone());
+
+                    for file in files {
+                        let file_path = Path::new(&data_path).join(&file.name);
+                        match std::fs::remove_file(&file_path) {
+                            Ok(_) => println!("Deleted file: {}", file.name),
+                            Err(e) => eprintln!("Failed to delete {}: {}", file.name, e),
+                        }
+                    }
+                } else {
+                    eprintln!("Language not found in index: {}", code);
+                }
             }
             IoEvent::TranslationRequest { text, from, to } => {
                 if let Some(ref mut translator) = translator {
@@ -98,6 +130,8 @@ pub fn run_eventloop(bus_rx: Receiver<IoEvent>, ui_handle: slint::Weak<AppWindow
                             ui.set_output_text(result.into());
                         })
                         .unwrap();
+                } else {
+                    println!("no translator, idk");
                 }
             }
             IoEvent::Shutdown => {
@@ -109,23 +143,68 @@ pub fn run_eventloop(bus_rx: Receiver<IoEvent>, ui_handle: slint::Weak<AppWindow
     println!("all senders done, closing");
 }
 
-fn download(lang: &IndexLanguage, ui_handle: slint::Weak<AppWindow>) {
+fn download(lang: &IndexLanguage, ui_handle: slint::Weak<AppWindow>, data_path: &str) {
     let code = lang.code.clone();
     println!("Download language: {} ", code);
 
-    // TODO threaded?
-    // TODO file path from settings
-    let mut success = true;
-    for file in lang.files() {
-        let output_path = Path::new("/tmp").join(file.name);
+    let mut files = lang.files();
+    files.sort_by(|a, b| a.name.cmp(&b.name));
+    files.dedup_by_key(|f| f.name.clone());
 
-        match download::download_file(&file.url, &output_path, code.clone(), &ui_handle) {
+    let total_size: usize = files.iter().map(|f| f.size_bytes as usize).sum();
+    println!("total size {total_size}");
+    let total_downloaded = Arc::new(AtomicUsize::new(0));
+    let download_complete = Arc::new(AtomicBool::new(false));
+
+    let progress_total_downloaded = total_downloaded.clone();
+    let progress_download_complete = download_complete.clone();
+    let progress_ui_handle = ui_handle.clone();
+    let progress_code = code.clone();
+
+    let startup_code = progress_code.clone();
+    let _ = progress_ui_handle.upgrade_in_event_loop(move |ui: AppWindow| {
+        ui.invoke_download_progress(startup_code.into(), 0.00001);
+    });
+
+    let progress_thread = thread::spawn(move || {
+        const UPDATE_THRESHOLD: usize = 512 * 1024;
+        let mut last_update = 0;
+
+        while !progress_download_complete.load(Ordering::Relaxed) {
+            thread::sleep(Duration::from_millis(33));
+
+            let current = progress_total_downloaded.load(Ordering::Relaxed);
+            if current - last_update >= UPDATE_THRESHOLD {
+                let percent = current as f32 / total_size as f32;
+                let code = progress_code.clone();
+                let _ = progress_ui_handle.upgrade_in_event_loop(move |ui: AppWindow| {
+                    ui.invoke_download_progress(code.into(), percent);
+                });
+                last_update = current;
+            }
+        }
+    });
+
+    let results: Vec<Result<(), String>> = files
+        .par_iter()
+        .map(|file| {
+            let output_path = Path::new(data_path).join(&file.name);
+            download::download_file(&file.url, &output_path, total_downloaded.clone())
+        })
+        .collect();
+
+    download_complete.store(true, Ordering::Relaxed);
+    progress_thread.join().expect("Progress thread panicked");
+
+    let success = results.iter().all(|r| r.is_ok());
+
+    for (i, result) in results.iter().enumerate() {
+        match result {
             Ok(_) => {
-                println!("Download completed for {}", code);
+                println!("Download completed for {} file {}", code, files[i].name);
             }
             Err(e) => {
-                success = false;
-                eprintln!("Download failed for {}: {}", code, e);
+                eprintln!("Download failed for {} file {}: {}", code, files[i].name, e);
             }
         }
     }

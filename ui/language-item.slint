@@ -1,6 +1,7 @@
 import { Language } from "language.slint";
 import { IconButton } from "icon-button.slint";
 import { AppTheme } from "theme.slint";
+import { ProgressIndicator, Spinner } from "std-widgets.slint";
 
 export component LanguageItem {
     in property <Language> language;
@@ -9,9 +10,6 @@ export component LanguageItem {
     in property <image> delete-icon;
 
     callback action-clicked();
-
-    // height: 64px;
-
     Rectangle {
         HorizontalLayout {
             spacing: 16px;
@@ -30,15 +28,21 @@ export component LanguageItem {
 
                 Text {
                     text: language.size;
+                    visible: language.code != "en";
                     font-size: 14px;
                     color: AppTheme.text-secondary;
                     horizontal-alignment: left;
                 }
             }
 
-            IconButton {
-                icon: is-installed ? root.delete-icon : root.download-icon;
+            if root.language.download-progress > 0: Spinner {
+                progress: root.language.download-progress;
+                indeterminate: false;
+            }
+            if root.language.download-progress == 0: IconButton {
+                icon: root.is-installed ? root.delete-icon : root.download-icon;
                 size: 24px;
+                visible: language.code != "en";
                 clicked => {
                     root.action-clicked();
                 }

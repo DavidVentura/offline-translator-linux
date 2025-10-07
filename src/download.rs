@@ -1,42 +1,57 @@
-use crate::AppWindow;
+use flate2::read::GzDecoder;
 use std::fs::File;
 use std::io::{Read, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+struct ProgressReader<R> {
+    inner: R,
+    total_downloaded: Arc<AtomicUsize>,
+}
+
+impl<R: Read> Read for ProgressReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let n = self.inner.read(buf)?;
+        self.total_downloaded.fetch_add(n, Ordering::Relaxed);
+        Ok(n)
+    }
+}
 
 pub fn download_file(
     url: &str,
     output_path: &Path,
-    language_code: String,
-    ui_handle: &slint::Weak<AppWindow>,
+    total_downloaded: Arc<AtomicUsize>,
 ) -> Result<(), String> {
     let mut response = ureq::get(url)
         .call()
         .map_err(|e| format!("Request failed: {}", e))?;
 
-    let content_length = response
-        .headers()
-        .get("Content-Length")
-        .ok_or("Missing Content-Length header")?
-        .to_str()
-        .map_err(|e| format!("Invalid Content-Length: {}", e))?
-        .parse::<usize>()
-        .map_err(|e| format!("Failed to parse Content-Length: {}", e))?;
-
-    let tmp_output_path = output_path.with_extension("tmp");
+    let is_gzip = url.ends_with(".gz");
+    let final_output_path: PathBuf = output_path.to_path_buf();
+    let tmp_output_path = final_output_path.with_extension("tmp");
 
     let mut file =
         File::create(&tmp_output_path).map_err(|e| format!("Failed to create file: {}", e))?;
 
-    let mut reader = response.body_mut().as_reader();
-    let mut buffer = vec![0u8; 512 * 1024];
-    let mut downloaded = 0usize;
-    let mut last_update = 0usize;
-    const UPDATE_THRESHOLD: usize = 512 * 1024;
+    let reader = response.body_mut().as_reader();
+    let mut buffer = vec![0u8; 32 * 1024];
+
+    let mut progress_reader = ProgressReader {
+        inner: reader,
+        total_downloaded: total_downloaded.clone(),
+    };
+
+    let decoder: &mut dyn Read = if is_gzip {
+        &mut GzDecoder::new(progress_reader)
+    } else {
+        &mut progress_reader
+    };
 
     loop {
-        let bytes_read = reader
+        let bytes_read = decoder
             .read(&mut buffer)
-            .map_err(|e| format!("Failed to read from response: {}", e))?;
+            .map_err(|e| format!("Failed to read/decompress from response: {}", e))?;
 
         if bytes_read == 0 {
             break;
@@ -44,22 +59,9 @@ pub fn download_file(
 
         file.write_all(&buffer[..bytes_read])
             .map_err(|e| format!("Failed to write to file: {}", e))?;
-
-        downloaded += bytes_read;
-
-        if downloaded - last_update >= UPDATE_THRESHOLD {
-            let percent = (downloaded as f32 / content_length as f32) * 100.0;
-            let code = language_code.clone();
-            ui_handle
-                .upgrade_in_event_loop(move |ui: AppWindow| {
-                    ui.invoke_download_progress(code.into(), percent);
-                })
-                .map_err(|_| "Failed to update UI")?;
-            last_update = downloaded;
-        }
     }
 
-    std::fs::rename(tmp_output_path, output_path)
+    std::fs::rename(tmp_output_path, final_output_path)
         .map_err(|e| format!("Failed to move tmp file: {e}"))?;
 
     Ok(())
