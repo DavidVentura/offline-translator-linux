@@ -36,8 +36,17 @@ impl Translator {
 
         let data_path = &self.data_path;
         let model_fname = format!("model.{from_lang}{to_lang}.intgemm.alphas.bin");
-        let src_vocab = format!("vocab.{from_lang}{to_lang}.spm");
-        let tgt_vocab = format!("vocab.{from_lang}{to_lang}.spm"); // TODO ja zh ko
+        let (src_vocab, tgt_vocab) = if vec!["zh", "ko", "ja"].contains(&to_lang) {
+            (
+                format!("srcvocab.{from_lang}{to_lang}.spm"),
+                format!("trgvocab.{from_lang}{to_lang}.spm"),
+            )
+        } else {
+            (
+                format!("vocab.{from_lang}{to_lang}.spm"),
+                format!("vocab.{from_lang}{to_lang}.spm"),
+            )
+        };
 
         let model_path = Path::new(data_path).join(&model_fname);
         let src_vocab_path = Path::new(data_path).join(&src_vocab);
