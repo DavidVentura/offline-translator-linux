@@ -20,6 +20,7 @@ export component AppWindow inherits Window {
     in property <Language> target-language;
     out property <string> input-text;
     in property <string> output-text;
+    in property <Language> detected-language;
 
     in property <[Language]> all-languages;
     in property <[Language]> all-installed-languages;
@@ -36,6 +37,7 @@ export component AppWindow inherits Window {
     in property <image> back-icon: @image-url("../assets/back.svg");
     in property <image> download-icon: @image-url("../assets/download.svg");
     in property <image> delete-icon: @image-url("../assets/delete.svg");
+    in property <image> forward-icon: @image-url("../assets/forward.svg");
 
     // events
     callback language-downloaded(string);
@@ -79,6 +81,7 @@ export component AppWindow inherits Window {
         height: 100%;
         source-language: root.source-language;
         target-language: root.target-language;
+        detected-language: root.detected-language;
         input-text <=> root.input-text;
         output-text: root.output-text;
         installed-languages: root.all-installed-languages;
@@ -87,7 +90,12 @@ export component AppWindow inherits Window {
         swap-icon: root.swap-icon;
         settings-icon: root.settings-icon;
         camera-icon: root.camera-icon;
+        forward-icon: root.forward-icon;
+        download-icon: root.download-icon;
 
+        download-language(lang) => {
+            root.download-language(lang)
+        }
         swap-languages => {
             root.swap-languages();
         }

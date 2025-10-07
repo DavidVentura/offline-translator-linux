@@ -40,6 +40,14 @@ fn main() -> Result<(), Box<dyn Error>> {
     let jh = std::thread::spawn(move || eventloop::run_eventloop(bus_rx, ui_handle, default_index));
 
     ui.set_current_screen(Screen::NoLanguages);
+    ui.set_detected_language(Language {
+        code: "it".into(),
+        direction: Direction::Both,
+        installed: false,
+        name: "Testlang".into(),
+        size: "asd".into(),
+        download_progress: 0f32,
+    });
     let data_path = "/home/david/git/offline-translator-linux/lang-data/".to_string();
 
     bus_tx.send(IoEvent::SetDataPath(data_path)).unwrap();

@@ -3,34 +3,37 @@ import { IconButton } from "icon-button.slint";
 import { AppTheme } from "theme.slint";
 import { Spinner } from "std-widgets.slint";
 
-export component LanguageItem {
+export component MissingLanguageCard {
     in property <Language> language;
-    in property <bool> is-installed: false;
     in property <image> download-icon;
-    in property <image> delete-icon;
+    in property <image> forward-icon;
 
     callback action-clicked();
+
     Rectangle {
+        background: AppTheme.surface;
+        border-radius: 12px;
+
         HorizontalLayout {
+            padding: 20px;
             spacing: 16px;
 
             VerticalLayout {
                 alignment: center;
-                spacing: 4px;
+                spacing: 2px;
                 horizontal-stretch: 1;
 
                 Text {
-                    text: language.name;
-                    font-size: 16px;
-                    color: AppTheme.text-primary;
+                    text: language.installed ? "Translate from" : "Missing language";
+                    font-size: 14px;
+                    color: AppTheme.text-secondary;
                     horizontal-alignment: left;
                 }
 
                 Text {
-                    text: language.size;
-                    visible: language.code != "en";
-                    font-size: 14px;
-                    color: AppTheme.text-secondary;
+                    text: language.name;
+                    font-size: 18px;
+                    color: AppTheme.text-primary;
                     horizontal-alignment: left;
                 }
             }
@@ -40,9 +43,9 @@ export component LanguageItem {
                 indeterminate: false;
             }
             if root.language.download-progress == 0: IconButton {
-                icon: root.is-installed ? root.delete-icon : root.download-icon;
+                icon: language.installed ? root.forward-icon : root.download-icon;
+                enabled: true;
                 size: 24px;
-                visible: language.code != "en";
                 clicked => {
                     root.action-clicked();
                 }

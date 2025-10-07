@@ -2,6 +2,7 @@ import { TopBar } from "top-bar.slint";
 import { TextInputArea } from "text-input-area.slint";
 import { TranslationOutputArea } from "translation-output-area.slint";
 import { FloatingActionButton } from "floating-action-button.slint";
+import { MissingLanguageCard } from "missing-language-card.slint";
 import { AppTheme } from "theme.slint";
 import { Language, Direction } from "language.slint";
 import { VerticalBox, ScrollView } from "std-widgets.slint";
@@ -19,9 +20,14 @@ export component TranslationScreen {
     in property <[string]> installed-from-language-names;
     in property <[string]> installed-to-language-names;
 
+    in property <Language> detected-language;
+    in property <bool> show-missing-card: detected-language.code != source-language.code;
+
     in property <image> swap-icon;
     in property <image> settings-icon;
     in property <image> camera-icon;
+    in property <image> download-icon;
+    in property <image> forward-icon;
 
     callback swap-languages();
     callback settings-clicked();
@@ -29,6 +35,7 @@ export component TranslationScreen {
     callback text-changed();
     callback set-from(string);
     callback set-to(string);
+    callback download-language(Language);
 
     VerticalBox {
         vertical-stretch: 1;
@@ -67,6 +74,20 @@ export component TranslationScreen {
                 }
             }
 
+            MissingLanguageCard {
+                language: root.detected-language;
+                visible: root.show-missing-card;
+                download-icon: root.download-icon;
+                forward-icon: root.forward-icon;
+                action-clicked => {
+                    if (root.detected-language.installed) {
+                        root.set-from(root.detected-language.name);
+                    } else {
+                        root.download-language(root.detected-language);
+                    }
+                }
+            }
+
             TranslationOutputArea {
                 vertical-stretch: 1;
                 translation-text: root.output-text;
@@ -74,7 +95,7 @@ export component TranslationScreen {
         }
     }
 
-    Rectangle {
+    if !root.show-missing-card: Rectangle {
         height: 4px;
         width: parent.width / 2;
         x: parent.width / 4;
