@@ -56,17 +56,21 @@ export component TranslationScreen {
             }
         }
 
-        // why is vertical-stretch broken on these??
-        TextInputArea {
-            height: 40%;
-            text <=> root.input-text;
-            changed => {
-                root.text-changed();
+        VerticalBox {
+            padding-left: 16px;
+            padding-right: 16px;
+            TextInputArea {
+                vertical-stretch: 1;
+                text <=> root.input-text;
+                changed => {
+                    root.text-changed();
+                }
             }
-        }
 
-        TranslationOutputArea {
-            height: 45%;
+            TranslationOutputArea {
+                vertical-stretch: 1;
+                translation-text: root.output-text;
+            }
         }
     }
 
@@ -74,7 +78,7 @@ export component TranslationScreen {
         height: 4px;
         width: parent.width / 2;
         x: parent.width / 4;
-        y: parent.height / 2;
+        y: parent.height / 2 + 4px;
         border-radius: 2px;
         background: AppTheme.border;
     }

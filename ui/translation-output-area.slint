@@ -1,16 +1,18 @@
 import { AppTheme } from "theme.slint";
-import { ScrollView } from "std-widgets.slint";
+import { ScrollView, TextEdit } from "std-widgets.slint";
 
 export component TranslationOutputArea inherits ScrollView {
     in property <string> translation-text;
+    forward-focus: input;
 
     VerticalLayout {
-        padding: 16px;
-        Text {
+
+        input := TextInput {
+            single-line: false;
             text: root.translation-text;
             font-size: 16px;
-            color: AppTheme.text-primary;
             wrap: word-wrap;
+            read-only: true;
         }
     }
 }

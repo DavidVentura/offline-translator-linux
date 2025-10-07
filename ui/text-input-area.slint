@@ -1,5 +1,5 @@
-import { TextEdit, ScrollView } from "std-widgets.slint";
 import { AppTheme } from "theme.slint";
+import { TextEdit, ScrollView } from "std-widgets.slint";
 
 export component TextInputArea inherits ScrollView {
     in-out property <string> text;
@@ -8,8 +8,6 @@ export component TextInputArea inherits ScrollView {
 
     forward-focus: input;
     VerticalLayout {
-        padding-left: 16px;
-        padding-right: 16px;
         input := TextInput {
             single-line: false;
             text <=> root.text;
