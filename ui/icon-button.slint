@@ -3,24 +3,30 @@ import { AppTheme } from "theme.slint";
 export component IconButton {
     in property <image> icon;
     in property <length> size: 24px;
+    in property <bool> enabled: true;
     callback clicked();
 
     width: size + 16px;
     height: size + 16px;
 
     touch-area := TouchArea {
-        clicked => { root.clicked(); }
+        clicked => {
+            if (root.enabled) {
+                debug("clicked");
+                root.clicked();
+            }
+        }
     }
 
     Rectangle {
         border-radius: 8px;
-        background: touch-area.pressed ? AppTheme.surface : transparent;
+        background: touch-area.pressed && root.enabled ? AppTheme.surface : transparent;
 
         Image {
             source: root.icon;
             width: root.size;
             height: root.size;
-            colorize: AppTheme.icon-color;
+            colorize: root.enabled ? AppTheme.icon-color : AppTheme.icon-color-disabled;
         }
     }
 }

@@ -10,7 +10,6 @@ use std::error::Error;
 use std::io::Read;
 use std::rc::Rc;
 use std::sync::mpsc::{self, Sender};
-use translate::Translator;
 
 use crate::data::INDEX_JSON;
 use crate::index::{Index, IndexLanguage};
@@ -19,7 +18,7 @@ slint::include_modules!();
 
 enum IoEvent {
     DownloadRequest(String),
-    StartupLoadLanguages,
+    SetDataPath(String),
     TranslationRequest {
         text: String,
         from: String,
@@ -31,21 +30,18 @@ enum IoEvent {
 fn main() -> Result<(), Box<dyn Error>> {
     let ui = AppWindow::new()?;
 
-    let data_path = "/home/david/git/offline-translator-linux/lang-data/".to_string();
-    let translator = Translator::new(data_path.clone());
     let (bus_tx, bus_rx) = mpsc::channel::<IoEvent>();
     let default_index = read_default_index();
 
     setup_language_models(&ui, &default_index, bus_tx.clone());
 
     let ui_handle = ui.as_weak();
-    let jh = std::thread::spawn(move || {
-        eventloop::run_eventloop(bus_rx, ui_handle, translator, default_index, &data_path)
-    });
+    let jh = std::thread::spawn(move || eventloop::run_eventloop(bus_rx, ui_handle, default_index));
 
     ui.set_current_screen(Screen::NoLanguages);
+    let data_path = "/home/david/git/offline-translator-linux/lang-data/".to_string();
 
-    bus_tx.send(IoEvent::StartupLoadLanguages).unwrap();
+    bus_tx.send(IoEvent::SetDataPath(data_path)).unwrap();
     ui.run()?;
     bus_tx.send(IoEvent::Shutdown).unwrap();
     drop(bus_tx);
@@ -152,6 +148,18 @@ fn setup_language_models(ui: &AppWindow, default_index: &Index, bus_tx: Sender<I
 
 fn setup_eventloop_callbacks(ui: &AppWindow, all_languages: Rc<VecModel<Language>>) {
     // event loop -> UI
+    let clear = all_languages.clone();
+    ui.on_languages_cleared({
+        move || {
+            for i in 0..clear.row_count() {
+                let mut lang = clear.row_data(i).unwrap();
+                lang.installed = false;
+                clear.set_row_data(i, lang);
+            }
+            println!("cleared");
+        }
+    });
+
     ui.on_language_downloaded({
         move |code| {
             println!("lang downloaded ui {code:?}");

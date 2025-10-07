@@ -9,8 +9,8 @@ import { AppTheme } from "theme.slint";
 export component AppWindow inherits Window {
     title: "Offline Translator";
     background: AppTheme.background;
-    min-width: 550px;
-    preferred-width: 550px;
+    min-width: 600px;
+    preferred-width: 600px;
     preferred-height: 800px;
 
     out property <bool> has-languages: all-installed-languages.length > 0;
@@ -39,6 +39,7 @@ export component AppWindow inherits Window {
     // events
     callback language-downloaded(string);
     callback download-progress(string, float);
+    callback languages-cleared();
 
     // inputs
     callback swap-languages();

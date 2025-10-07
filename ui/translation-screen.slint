@@ -3,7 +3,7 @@ import { TextInputArea } from "text-input-area.slint";
 import { TranslationOutputArea } from "translation-output-area.slint";
 import { FloatingActionButton } from "floating-action-button.slint";
 import { AppTheme } from "theme.slint";
-import { Language } from "language.slint";
+import { Language, Direction } from "language.slint";
 import { VerticalBox, ScrollView } from "std-widgets.slint";
 
 
@@ -12,6 +12,8 @@ export component TranslationScreen {
     in-out property <Language> target-language;
     in-out property <string> input-text;
     in-out property <string> output-text;
+
+    in property <bool> swap-enabled: source-language.direction == Direction.Both && target-language.direction == Direction.Both;
 
     in property <[Language]> installed-languages;
     in property <[string]> installed-from-language-names;
@@ -36,6 +38,7 @@ export component TranslationScreen {
             installed-from-language-names: root.installed-from-language-names;
             installed-to-language-names: root.installed-to-language-names;
 
+            swap-enabled: root.swap-enabled;
             swap-icon: root.swap-icon;
             settings-icon: root.settings-icon;
 
@@ -64,7 +67,6 @@ export component TranslationScreen {
 
         TranslationOutputArea {
             height: 45%;
-            translation-text: root.output-text;
         }
     }
 

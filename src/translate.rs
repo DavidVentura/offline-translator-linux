@@ -21,6 +21,14 @@ impl Translator {
     }
 
     pub fn load_language_pair(&mut self, from_lang: &str, to_lang: &str) -> Result<(), String> {
+        let pairs = self.get_pairs(from_lang, to_lang);
+        for (from, to) in pairs {
+            self._load_language_pair(from, to)?;
+        }
+        Ok(())
+    }
+
+    fn _load_language_pair(&mut self, from_lang: &str, to_lang: &str) -> Result<(), String> {
         let key = from_lang.to_string() + to_lang;
         if self.languages.contains_key(&key) {
             return Ok(());
@@ -39,15 +47,25 @@ impl Translator {
             return Err(format!("Model file not found: {}", model_path.display()));
         }
         if !src_vocab_path.exists() {
-            return Err(format!("Source vocab file not found: {}", src_vocab_path.display()));
+            return Err(format!(
+                "Source vocab file not found: {}",
+                src_vocab_path.display()
+            ));
         }
         if !tgt_vocab_path.exists() {
-            return Err(format!("Target vocab file not found: {}", tgt_vocab_path.display()));
+            return Err(format!(
+                "Target vocab file not found: {}",
+                tgt_vocab_path.display()
+            ));
         }
 
         let model_path_str = model_path.to_str().ok_or("Model path is not valid UTF-8")?;
-        let src_vocab_path_str = src_vocab_path.to_str().ok_or("Source vocab path is not valid UTF-8")?;
-        let tgt_vocab_path_str = tgt_vocab_path.to_str().ok_or("Target vocab path is not valid UTF-8")?;
+        let src_vocab_path_str = src_vocab_path
+            .to_str()
+            .ok_or("Source vocab path is not valid UTF-8")?;
+        let tgt_vocab_path_str = tgt_vocab_path
+            .to_str()
+            .ok_or("Target vocab path is not valid UTF-8")?;
 
         let config = format!(
             r#"
@@ -73,18 +91,41 @@ alignment: soft"#
         self.languages.insert(key, model);
         Ok(())
     }
+
     pub fn translate(
         &self,
         from_lang: &str,
         to_lang: &str,
         texts: &[&str],
     ) -> Result<Vec<String>, String> {
-        let key = from_lang.to_string() + to_lang;
-        // TODO: pivoting
-        if let Some(model) = self.languages.get(&key) {
-            Ok(self.service.translate(model, texts))
+        let models: Vec<Option<&TranslationModel>> = self
+            .get_pairs(from_lang, to_lang)
+            .iter()
+            .map(|(f, t)| {
+                let key = f.to_string() + t;
+                self.languages.get(&key)
+            })
+            .collect();
+
+        if !models.iter().all(|m| m.is_some()) {
+            return Err(format!("Language not loaded"));
+        }
+
+        let models: Vec<&TranslationModel> = models.iter().map(|o| o.unwrap()).collect();
+
+        if models.len() == 2 {
+            Ok(self.service.pivot(models[0], models[1], texts))
         } else {
-            Err(format!("Language {key} not loaded"))
+            assert_eq!(models.len(), 1);
+            Ok(self.service.translate(models[0], texts))
+        }
+    }
+
+    fn get_pairs<'a>(&self, from_lang: &'a str, to_lang: &'a str) -> Vec<(&'a str, &'a str)> {
+        if from_lang != "en" && to_lang != "en" {
+            vec![(from_lang, "en"), ("en", to_lang)]
+        } else {
+            vec![(from_lang, to_lang)]
         }
     }
 }

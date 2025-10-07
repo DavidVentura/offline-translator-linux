@@ -22,8 +22,10 @@ pub fn download_file(
         .parse::<usize>()
         .map_err(|e| format!("Failed to parse Content-Length: {}", e))?;
 
+    let tmp_output_path = output_path.with_extension("tmp");
+
     let mut file =
-        File::create(output_path).map_err(|e| format!("Failed to create file: {}", e))?;
+        File::create(&tmp_output_path).map_err(|e| format!("Failed to create file: {}", e))?;
 
     let mut reader = response.body_mut().as_reader();
     let mut buffer = vec![0u8; 512 * 1024];
@@ -57,11 +59,8 @@ pub fn download_file(
         }
     }
 
-    ui_handle
-        .upgrade_in_event_loop(|ui: AppWindow| {
-            ui.invoke_language_downloaded(language_code.into());
-        })
-        .map_err(|_| "Failed to update UI")?;
+    std::fs::rename(tmp_output_path, output_path)
+        .map_err(|e| format!("Failed to move tmp file: {e}"))?;
 
     Ok(())
 }
