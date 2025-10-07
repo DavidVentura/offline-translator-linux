@@ -12,6 +12,7 @@ export component AppWindow inherits Window {
     min-width: 600px;
     preferred-width: 600px;
     preferred-height: 800px;
+    icon: @image-url("../assets/logo.svg");
 
     out property <bool> has-languages: all-installed-languages.length > 1; // english
     in-out property <Screen> current-screen;
@@ -36,7 +37,6 @@ export component AppWindow inherits Window {
     in property <image> download-icon: @image-url("../assets/download.svg");
     in property <image> delete-icon: @image-url("../assets/delete.svg");
 
-    icon: @image-url("../assets/logo.svg");
     // events
     callback language-downloaded(string);
     callback download-progress(string, float);
