@@ -37,6 +37,7 @@ export component TopBar {
             IconButton {
                 icon: root.swap-icon;
                 size: 20px;
+                enabled: root.swap-enabled;
                 clicked => {
                     root.swap-languages();
                 }

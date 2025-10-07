@@ -92,7 +92,7 @@ pub fn run_eventloop(bus_rx: Receiver<IoEvent>, ui_handle: slint::Weak<AppWindow
                         Ok(result) => result.join("\n"),
                         Err(message) => message,
                     };
-                    println!("translation took {:?} = {}", start.elapsed(), result);
+                    println!("translation took {:?} = '{}'", start.elapsed(), result);
                     ui_handle
                         .upgrade_in_event_loop(move |ui: AppWindow| {
                             ui.set_output_text(result.into());

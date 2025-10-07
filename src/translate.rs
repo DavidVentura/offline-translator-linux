@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use std::path::Path;
+use std::{collections::HashMap, time::Instant};
 
 use bergamot_sys::{BlockingService, TranslationModel};
 
@@ -34,6 +34,7 @@ impl Translator {
             return Ok(());
         }
 
+        let start = Instant::now();
         let data_path = &self.data_path;
         let model_fname = format!("model.{from_lang}{to_lang}.intgemm.alphas.bin");
         let (src_vocab, tgt_vocab) = if vec!["zh", "ko", "ja"].contains(&to_lang) {
@@ -97,6 +98,7 @@ gemm-precision: int8shiftAlphaAll
 alignment: soft"#
         );
         let model = TranslationModel::from_config(&config)?;
+        println!("load {key} took {:?}", start.elapsed());
         self.languages.insert(key, model);
         Ok(())
     }

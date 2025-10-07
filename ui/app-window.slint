@@ -36,6 +36,7 @@ export component AppWindow inherits Window {
     in property <image> download-icon: @image-url("../assets/download.svg");
     in property <image> delete-icon: @image-url("../assets/delete.svg");
 
+    icon: @image-url("../assets/logo.svg");
     // events
     callback language-downloaded(string);
     callback download-progress(string, float);

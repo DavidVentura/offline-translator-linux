@@ -4,15 +4,13 @@ import { ScrollView } from "std-widgets.slint";
 export component TranslationOutputArea inherits ScrollView {
     in property <string> translation-text;
 
-    // VerticalLayout {
-        // padding: 16px;
-        // vertical-stretch: 1;
-        // horizontal-stretch: 1;
+    VerticalLayout {
+        padding: 16px;
         Text {
-        text: root.translation-text;
-        font-size: 16px;
-        color: AppTheme.text-primary;
-        wrap: word-wrap;
+            text: root.translation-text;
+            font-size: 16px;
+            color: AppTheme.text-primary;
+            wrap: word-wrap;
+        }
     }
-    // }
 }
