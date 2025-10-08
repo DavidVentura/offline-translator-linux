@@ -1,9 +1,14 @@
 import { IconButton } from "icon-button.slint";
+import { Button } from "button.slint";
+import { LabeledCheckbox } from "labeled-checkbox.slint";
 import { AppTheme } from "theme.slint";
 
 export component SettingsScreen {
     in property <image> back-icon;
+    in-out property <bool> disable-auto-detect;
+
     callback back-clicked();
+    callback manage-languages-clicked();
 
     Rectangle {
         background: AppTheme.background;
@@ -34,14 +39,20 @@ export component SettingsScreen {
             }
 
             VerticalLayout {
-                padding: 32px;
-                alignment: center;
+                padding: 16px;
+                spacing: 16px;
+                alignment: LayoutAlignment.start;
 
-                Text {
-                    text: "Settings coming soon...";
-                    font-size: 16px;
-                    color: AppTheme.text-secondary;
-                    horizontal-alignment: center;
+                Button {
+                    label: "Manage languages";
+                    clicked => {
+                        root.manage-languages-clicked();
+                    }
+                }
+
+                LabeledCheckbox {
+                    label: "Disable automatic language detection";
+                    checked <=> root.disable-auto-detect;
                 }
             }
         }

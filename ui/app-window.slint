@@ -16,6 +16,8 @@ export component AppWindow inherits Window {
 
     out property <bool> has-languages: all-installed-languages.length > 1; // english
     in-out property <Screen> current-screen;
+    property <Screen> previous-screen;
+    in-out property <bool> disable-auto-detect;
     in property <Language> source-language;
     in property <Language> target-language;
     out property <string> input-text;
@@ -121,8 +123,13 @@ export component AppWindow inherits Window {
         width: 100%;
         height: 100%;
         back-icon: root.back-icon;
+        disable-auto-detect <=> root.disable-auto-detect;
         back-clicked => {
             root.current-screen = Screen.Translation;
+        }
+        manage-languages-clicked => {
+            root.previous-screen = Screen.Settings;
+            root.current-screen = Screen.ManageLanguages;
         }
     }
 
@@ -136,7 +143,11 @@ export component AppWindow inherits Window {
         not-installed-languages: root.not-installed-languages;
 
         back-clicked => {
-            root.current-screen = root.has-languages ? Screen.Translation : Screen.NoLanguages;
+            if root.previous-screen == Screen.Settings {
+                root.current-screen = Screen.Settings;
+            } else {
+                root.current-screen = root.has-languages ? Screen.Translation : Screen.NoLanguages;
+            }
         }
         download-language(lang) => {
             root.download-language(lang);

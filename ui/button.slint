@@ -1,0 +1,27 @@
+import { AppTheme } from "theme.slint";
+
+export component Button {
+    in property <string> label;
+    callback clicked();
+
+    height: 48px;
+
+    touch-area := TouchArea {
+        clicked => {
+            root.clicked();
+        }
+    }
+
+    Rectangle {
+        border-radius: 8px;
+        background: touch-area.pressed ? AppTheme.surface-alt : AppTheme.surface;
+
+        Text {
+            text: root.label;
+            font-size: 16px;
+            color: AppTheme.text-primary;
+            vertical-alignment: center;
+            horizontal-alignment: center;
+        }
+    }
+}

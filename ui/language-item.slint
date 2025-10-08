@@ -27,8 +27,7 @@ export component LanguageItem {
                 }
 
                 Text {
-                    text: language.size;
-                    visible: language.code != "en";
+                    text: language.code == "en" ? "Built in" : language.size;
                     font-size: 14px;
                     color: AppTheme.text-secondary;
                     horizontal-alignment: left;
@@ -42,7 +41,7 @@ export component LanguageItem {
             if root.language.download-progress == 0: IconButton {
                 icon: root.is-installed ? root.delete-icon : root.download-icon;
                 size: 24px;
-                visible: language.code != "en";
+                enabled: language.code != "en";
                 clicked => {
                     root.action-clicked();
                 }

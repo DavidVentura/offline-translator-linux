@@ -1,0 +1,41 @@
+import { AppTheme } from "theme.slint";
+
+export component LabeledCheckbox {
+    in property <string> label;
+    in-out property <bool> checked;
+
+    HorizontalLayout {
+        spacing: 12px;
+        padding: 12px;
+
+        touch-area := TouchArea {
+            clicked => {
+                root.checked = !root.checked;
+            }
+        }
+
+        Text {
+            text: root.label;
+            font-size: 16px;
+            color: AppTheme.text-primary;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+        }
+
+        Rectangle {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            border-width: 2px;
+            border-color: AppTheme.primary;
+            background: root.checked ? AppTheme.primary : transparent;
+
+            if root.checked: Rectangle {
+                width: 12px;
+                height: 12px;
+                background: AppTheme.on-primary;
+                border-radius: 2px;
+            }
+        }
+    }
+}
