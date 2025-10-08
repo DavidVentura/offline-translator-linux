@@ -5,8 +5,6 @@ import { AppTheme } from "theme.slint";
 
 export component ManageLanguagesScreen {
     in property <image> back-icon;
-    in property <image> download-icon;
-    in property <image> delete-icon;
     in property <[Language]> installed-languages;
     in property <[Language]> not-installed-languages;
 
@@ -44,8 +42,6 @@ export component ManageLanguagesScreen {
 
             ManageLanguagesComponent {
                 vertical-stretch: 1;
-                download-icon: root.download-icon;
-                delete-icon: root.delete-icon;
                 installed-languages: root.installed-languages;
                 not-installed-languages: root.not-installed-languages;
 

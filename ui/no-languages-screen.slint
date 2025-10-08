@@ -9,7 +9,6 @@ export component NoLanguagesScreen {
     in-out property <int> active-tab: 0;
     in property <image> settings-icon;
     in property <image> download-icon;
-    in property <image> delete-icon;
     in property <[Language]> installed-languages;
     in property <[Language]> not-installed-languages;
 
@@ -64,8 +63,6 @@ export component NoLanguagesScreen {
 
             if root.active-tab == 0: ManageLanguagesComponent {
                 vertical-stretch: 1;
-                download-icon: root.download-icon;
-                delete-icon: root.delete-icon;
                 installed-languages: root.installed-languages;
                 not-installed-languages: root.not-installed-languages;
 

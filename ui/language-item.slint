@@ -6,8 +6,8 @@ import { Spinner } from "std-widgets.slint";
 export component LanguageItem {
     in property <Language> language;
     in property <bool> is-installed: false;
-    in property <image> download-icon;
-    in property <image> delete-icon;
+    in property <image> delete-icon: @image-url("assets/delete.svg");
+    in property <image> download-icon: @image-url("assets/download.svg");
 
     callback action-clicked();
     Rectangle {

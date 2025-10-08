@@ -26,7 +26,6 @@ export component TranslationScreen {
     in property <image> swap-icon;
     in property <image> settings-icon;
     in property <image> camera-icon;
-    in property <image> download-icon;
     in property <image> forward-icon;
 
     callback swap-languages();
@@ -77,7 +76,6 @@ export component TranslationScreen {
             MissingLanguageCard {
                 language: root.detected-language.language;
                 visible: root.show-missing-card;
-                download-icon: root.download-icon;
                 forward-icon: root.forward-icon;
                 action-clicked => {
                     if (root.detected-language.language.installed) {

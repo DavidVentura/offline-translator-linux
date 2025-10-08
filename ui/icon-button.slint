@@ -12,7 +12,6 @@ export component IconButton {
     touch-area := TouchArea {
         clicked => {
             if (root.enabled) {
-                debug("clicked");
                 root.clicked();
             }
         }

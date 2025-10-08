@@ -4,8 +4,6 @@ import { Language } from "language.slint";
 import { AppTheme } from "theme.slint";
 
 export component ManageLanguagesComponent {
-    in property <image> download-icon;
-    in property <image> delete-icon;
     in property <[Language]> installed-languages;
     in property <[Language]> not-installed-languages;
 
@@ -28,8 +26,6 @@ export component ManageLanguagesComponent {
             for lang in installed-languages: LanguageItem {
                 language: lang;
                 is-installed: true;
-                download-icon: root.download-icon;
-                delete-icon: root.delete-icon;
                 action-clicked => {
                     root.delete-language(lang);
                 }
@@ -45,8 +41,6 @@ export component ManageLanguagesComponent {
             for lang in not-installed-languages: LanguageItem {
                 language: lang;
                 is-installed: false;
-                download-icon: root.download-icon;
-                delete-icon: root.delete-icon;
                 action-clicked => {
                     root.download-language(lang);
                 }
