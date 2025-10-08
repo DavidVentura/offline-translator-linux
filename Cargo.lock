@@ -240,9 +240,9 @@ checksum = "d71b6127be86fdcfddb610f7182ac57211d4b18a3e9c82eb2d17662f2227ad6a"
 
 [[package]]
 name = "cc"
-version = "1.2.39"
+version = "1.2.40"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e1354349954c6fc9cb0deab020f27f783cf0b604e8bb754dc4658ecf0d29c35f"
+checksum = "e1d05d92f4b1fd76aad469d46cdd858ca761576082cd37df81416691e50199fb"
 dependencies = [
  "find-msvc-tools",
  "jobserver",
@@ -288,21 +288,16 @@ dependencies = [
 [[package]]
 name = "cld2"
 version = "1.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "80918b622b5301998079b2ee8e1d58caa37afe5e733f8b5894793bef88e55fed"
 dependencies = [
  "cld2-sys",
- "lazy_static 0.1.16",
  "libc",
 ]
 
 [[package]]
 name = "cld2-sys"
 version = "1.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bfbb85e425a2c4287874ade9656bd7114f28978e7165dc600ae233467c0b808f"
 dependencies = [
- "gcc",
+ "cc",
  "libc",
  "regex 0.1.80",
  "toml 0.1.30",
@@ -450,7 +445,7 @@ checksum = "27f8638c97fbd79cc6fc80b616e0e74b49bac21014faed590bbc89b7e2676c90"
 dependencies = [
  "cc",
  "cpp_common",
- "lazy_static 1.5.0",
+ "lazy_static",
  "proc-macro2",
  "regex 1.11.3",
  "syn",
@@ -463,7 +458,7 @@ version = "0.5.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "25fcfea2ee05889597d35e986c2ad0169694320ae5cc8f6d2640a4bb8a884560"
 dependencies = [
- "lazy_static 1.5.0",
+ "lazy_static",
  "proc-macro2",
  "syn",
 ]
@@ -477,7 +472,7 @@ dependencies = [
  "aho-corasick 1.1.3",
  "byteorder",
  "cpp_common",
- "lazy_static 1.5.0",
+ "lazy_static",
  "proc-macro2",
  "quote",
  "syn",
@@ -584,7 +579,7 @@ version = "0.11.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9e1b35532432acc8b19ceed096e35dfa088d3ea037fe4f3c085f1f97f33b4d02"
 dependencies = [
- "lazy_static 1.5.0",
+ "lazy_static",
  "libc",
  "serde",
  "serde_derive",
@@ -712,9 +707,9 @@ dependencies = [
 
 [[package]]
 name = "find-msvc-tools"
-version = "0.1.2"
+version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1ced73b1dacfc750a6db6c0a0c3a3853c8b41997e2e2c563dc90804ae6867959"
+checksum = "0399f9d26e5191ce32c498bebd31e7a3ceabc2745f0ac54af3f335126c3f24b3"
 
 [[package]]
 name = "flate2"
@@ -813,12 +808,6 @@ checksum = "cb4cb245038516f5f85277875cdaa4f7d2c9a0fa0468de06ed190163b1581fcf"
 dependencies = [
  "percent-encoding",
 ]
-
-[[package]]
-name = "gcc"
-version = "0.3.55"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8f5f3913fa0bfe7ee1fd8248b6b9f42a5af4b9d65ec2dd2c3c26132b950ecfc2"
 
 [[package]]
 name = "getrandom"
@@ -1353,12 +1342,6 @@ dependencies = [
  "euclid",
  "smallvec",
 ]
-
-[[package]]
-name = "lazy_static"
-version = "0.1.16"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cf186d1a8aa5f5bee5fd662bc9c1b949e0259e1bcc379d1f006847b0080c7417"
 
 [[package]]
 name = "lazy_static"

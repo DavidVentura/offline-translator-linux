@@ -6,13 +6,13 @@ edition = "2024"
 [dependencies]
 #bergamot-sys = { git = "https://github.com/DavidVentura/bergamot-sys.git", version = "0.1.0" }
 bergamot-sys = { path = "../bergamot-sys" }
+cld2 = { path = "../rust-cld2" }
 miniserde = "0.1.43"
 ureq = "3.1.2"
 slint = { version = "1.13.1", default-features = false, features = ["backend-qt", "std", "compat-1-2"] }
 i-slint-renderer-femtovg = { version = "1.13.1", features = ["opengl"] }
 flate2 = "1.0"
 rayon = "1.10"
-cld2 = "1.0.2"
 whoami = { version = "1.6.1", default-features = false }
 
 [build-dependencies]
