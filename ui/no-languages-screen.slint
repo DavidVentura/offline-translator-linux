@@ -7,8 +7,6 @@ import { AppTheme } from "theme.slint";
 
 export component NoLanguagesScreen {
     in-out property <int> active-tab: 0;
-    in property <image> settings-icon;
-    in property <image> download-icon;
     in property <[Language]> installed-languages;
     in property <[Language]> not-installed-languages;
 
@@ -35,7 +33,7 @@ export component NoLanguagesScreen {
                 }
 
                 IconButton {
-                    icon: root.settings-icon;
+                    icon: @image-url("assets/settings.svg");
                     size: 24px;
                     clicked => {
                         root.settings-clicked();

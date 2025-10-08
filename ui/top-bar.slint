@@ -10,8 +10,6 @@ export component TopBar {
     in property <[string]> installed-to-language-names;
 
     in property <bool> swap-enabled;
-    in property <image> swap-icon;
-    in property <image> settings-icon;
 
     callback swap-languages();
     callback settings-clicked();
@@ -35,7 +33,7 @@ export component TopBar {
             }
 
             IconButton {
-                icon: root.swap-icon;
+                icon: @image-url("assets/swap.svg");
                 size: 20px;
                 enabled: root.swap-enabled;
                 clicked => {
@@ -53,7 +51,7 @@ export component TopBar {
             }
 
             IconButton {
-                icon: root.settings-icon;
+                icon: @image-url("assets/settings.svg");
                 size: 20px;
                 clicked => {
                     root.settings-clicked();

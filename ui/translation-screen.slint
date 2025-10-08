@@ -23,11 +23,6 @@ export component TranslationScreen {
     in property <DetectedLanguage> detected-language;
     in property <bool> show-missing-card: detected-language.reliable && detected-language.language.direction != Direction.ToOnly && detected-language.language.code != source-language.code;
 
-    in property <image> swap-icon;
-    in property <image> settings-icon;
-    in property <image> camera-icon;
-    in property <image> forward-icon;
-
     callback swap-languages();
     callback settings-clicked();
     callback camera-clicked();
@@ -45,8 +40,6 @@ export component TranslationScreen {
             installed-to-language-names: root.installed-to-language-names;
 
             swap-enabled: root.swap-enabled;
-            swap-icon: root.swap-icon;
-            settings-icon: root.settings-icon;
 
             swap-languages => {
                 root.swap-languages();
@@ -76,7 +69,6 @@ export component TranslationScreen {
             MissingLanguageCard {
                 language: root.detected-language.language;
                 visible: root.show-missing-card;
-                forward-icon: root.forward-icon;
                 action-clicked => {
                     if (root.detected-language.language.installed) {
                         root.set-from(root.detected-language.language.name);
@@ -103,7 +95,7 @@ export component TranslationScreen {
     }
 
     FloatingActionButton {
-        icon: root.camera-icon;
+        icon: @image-url("assets/camera.svg");
         x: parent.width - self.width - 24px;
         y: parent.height - self.height - 24px;
         clicked => {

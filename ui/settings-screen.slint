@@ -4,7 +4,6 @@ import { LabeledCheckbox } from "labeled-checkbox.slint";
 import { AppTheme } from "theme.slint";
 
 export component SettingsScreen {
-    in property <image> back-icon;
     in-out property <bool> disable-auto-detect;
 
     callback back-clicked();
@@ -17,7 +16,7 @@ export component SettingsScreen {
             HorizontalLayout {
                 padding: 4px;
                 IconButton {
-                    icon: root.back-icon;
+                    icon: @image-url("assets/back.svg");
                     size: 24px;
                     clicked => {
                         root.back-clicked();

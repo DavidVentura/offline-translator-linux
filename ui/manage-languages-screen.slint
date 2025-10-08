@@ -4,7 +4,6 @@ import { Language } from "language.slint";
 import { AppTheme } from "theme.slint";
 
 export component ManageLanguagesScreen {
-    in property <image> back-icon;
     in property <[Language]> installed-languages;
     in property <[Language]> not-installed-languages;
 
@@ -19,7 +18,7 @@ export component ManageLanguagesScreen {
             HorizontalLayout {
                 padding: 4px;
                 IconButton {
-                    icon: root.back-icon;
+                    icon: @image-url("assets/back.svg");
                     size: 24px;
                     clicked => {
                         root.back-clicked();
