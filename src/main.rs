@@ -16,10 +16,18 @@ use crate::index::{Index, IndexLanguage};
 
 slint::include_modules!();
 
+const APP_NAME: &str = "dev.davidv.translator";
+
+#[derive(Clone, Debug)]
+struct AppPaths {
+    config: String,
+    data: String,
+}
+
 enum IoEvent {
     DownloadRequest(String),
     DeleteLanguage(String),
-    SetDataPath(String),
+    SetAppPaths(AppPaths),
     TranslationRequest {
         text: String,
         from: String,
@@ -28,11 +36,26 @@ enum IoEvent {
     Shutdown,
 }
 
+fn get_app_paths() -> AppPaths {
+    let is_ubp = std::env::var("UBUNTU_APP_LAUNCH_ARCH").is_ok()
+        || std::env::var("CLICKABLE_DESKTOP_MODE").is_ok();
+    let user = if is_ubp {
+        "phablet".to_string()
+    } else {
+        whoami::username()
+    };
+    AppPaths {
+        data: format!("/home/{user}/.local/share/{APP_NAME}/"),
+        config: format!("/home/{user}/.config/{APP_NAME}/"),
+    }
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     let ui = AppWindow::new()?;
 
     let (bus_tx, bus_rx) = mpsc::channel::<IoEvent>();
     let default_index = read_default_index();
+    let app_paths = get_app_paths();
 
     setup_language_models(&ui, &default_index, bus_tx.clone());
 
@@ -40,9 +63,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let jh = std::thread::spawn(move || eventloop::run_eventloop(bus_rx, ui_handle, default_index));
 
     ui.set_current_screen(Screen::NoLanguages);
-    let data_path = "/home/david/git/offline-translator-linux/lang-data/".to_string();
 
-    bus_tx.send(IoEvent::SetDataPath(data_path)).unwrap();
+    bus_tx.send(IoEvent::SetAppPaths(app_paths)).unwrap();
     ui.run()?;
     bus_tx.send(IoEvent::Shutdown).unwrap();
     drop(bus_tx);

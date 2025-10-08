@@ -1,0 +1,8 @@
+clickable_minimum_required: 8.0.0
+builder: precompiled
+kill: translator
+install_root_data:
+- manifest.json
+- translator.apparmor
+- translator.desktop
+- assets

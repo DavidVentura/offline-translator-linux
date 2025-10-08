@@ -66,9 +66,8 @@ export component TranslationScreen {
                 }
             }
 
-            MissingLanguageCard {
+            if root.show-missing-card: MissingLanguageCard {
                 language: root.detected-language.language;
-                visible: root.show-missing-card;
                 action-clicked => {
                     if (root.detected-language.language.installed) {
                         root.set-from(root.detected-language.language.name);
@@ -78,20 +77,23 @@ export component TranslationScreen {
                 }
             }
 
+            if !root.show-missing-card: Rectangle {
+                horizontal-stretch: 1;
+                height: 0px;
+                Rectangle {
+                    height: 4px;
+                    x: parent.width / 4;
+                    width: parent.width / 2;
+                    border-radius: 2px;
+                    background: AppTheme.border;
+                }
+            }
+
             TranslationOutputArea {
                 vertical-stretch: 1;
                 translation-text: root.output-text;
             }
         }
-    }
-
-    if !root.show-missing-card: Rectangle {
-        height: 4px;
-        width: parent.width / 2;
-        x: parent.width / 4;
-        y: parent.height / 2 + 4px;
-        border-radius: 2px;
-        background: AppTheme.border;
     }
 
     FloatingActionButton {

@@ -1,0 +1,15 @@
+{
+    "name": "translator.dev.davidv",
+    "description": "On-device translation of text and images",
+    "architecture": "@CLICK_ARCH@",
+    "title": "Offline translator",
+    "hooks": {
+        "translator": {
+            "apparmor": "translator.apparmor",
+            "desktop":  "translator.desktop"
+        }
+    },
+    "version": "1.0.0",
+    "maintainer": "David <david@davidv.dev>",
+    "framework" : "@CLICK_FRAMEWORK@"
+}

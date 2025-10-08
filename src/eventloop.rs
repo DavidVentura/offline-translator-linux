@@ -11,17 +11,17 @@ use rayon::prelude::*;
 
 use crate::index::{Index, IndexLanguage};
 use crate::translate::Translator;
-use crate::{AppWindow, IoEvent};
+use crate::{AppPaths, AppWindow, IoEvent};
 use crate::{Screen, download};
 
 pub fn run_eventloop(bus_rx: Receiver<IoEvent>, ui_handle: slint::Weak<AppWindow>, index: Index) {
     let mut translator = None::<Translator>;
-    let mut data_path = String::new();
+    let mut app_paths = None::<AppPaths>;
 
     while let Ok(msg) = bus_rx.recv() {
         match msg {
-            IoEvent::SetDataPath(path) => {
-                data_path = path;
+            IoEvent::SetAppPaths(path) => {
+                app_paths = Some(path.clone());
                 ui_handle
                     .upgrade_in_event_loop(move |ui: AppWindow| {
                         ui.invoke_languages_cleared();
@@ -30,7 +30,9 @@ pub fn run_eventloop(bus_rx: Receiver<IoEvent>, ui_handle: slint::Weak<AppWindow
 
                 let mut has_languages = false;
                 let load_start = Instant::now();
-                let avail_files = std::fs::read_dir(&data_path).expect("bad data path");
+                std::fs::create_dir_all(&path.data).expect("can't make data dir");
+                std::fs::create_dir_all(&path.config).expect("can't make data dir");
+                let avail_files = std::fs::read_dir(&path.data).expect("bad data path");
                 let avail_files: HashSet<String> = HashSet::from_iter(
                     avail_files
                         .into_iter()
@@ -55,7 +57,7 @@ pub fn run_eventloop(bus_rx: Receiver<IoEvent>, ui_handle: slint::Weak<AppWindow
 
                 if has_languages {
                     println!("has langs");
-                    translator = Some(Translator::new(data_path.clone()));
+                    translator = Some(Translator::new(path.data.clone()));
                     ui_handle
                         .upgrade_in_event_loop(move |ui: AppWindow| {
                             ui.set_current_screen(Screen::Translation);
@@ -68,6 +70,11 @@ pub fn run_eventloop(bus_rx: Receiver<IoEvent>, ui_handle: slint::Weak<AppWindow
                 println!("Load took {:?}", load_start.elapsed());
             }
             IoEvent::DownloadRequest(code) => {
+                if app_paths.is_none() {
+                    println!("no app path, cant download");
+                    continue;
+                }
+                let app_paths = app_paths.clone().unwrap();
                 let lang = index
                     .languages
                     .iter()
@@ -77,17 +84,22 @@ pub fn run_eventloop(bus_rx: Receiver<IoEvent>, ui_handle: slint::Weak<AppWindow
                     .clone();
 
                 let ui_handle_clone = ui_handle.clone();
-                let data_path_clone = data_path.clone();
+                let data_path_clone = app_paths.data.clone();
                 let jh = std::thread::spawn(move || {
                     download(&lang, ui_handle_clone, &data_path_clone);
                 });
                 jh.join().expect("thread panicked");
                 if translator.is_none() {
-                    translator = Some(Translator::new(data_path.clone()));
+                    translator = Some(Translator::new(app_paths.data.clone()));
                     println!("init translator on download");
                 }
             }
             IoEvent::DeleteLanguage(code) => {
+                if app_paths.is_none() {
+                    println!("no app path, cant download");
+                    continue;
+                }
+                let app_paths = app_paths.clone().unwrap();
                 println!("Deleting language: {}", code);
 
                 if let Some(lang) = index.languages.iter().find(|l| l.code == code) {
@@ -96,7 +108,7 @@ pub fn run_eventloop(bus_rx: Receiver<IoEvent>, ui_handle: slint::Weak<AppWindow
                     files.dedup_by_key(|f| f.name.clone());
 
                     for file in files {
-                        let file_path = Path::new(&data_path).join(&file.name);
+                        let file_path = Path::new(&app_paths.data).join(&file.name);
                         match std::fs::remove_file(&file_path) {
                             Ok(_) => println!("Deleted file: {}", file.name),
                             Err(e) => eprintln!("Failed to delete {}: {}", file.name, e),

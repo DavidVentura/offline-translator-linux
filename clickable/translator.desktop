@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=Offline translator
+Exec=translator %U
+Icon=assets/logo.svg
+Terminal=false
+Type=Application
+X-Lomiri-Touch=true

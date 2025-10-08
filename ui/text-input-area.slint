@@ -13,6 +13,7 @@ export component TextInputArea inherits ScrollView {
             text <=> root.text;
             font-size: 16px;
             wrap: word-wrap;
+            color: AppTheme.text-primary;
             edited => {
                 root.changed();
                 root.viewport-y = root.viewport-height;

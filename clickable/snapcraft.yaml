@@ -1,0 +1,77 @@
+name: translator
+version: 0.1
+base: core24
+summary: Offline translator
+description: On-device translation of text and images
+confinement: strict
+grade: stable
+
+platforms:
+  amd64:
+  arm64:
+  armhf:
+
+apps:
+  translator:
+    desktop: translator.desktop
+
+    command: bin/translator
+
+    command-chain:
+      - bin/gpu-2404-wrapper
+      - bin/lomiri-launch
+    plugs:
+      - opengl
+      - wayland
+
+plugs:
+  lomiri-ui-toolkit:
+    interface: content
+    target: $SNAP/lomiri-ui-toolkit
+    default-provider: lomiri-ui-toolkit-core24
+  gpu-2404:
+    interface: content
+    target: $SNAP/gpu-2404
+    default-provider: mesa-2404
+
+layout:
+  /usr/share/X11/xkb:
+    symlink: $SNAP/lomiri-ui-toolkit/usr/share/X11/xkb
+  /usr/share/icons:
+    bind: $SNAP/lomiri-ui-toolkit/usr/share/icons
+  /usr/share/sounds:
+    bind: $SNAP/usr/share/sounds
+
+parts:
+  main:
+
+    plugin: rust
+
+    source: .
+    build-snaps:
+      - lomiri-ui-toolkit-core24
+    build-packages:
+      - qtbase5-dev
+      - qtbase5-dev-tools
+      - qtdeclarative5-dev
+      - qtquickcontrols2-5-dev
+      - intltool
+
+    override-prime: |
+        craftctl default
+        mkdir -p ${CRAFT_PRIME}/bin
+        cp -a /snap/lomiri-ui-toolkit-core24/current/command-chain/lomiri-launch ${CRAFT_PRIME}/bin/lomiri-launch
+
+        cp -a ${CRAFT_PART_SRC}/assets ${CRAFT_PRIME}/
+        cp ${CRAFT_PART_SRC}/translator.desktop ${CRAFT_PRIME}/
+
+  gpu-2404:
+    after:
+      - main
+    source: https://github.com/canonical/gpu-snap.git
+    plugin: dump
+    override-prime: |
+      craftctl default
+      ${CRAFT_PART_SRC}/bin/gpu-2404-cleanup mesa-2404
+    prime:
+      - bin/gpu-2404-wrapper
