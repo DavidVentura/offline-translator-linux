@@ -40,14 +40,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     let jh = std::thread::spawn(move || eventloop::run_eventloop(bus_rx, ui_handle, default_index));
 
     ui.set_current_screen(Screen::NoLanguages);
-    ui.set_detected_language(Language {
-        code: "it".into(),
-        direction: Direction::Both,
-        installed: false,
-        name: "Testlang".into(),
-        size: "asd".into(),
-        download_progress: 0f32,
-    });
     let data_path = "/home/david/git/offline-translator-linux/lang-data/".to_string();
 
     bus_tx.send(IoEvent::SetDataPath(data_path)).unwrap();
@@ -197,6 +189,31 @@ fn setup_eventloop_callbacks(ui: &AppWindow, all_languages: Rc<VecModel<Language
                     break;
                 }
             }
+        }
+    });
+
+    let detected = all_languages.clone();
+    let ui_detected = ui.as_weak();
+    ui.on_set_detected_language_code({
+        move |det_code| {
+            let mut det = DetectedLanguage {
+                language: Language::default(),
+                reliable: false,
+            };
+            for i in 0..detected.row_count() {
+                let lang = detected.row_data(i).unwrap();
+                if lang.code == det_code {
+                    det.language = lang;
+                    det.reliable = true;
+                    break;
+                }
+            }
+            println!("{det:?}");
+            ui_detected
+                .upgrade_in_event_loop(move |ui: AppWindow| {
+                    ui.set_detected_language(det);
+                })
+                .unwrap();
         }
     });
 }

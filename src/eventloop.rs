@@ -6,6 +6,7 @@ use std::sync::mpsc::Receiver;
 use std::thread;
 use std::time::{Duration, Instant};
 
+use cld2::{Format, detect_language};
 use rayon::prelude::*;
 
 use crate::index::{Index, IndexLanguage};
@@ -106,6 +107,7 @@ pub fn run_eventloop(bus_rx: Receiver<IoEvent>, ui_handle: slint::Weak<AppWindow
                 }
             }
             IoEvent::TranslationRequest { text, from, to } => {
+                send_detection_to_ui(&text, &ui_handle);
                 if let Some(ref mut translator) = translator {
                     let lines: Vec<&str> = text.split("\n").collect();
                     let start = Instant::now();
@@ -217,4 +219,19 @@ fn download(lang: &IndexLanguage, ui_handle: slint::Weak<AppWindow>, data_path: 
             })
             .expect("Failed to update UI");
     }
+}
+
+fn send_detection_to_ui(text: &str, ui_handle: &slint::Weak<AppWindow>) {
+    // TODO detect in another thread?
+    let (detected, reliable) = detect_language(&text, Format::Text);
+
+    let code = match (detected, reliable) {
+        (Some(c), cld2::Reliable) => c.0,
+        _ => "",
+    };
+    ui_handle
+        .upgrade_in_event_loop(move |ui: AppWindow| {
+            ui.invoke_set_detected_language_code(code.to_string().into());
+        })
+        .unwrap();
 }

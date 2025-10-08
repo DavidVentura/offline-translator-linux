@@ -4,7 +4,7 @@ import { TranslationOutputArea } from "translation-output-area.slint";
 import { FloatingActionButton } from "floating-action-button.slint";
 import { MissingLanguageCard } from "missing-language-card.slint";
 import { AppTheme } from "theme.slint";
-import { Language, Direction } from "language.slint";
+import { Language, Direction, DetectedLanguage } from "language.slint";
 import { VerticalBox, ScrollView } from "std-widgets.slint";
 
 
@@ -20,8 +20,8 @@ export component TranslationScreen {
     in property <[string]> installed-from-language-names;
     in property <[string]> installed-to-language-names;
 
-    in property <Language> detected-language;
-    in property <bool> show-missing-card: detected-language.code != source-language.code;
+    in property <DetectedLanguage> detected-language;
+    in property <bool> show-missing-card: detected-language.reliable && detected-language.language.direction != Direction.ToOnly && detected-language.language.code != source-language.code;
 
     in property <image> swap-icon;
     in property <image> settings-icon;
@@ -75,15 +75,15 @@ export component TranslationScreen {
             }
 
             MissingLanguageCard {
-                language: root.detected-language;
+                language: root.detected-language.language;
                 visible: root.show-missing-card;
                 download-icon: root.download-icon;
                 forward-icon: root.forward-icon;
                 action-clicked => {
-                    if (root.detected-language.installed) {
-                        root.set-from(root.detected-language.name);
+                    if (root.detected-language.language.installed) {
+                        root.set-from(root.detected-language.language.name);
                     } else {
-                        root.download-language(root.detected-language);
+                        root.download-language(root.detected-language.language);
                     }
                 }
             }

@@ -3,7 +3,7 @@ import { TranslationScreen } from "translation-screen.slint";
 import { NoLanguagesScreen } from "no-languages-screen.slint";
 import { SettingsScreen } from "settings-screen.slint";
 import { ManageLanguagesScreen } from "manage-languages-screen.slint";
-import { Language } from "language.slint";
+import { Language, DetectedLanguage } from "language.slint";
 import { AppTheme } from "theme.slint";
 
 export component AppWindow inherits Window {
@@ -20,7 +20,7 @@ export component AppWindow inherits Window {
     in property <Language> target-language;
     out property <string> input-text;
     in property <string> output-text;
-    in property <Language> detected-language;
+    in property <DetectedLanguage> detected-language;
 
     in property <[Language]> all-languages;
     in property <[Language]> all-installed-languages;
@@ -43,6 +43,7 @@ export component AppWindow inherits Window {
     callback language-downloaded(string);
     callback download-progress(string, float);
     callback languages-cleared();
+    callback set-detected-language-code(string);
 
     // inputs
     callback swap-languages();
