@@ -4,9 +4,10 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-#bergamot-sys = { git = "https://github.com/DavidVentura/bergamot-sys.git", version = "0.1.0" }
-bergamot-sys = { path = "../bergamot-sys" }
-cld2 = { path = "../rust-cld2" }
+bergamot-sys = { git = "https://github.com/DavidVentura/bergamot-sys.git" }
+#bergamot-sys = { path = "../bergamot-sys" }
+cld2 = { git = "https://github.com/DavidVentura/rust-cld2.git" }
+#cld2 = { path = "../rust-cld2" }
 miniserde = "0.1.43"
 ureq = "3.1.2"
 slint = { version = "1.13.1", default-features = false, features = ["backend-qt", "std", "compat-1-2"] }

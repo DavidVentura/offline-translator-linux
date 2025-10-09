@@ -135,6 +135,7 @@ checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 [[package]]
 name = "bergamot-sys"
 version = "0.1.0"
+source = "git+https://github.com/DavidVentura/bergamot-sys.git#5a9bc63fef91b817749c9ae30b2c7195d211d912"
 dependencies = [
  "cmake",
 ]
@@ -288,6 +289,7 @@ dependencies = [
 [[package]]
 name = "cld2"
 version = "1.0.2"
+source = "git+https://github.com/DavidVentura/rust-cld2.git#e8a83a605198fd27b8cd56b57d617252e23c7273"
 dependencies = [
  "cld2-sys",
  "libc",
@@ -296,6 +298,7 @@ dependencies = [
 [[package]]
 name = "cld2-sys"
 version = "1.0.2"
+source = "git+https://github.com/DavidVentura/rust-cld2.git#e8a83a605198fd27b8cd56b57d617252e23c7273"
 dependencies = [
  "cc",
  "libc",
