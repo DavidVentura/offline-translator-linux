@@ -1,3 +1,6 @@
 /target
 .cargo
 lang-data
+packaging/postmarketos/tmp/
+packaging/postmarketos/src/
+packaging/postmarketos/**/*.gz

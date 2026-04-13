@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Offline translator
+Exec=offline-translator-linux
+Icon=offline-translator-linux
+Terminal=false
+Type=Application
+Categories=Utility;Education;
+Keywords=translate;translation;offline;

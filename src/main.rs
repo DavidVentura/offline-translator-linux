@@ -8,6 +8,7 @@ use flate2::read::GzDecoder;
 use slint::{self, ComponentHandle, FilterModel, MapModel, Model, VecModel};
 use std::error::Error;
 use std::io::Read;
+use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::mpsc::{self, Sender};
 
@@ -37,16 +38,19 @@ enum IoEvent {
 }
 
 fn get_app_paths() -> AppPaths {
-    let is_ubp = std::env::var("UBUNTU_APP_LAUNCH_ARCH").is_ok()
-        || std::env::var("CLICKABLE_DESKTOP_MODE").is_ok();
-    let user = if is_ubp {
-        "phablet".to_string()
-    } else {
-        whoami::username()
-    };
+    let home = std::env::var_os("HOME")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from(format!("/home/{}", whoami::username())));
+    let data_root = std::env::var_os("XDG_DATA_HOME")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| home.join(".local/share"));
+    let config_root = std::env::var_os("XDG_CONFIG_HOME")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| home.join(".config"));
+
     AppPaths {
-        data: format!("/home/{user}/.local/share/{APP_NAME}/"),
-        config: format!("/home/{user}/.config/{APP_NAME}/"),
+        data: data_root.join(APP_NAME).display().to_string(),
+        config: config_root.join(APP_NAME).display().to_string(),
     }
 }
 

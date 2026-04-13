@@ -1,5 +1,5 @@
 {
-    "name": "translator.dev.davidv",
+    "name": "dev.davidv.translator",
     "description": "On-device translation of text and images",
     "architecture": "@CLICK_ARCH@",
     "title": "Offline translator",

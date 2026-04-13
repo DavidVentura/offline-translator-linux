@@ -1,0 +1,58 @@
+# Maintainer: David <david@davidv.dev>
+pkgname=offline-translator-linux
+pkgver=0.1.0
+pkgrel=0
+pkgdesc="On-device offline translator built with Slint"
+url="https://github.com/DavidVentura/offline-translator-linux"
+arch="aarch64 armv7 x86_64"
+license="TODO"
+depends="
+	qt5-qtbase
+	qt5-qtdeclarative
+"
+makedepends="
+	cargo
+	cmake
+	git
+	linux-headers
+	mesa-dev
+	pkgconf
+	qt5-qtbase-dev
+	qt5-qtdeclarative-dev
+	rust
+"
+source="
+	$pkgname-$pkgver.tar.gz
+	offline-translator-linux.desktop
+"
+builddir="$srcdir/$pkgname-$pkgver"
+options="net !check"
+
+prepare() {
+	default_prepare
+	export CARGO_NET_GIT_FETCH_WITH_CLI=true
+	cargo fetch --target="$CHOST" --locked
+}
+
+build() {
+	export CARGO_NET_GIT_FETCH_WITH_CLI=true
+	cargo build --frozen --release --target="$CHOST"
+}
+
+package() {
+	install -Dm755 \
+		target/"$CHOST"/release/offline-translator-linux \
+		"$pkgdir"/usr/bin/offline-translator-linux
+
+	install -Dm644 \
+		"$srcdir"/offline-translator-linux.desktop \
+		"$pkgdir"/usr/share/applications/offline-translator-linux.desktop
+
+	install -Dm644 \
+		clickable/assets/logo.svg \
+		"$pkgdir"/usr/share/icons/hicolor/scalable/apps/offline-translator-linux.svg
+}
+sha512sums="
+bc6b30d73e58678db97d428bd0a247b12a0243b3901c93f02e6f6e4aa9f1051abe41365a75639183e6a657e2456a1c4b14212f29bbd9ee5f6b7c225c184b55c8  offline-translator-linux-0.1.0.tar.gz
+a558abc8d57cd83c6edcfa3746ec538ce2f2c9464be3c92ac7a1ec98d562a8eded9b7552b25651875a2ae6472d07b38999f56d0eaeab63c27984ef2d0a42a0fc  offline-translator-linux.desktop
+"
