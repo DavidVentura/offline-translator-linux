@@ -120,10 +120,6 @@ fn main() -> Result<(), Box<dyn Error>> {
 
 fn configure_onnxruntime_dylib_path() -> Result<(), Box<dyn Error>> {
     if std::env::var_os("ORT_DYLIB_PATH").is_some() {
-        println!(
-            "onnxruntime: ORT_DYLIB_PATH already set to {}",
-            std::env::var("ORT_DYLIB_PATH").unwrap_or_default()
-        );
         return Ok(());
     }
 
@@ -133,7 +129,6 @@ fn configure_onnxruntime_dylib_path() -> Result<(), Box<dyn Error>> {
         .ok_or("current executable has no parent directory")?;
     let app_dir = exe_dir.parent().map(PathBuf::from);
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let current_exe = std::env::current_exe()?;
 
     let candidates = [
         exe_dir.join("libonnxruntime.so"),
@@ -149,32 +144,9 @@ fn configure_onnxruntime_dylib_path() -> Result<(), Box<dyn Error>> {
         manifest_dir.join("runtime-lib/libonnxruntime.so"),
     ];
 
-    println!(
-        "onnxruntime: current_exe={} exe_dir={} app_dir={}",
-        current_exe.display(),
-        exe_dir.display(),
-        app_dir
-            .as_ref()
-            .map(|dir| dir.display().to_string())
-            .unwrap_or_else(|| "<none>".to_string())
-    );
-    for candidate in &candidates {
-        println!(
-            "onnxruntime: candidate {} exists={}",
-            candidate.display(),
-            candidate.is_file()
-        );
-    }
-
     if let Some(path) = candidates.into_iter().find(|path| path.is_file()) {
         // Set once during process startup before worker threads are spawned.
         unsafe { std::env::set_var("ORT_DYLIB_PATH", path) };
-        println!(
-            "onnxruntime: using ORT_DYLIB_PATH={}",
-            std::env::var("ORT_DYLIB_PATH").unwrap_or_default()
-        );
-    } else {
-        println!("onnxruntime: no bundled libonnxruntime.so candidate found");
     }
 
     Ok(())

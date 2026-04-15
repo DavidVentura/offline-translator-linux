@@ -8,6 +8,10 @@ Item {
     property var theme
     property bool speechLongPressTriggered: false
     UiScale { id: ui; desktopMode: root.appBridge && root.appBridge.desktop_mode }
+    readonly property real imageOverlayButtonSize: appBridge.desktop_mode ? ui.dp(36) : ui.dp(40)
+    readonly property real imageOverlayIconSize: appBridge.desktop_mode ? ui.dp(18) : ui.dp(20)
+    readonly property real fullscreenOverlayButtonSize: appBridge.desktop_mode ? ui.dp(40) : ui.dp(40)
+    readonly property real fullscreenOverlayIconSize: appBridge.desktop_mode ? ui.dp(20) : ui.dp(20)
 
     function shareCurrentImage() {
         if (imageShareLoader.item) {
@@ -96,39 +100,47 @@ Item {
                 anchors.margins: ui.dp(12)
                 spacing: ui.dp(8)
 
-                RoundButton {
-                    width: ui.dp(36)
-                    height: ui.dp(36)
-                    display: AbstractButton.IconOnly
-                    icon.source: appBridge.asset_url("share.svg")
-                    icon.color: theme.textPrimary
-                    icon.width: ui.dp(18)
-                    icon.height: ui.dp(18)
-                    text: "Share"
-                    onClicked: root.shareCurrentImage()
-                    background: Rectangle {
-                        radius: width / 2
-                        color: parent.down ? Qt.darker(theme.surfaceColor, 1.1) : theme.surfaceColor
-                        border.color: theme.borderColor
-                        border.width: 1
+                Rectangle {
+                    width: root.imageOverlayButtonSize
+                    height: root.imageOverlayButtonSize
+                    radius: width / 2
+                    color: shareOverlayMouse.pressed ? "#99000000" : "#80000000"
+
+                    Image {
+                        anchors.centerIn: parent
+                        width: root.imageOverlayIconSize
+                        height: root.imageOverlayIconSize
+                        source: appBridge.asset_url("share.svg")
+                        sourceSize.width: root.imageOverlayIconSize
+                        sourceSize.height: root.imageOverlayIconSize
+                    }
+
+                    MouseArea {
+                        id: shareOverlayMouse
+                        anchors.fill: parent
+                        onClicked: root.shareCurrentImage()
                     }
                 }
 
-                RoundButton {
-                    width: ui.dp(36)
-                    height: ui.dp(36)
-                    display: AbstractButton.IconOnly
-                    icon.source: appBridge.asset_url("close.svg")
-                    icon.color: theme.textPrimary
-                    icon.width: ui.dp(18)
-                    icon.height: ui.dp(18)
-                    text: "Close"
-                    onClicked: appBridge.clear_selected_image()
-                    background: Rectangle {
-                        radius: width / 2
-                        color: parent.down ? Qt.darker(theme.surfaceColor, 1.1) : theme.surfaceColor
-                        border.color: theme.borderColor
-                        border.width: 1
+                Rectangle {
+                    width: root.imageOverlayButtonSize
+                    height: root.imageOverlayButtonSize
+                    radius: width / 2
+                    color: closeOverlayMouse.pressed ? "#99000000" : "#80000000"
+
+                    Image {
+                        anchors.centerIn: parent
+                        width: root.imageOverlayIconSize
+                        height: root.imageOverlayIconSize
+                        source: appBridge.asset_url("close.svg")
+                        sourceSize.width: root.imageOverlayIconSize
+                        sourceSize.height: root.imageOverlayIconSize
+                    }
+
+                    MouseArea {
+                        id: closeOverlayMouse
+                        anchors.fill: parent
+                        onClicked: appBridge.clear_selected_image()
                     }
                 }
             }
@@ -492,43 +504,53 @@ Item {
             interactive: false
         }
 
-        RoundButton {
+        Rectangle {
             anchors.top: parent.top
             anchors.left: parent.left
             anchors.margins: ui.dp(16)
-            width: ui.dp(44)
-            height: ui.dp(44)
-            display: AbstractButton.IconOnly
-            icon.source: appBridge.asset_url("back.svg")
-            icon.color: "#FFFFFF"
-            icon.width: ui.dp(22)
-            icon.height: ui.dp(22)
-            text: "Back"
-            onClicked: appBridge.close_image_viewer()
-            background: Rectangle {
-                radius: width / 2
-                color: parent.down ? "#99000000" : "#80000000"
-                border.width: 0
+            width: root.fullscreenOverlayButtonSize
+            height: root.fullscreenOverlayButtonSize
+            radius: width / 2
+            color: fullscreenBackMouse.pressed ? "#99000000" : "#80000000"
+
+            Image {
+                anchors.centerIn: parent
+                width: root.fullscreenOverlayIconSize
+                height: root.fullscreenOverlayIconSize
+                source: appBridge.asset_url("back.svg")
+                sourceSize.width: root.fullscreenOverlayIconSize
+                sourceSize.height: root.fullscreenOverlayIconSize
+            }
+
+            MouseArea {
+                id: fullscreenBackMouse
+                anchors.fill: parent
+                onClicked: appBridge.close_image_viewer()
             }
         }
 
-        RoundButton {
+        Rectangle {
             anchors.top: parent.top
             anchors.right: parent.right
             anchors.margins: ui.dp(16)
-            width: ui.dp(44)
-            height: ui.dp(44)
-            display: AbstractButton.IconOnly
-            icon.source: appBridge.asset_url("share.svg")
-            icon.color: "#FFFFFF"
-            icon.width: ui.dp(22)
-            icon.height: ui.dp(22)
-            text: "Share"
-            onClicked: root.shareCurrentImage()
-            background: Rectangle {
-                radius: width / 2
-                color: parent.down ? "#99000000" : "#80000000"
-                border.width: 0
+            width: root.fullscreenOverlayButtonSize
+            height: root.fullscreenOverlayButtonSize
+            radius: width / 2
+            color: fullscreenShareMouse.pressed ? "#99000000" : "#80000000"
+
+            Image {
+                anchors.centerIn: parent
+                width: root.fullscreenOverlayIconSize
+                height: root.fullscreenOverlayIconSize
+                source: appBridge.asset_url("share.svg")
+                sourceSize.width: root.fullscreenOverlayIconSize
+                sourceSize.height: root.fullscreenOverlayIconSize
+            }
+
+            MouseArea {
+                id: fullscreenShareMouse
+                anchors.fill: parent
+                onClicked: root.shareCurrentImage()
             }
         }
     }
