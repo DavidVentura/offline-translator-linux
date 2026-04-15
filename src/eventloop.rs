@@ -62,13 +62,7 @@ pub fn run_eventloop(bus_rx: Receiver<IoEvent>, ui: UiCallbacks, catalog: Langua
 
                 let new_snapshot = build_snapshot(&catalog, &app_paths.data);
                 let languages = languages_from_snapshot(&new_snapshot);
-                let has_languages = languages
-                    .iter()
-                    .any(|language| !language.built_in && language.core_installed);
                 (ui.set_languages)(languages);
-                if has_languages {
-                    (ui.set_current_screen)(Screen::Translation);
-                }
                 snapshot = Some(new_snapshot);
             }
             IoEvent::DeleteLanguage { code, feature } => {

@@ -22,10 +22,6 @@ Item {
         }
     }
 
-    function statusColor(installed) {
-        return installed ? theme.textPrimary : theme.textSecondary
-    }
-
     function toggleLanguage(code) {
         appBridge.toggle_manage_language(code)
     }
@@ -54,28 +50,26 @@ Item {
             }
         }
 
-        ScrollView {
-            id: browserScroll
+        Flickable {
+            id: flickable
             Layout.fillWidth: true
             Layout.fillHeight: true
             clip: true
-            contentWidth: availableWidth
+            contentWidth: width
+            contentHeight: listColumn.implicitHeight
+            boundsBehavior: Flickable.StopAtBounds
 
-            background: Rectangle {
-                color: "#14151C"
-            }
-
-            ScrollBar.vertical.policy: ScrollBar.AsNeeded
-            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+            ScrollBar.vertical.policy: ScrollBar.AlwaysOff
 
             Column {
-                width: browserScroll.availableWidth
+                id: listColumn
+                width: flickable.width
                 spacing: 0
 
                 Repeater {
                     model: appBridge.manage_languages_model
 
-                    delegate: Rectangle {
+                    delegate: Item {
                         required property string code
                         required property string name
                         required property string total_size
@@ -94,169 +88,214 @@ Item {
                         required property string tts_size
                         required property real tts_progress
 
-                        width: parent.width
-                        height: contentColumn.implicitHeight + 12
-                        color: index % 2 === 0 ? "#1A1B24" : "#16171F"
-                        border.width: 0
+                        readonly property int installedCount:
+                            (core_available && core_installed ? 1 : 0) +
+                            (dictionary_available && dictionary_installed ? 1 : 0) +
+                            (tts_available && tts_installed ? 1 : 0)
+                        readonly property int availableCount:
+                            (core_available ? 1 : 0) +
+                            (dictionary_available ? 1 : 0) +
+                            (tts_available ? 1 : 0)
+                        readonly property bool allInstalled: availableCount > 0 && installedCount === availableCount
+                        readonly property bool noneInstalled: installedCount === 0
+                        readonly property bool someInstalled: !allInstalled && !noneInstalled
 
-                        Rectangle {
-                            anchors.left: parent.left
-                            anchors.right: parent.right
-                            anchors.bottom: parent.bottom
-                            height: 1
-                            color: "#2A2D3A"
-                        }
+                        width: listColumn.width
+                        implicitHeight: delegateLayout.implicitHeight
 
                         ColumnLayout {
-                            id: contentColumn
-                            anchors.left: parent.left
-                            anchors.right: parent.right
-                            anchors.top: parent.top
-                            anchors.leftMargin: 8
-                            anchors.rightMargin: 10
-                            anchors.topMargin: 6
-                            spacing: 8
+                            id: delegateLayout
+                            width: parent.width
+                            spacing: 0
 
                             Item {
                                 Layout.fillWidth: true
-                                implicitHeight: 46
+                                implicitHeight: 52
 
                                 MouseArea {
                                     anchors.fill: parent
                                     onClicked: toggleLanguage(code)
                                 }
 
-                                RowLayout {
-                                    anchors.fill: parent
-                                    spacing: 8
+                                // Left: chevron + name
+                                ToolButton {
+                                    id: chevronBtn
+                                    anchors.left: parent.left
+                                    anchors.leftMargin: 4
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    z: 1
+                                    display: AbstractButton.IconOnly
+                                    icon.source: expanded ? appBridge.asset_url("expand_less.svg") : appBridge.asset_url("expand_more.svg")
+                                    icon.width: 16
+                                    icon.height: 16
+                                    icon.color: theme.textSecondary
+                                    background: Item {}
+                                    onClicked: toggleLanguage(code)
+                                }
 
-                                    ToolButton {
-                                        Layout.alignment: Qt.AlignTop
-                                        z: 1
-                                        visible: core_available || dictionary_available || tts_available
-                                        display: AbstractButton.IconOnly
-                                        icon.source: expanded ? appBridge.asset_url("expand_less.svg") : appBridge.asset_url("expand_more.svg")
-                                        icon.width: 18
-                                        icon.height: 18
-                                        icon.color: theme.textSecondary
-                                        background: Item {}
-                                        onClicked: toggleLanguage(code)
+                                Column {
+                                    anchors.left: chevronBtn.right
+                                    anchors.right: actionArea.left
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    anchors.rightMargin: 8
+                                    spacing: 1
+
+                                    Label {
+                                        text: name
+                                        width: parent.width
+                                        color: theme.textPrimary
+                                        font.pixelSize: 16
+                                        font.bold: true
+                                        elide: Text.ElideRight
                                     }
 
-                                    ColumnLayout {
-                                        Layout.fillWidth: true
-                                        spacing: 1
-
-                                        Label {
-                                            text: name
-                                            color: theme.textPrimary
-                                            font.pixelSize: 17
-                                            font.bold: true
-                                            elide: Text.ElideRight
-                                        }
-
-                                        Label {
-                                            text: total_size
-                                            color: theme.textSecondary
-                                            font.pixelSize: 13
-                                        }
-                                    }
-
-                                    RowLayout {
-                                        Layout.alignment: Qt.AlignVCenter
-                                        spacing: 6
-
-                                        Label {
-                                            visible: core_available
-                                            text: "T"
-                                            color: statusColor(core_installed)
-                                            font.pixelSize: 12
-                                            font.bold: true
-                                            opacity: core_installed ? 1.0 : 0.7
-                                        }
-
-                                        Label {
-                                            visible: dictionary_available
-                                            text: "D"
-                                            color: statusColor(dictionary_installed)
-                                            font.pixelSize: 12
-                                            font.bold: true
-                                            opacity: dictionary_installed ? 1.0 : 0.7
-                                        }
-
-                                        Label {
-                                            visible: tts_available
-                                            text: "S"
-                                            color: statusColor(tts_installed)
-                                            font.pixelSize: 12
-                                            font.bold: true
-                                            opacity: tts_installed ? 1.0 : 0.7
-                                        }
-                                    }
-
-                                    ToolButton {
-                                        visible: core_available
-                                        enabled: !isBusy(core_progress)
-                                        z: 1
-                                        display: AbstractButton.IconOnly
-                                        icon.source: actionIcon(core_installed)
-                                        icon.width: 18
-                                        icon.height: 18
-                                        icon.color: actionColor(core_installed)
-                                        background: Item {}
-                                        onClicked: featureAction(code, 0, core_installed)
+                                    Label {
+                                        text: total_size
+                                        color: theme.textSecondary
+                                        font.pixelSize: 12
                                     }
                                 }
+
+                                // Right: action area, anchored to right edge
+                                Row {
+                                    id: actionArea
+                                    anchors.right: parent.right
+                                    anchors.rightMargin: 12
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    spacing: 4
+
+                                    // T D S icons: when expanded (always) or collapsed with partial install
+                                    Row {
+                                        visible: expanded || someInstalled
+                                        spacing: 2
+                                        anchors.verticalCenter: parent.verticalCenter
+
+                                        Image {
+                                            width: 20; height: 20
+                                            source: appBridge.asset_url("translate.svg")
+                                            sourceSize.width: 20; sourceSize.height: 20
+                                            opacity: core_available ? (core_installed ? 1.0 : 0.3) : 0
+                                        }
+
+                                        Image {
+                                            width: 20; height: 20
+                                            source: appBridge.asset_url("dictionary.svg")
+                                            sourceSize.width: 20; sourceSize.height: 20
+                                            opacity: dictionary_available ? (dictionary_installed ? 1.0 : 0.3) : 0
+                                        }
+
+                                        Image {
+                                            width: 20; height: 20
+                                            source: appBridge.asset_url("tts.svg")
+                                            sourceSize.width: 20; sourceSize.height: 20
+                                            opacity: tts_available ? (tts_installed ? 1.0 : 0.3) : 0
+                                        }
+                                    }
+
+                                    // Download button: collapsed + nothing installed
+                                    Item {
+                                        visible: !expanded && noneInstalled
+                                        width: 24; height: 24
+                                        anchors.verticalCenter: parent.verticalCenter
+
+                                        Image {
+                                            anchors.centerIn: parent
+                                            width: 20; height: 20
+                                            source: appBridge.asset_url("download.svg")
+                                            sourceSize.width: 20; sourceSize.height: 20
+                                        }
+
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            z: 1
+                                            onClicked: appBridge.download_all_features(code)
+                                        }
+                                    }
+
+                                    // Delete button: collapsed + everything installed
+                                    Item {
+                                        visible: !expanded && allInstalled
+                                        width: 24; height: 24
+                                        anchors.verticalCenter: parent.verticalCenter
+
+                                        Image {
+                                            anchors.centerIn: parent
+                                            width: 20; height: 20
+                                            source: appBridge.asset_url("delete.svg")
+                                            sourceSize.width: 20; sourceSize.height: 20
+                                        }
+
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            z: 1
+                                            onClicked: appBridge.delete_all_features(code)
+                                        }
+                                    }
+                                }
+                            }
+
+                            Rectangle {
+                                Layout.fillWidth: true
+                                height: 1
+                                color: "#2A2D3A"
                             }
 
                             ColumnLayout {
                                 visible: expanded
                                 Layout.fillWidth: true
+                                Layout.leftMargin: 40
+                                Layout.rightMargin: 8
+                                Layout.bottomMargin: 8
                                 spacing: 2
-
-                                Rectangle {
-                                    Layout.fillWidth: true
-                                    height: 1
-                                    color: "#2A2D3A"
-                                }
 
                                 Item {
                                     visible: core_available
                                     Layout.fillWidth: true
-                                    implicitHeight: coreProgress.visible ? 44 : 32
+                                    implicitHeight: coreProgress.visible ? 40 : 28
 
                                     ColumnLayout {
                                         anchors.fill: parent
-                                        spacing: 4
+                                        spacing: 2
 
-                                        RowLayout {
+                                        Item {
                                             Layout.fillWidth: true
+                                            implicitHeight: 24
 
                                             Label {
+                                                anchors.left: parent.left
+                                                anchors.verticalCenter: parent.verticalCenter
                                                 text: "Translation"
                                                 color: theme.textPrimary
-                                                font.pixelSize: 15
+                                                font.pixelSize: 14
                                             }
 
                                             Label {
+                                                anchors.left: parent.left
+                                                anchors.leftMargin: 90
+                                                anchors.verticalCenter: parent.verticalCenter
                                                 text: core_size
                                                 color: theme.textSecondary
-                                                font.pixelSize: 13
+                                                font.pixelSize: 12
                                             }
 
                                             Item {
-                                                Layout.fillWidth: true
-                                            }
+                                                anchors.right: parent.right
+                                                anchors.verticalCenter: parent.verticalCenter
+                                                width: 24; height: 24
+                                                opacity: isBusy(core_progress) ? 0.3 : 1.0
 
-                                            ToolButton {
-                                                enabled: !isBusy(core_progress)
-                                                display: AbstractButton.IconOnly
-                                                icon.source: actionIcon(core_installed)
-                                                icon.width: 18
-                                                icon.height: 18
-                                                icon.color: actionColor(core_installed)
-                                                background: Item {}
-                                                onClicked: featureAction(code, 0, core_installed)
+                                                Image {
+                                                    anchors.centerIn: parent
+                                                    width: 18; height: 18
+                                                    source: actionIcon(core_installed)
+                                                    sourceSize.width: 18; sourceSize.height: 18
+                                                }
+
+                                                MouseArea {
+                                                    anchors.fill: parent
+                                                    enabled: !isBusy(core_progress)
+                                                    onClicked: featureAction(code, 0, core_installed)
+                                                }
                                             }
                                         }
 
@@ -264,21 +303,17 @@ Item {
                                             id: coreProgress
                                             visible: isBusy(core_progress)
                                             Layout.fillWidth: true
-                                            from: 0
-                                            to: 1
-                                            value: core_progress
+                                            from: 0; to: 1; value: core_progress
 
                                             background: Rectangle {
-                                                implicitHeight: 4
-                                                radius: 2
+                                                implicitHeight: 3; radius: 2
                                                 color: "#303240"
                                             }
 
                                             contentItem: Item {
                                                 Rectangle {
                                                     width: coreProgress.visualPosition * parent.width
-                                                    height: parent.height
-                                                    radius: 2
+                                                    height: parent.height; radius: 2
                                                     color: theme.accentColor
                                                 }
                                             }
@@ -289,40 +324,51 @@ Item {
                                 Item {
                                     visible: dictionary_available
                                     Layout.fillWidth: true
-                                    implicitHeight: dictionaryProgress.visible ? 44 : 32
+                                    implicitHeight: dictionaryProgress.visible ? 40 : 28
 
                                     ColumnLayout {
                                         anchors.fill: parent
-                                        spacing: 4
+                                        spacing: 2
 
-                                        RowLayout {
+                                        Item {
                                             Layout.fillWidth: true
+                                            implicitHeight: 24
 
                                             Label {
+                                                anchors.left: parent.left
+                                                anchors.verticalCenter: parent.verticalCenter
                                                 text: "Dictionary"
                                                 color: theme.textPrimary
-                                                font.pixelSize: 15
+                                                font.pixelSize: 14
                                             }
 
                                             Label {
+                                                anchors.left: parent.left
+                                                anchors.leftMargin: 90
+                                                anchors.verticalCenter: parent.verticalCenter
                                                 text: dictionary_size
                                                 color: theme.textSecondary
-                                                font.pixelSize: 13
+                                                font.pixelSize: 12
                                             }
 
                                             Item {
-                                                Layout.fillWidth: true
-                                            }
+                                                anchors.right: parent.right
+                                                anchors.verticalCenter: parent.verticalCenter
+                                                width: 24; height: 24
+                                                opacity: isBusy(dictionary_progress) ? 0.3 : 1.0
 
-                                            ToolButton {
-                                                enabled: !isBusy(dictionary_progress)
-                                                display: AbstractButton.IconOnly
-                                                icon.source: actionIcon(dictionary_installed)
-                                                icon.width: 18
-                                                icon.height: 18
-                                                icon.color: actionColor(dictionary_installed)
-                                                background: Item {}
-                                                onClicked: featureAction(code, 1, dictionary_installed)
+                                                Image {
+                                                    anchors.centerIn: parent
+                                                    width: 18; height: 18
+                                                    source: actionIcon(dictionary_installed)
+                                                    sourceSize.width: 18; sourceSize.height: 18
+                                                }
+
+                                                MouseArea {
+                                                    anchors.fill: parent
+                                                    enabled: !isBusy(dictionary_progress)
+                                                    onClicked: featureAction(code, 1, dictionary_installed)
+                                                }
                                             }
                                         }
 
@@ -330,21 +376,17 @@ Item {
                                             id: dictionaryProgress
                                             visible: isBusy(dictionary_progress)
                                             Layout.fillWidth: true
-                                            from: 0
-                                            to: 1
-                                            value: dictionary_progress
+                                            from: 0; to: 1; value: dictionary_progress
 
                                             background: Rectangle {
-                                                implicitHeight: 4
-                                                radius: 2
+                                                implicitHeight: 3; radius: 2
                                                 color: "#303240"
                                             }
 
                                             contentItem: Item {
                                                 Rectangle {
                                                     width: dictionaryProgress.visualPosition * parent.width
-                                                    height: parent.height
-                                                    radius: 2
+                                                    height: parent.height; radius: 2
                                                     color: theme.accentColor
                                                 }
                                             }
@@ -355,40 +397,51 @@ Item {
                                 Item {
                                     visible: tts_available
                                     Layout.fillWidth: true
-                                    implicitHeight: ttsProgress.visible ? 44 : 32
+                                    implicitHeight: ttsProgress.visible ? 40 : 28
 
                                     ColumnLayout {
                                         anchors.fill: parent
-                                        spacing: 4
+                                        spacing: 2
 
-                                        RowLayout {
+                                        Item {
                                             Layout.fillWidth: true
+                                            implicitHeight: 24
 
                                             Label {
+                                                anchors.left: parent.left
+                                                anchors.verticalCenter: parent.verticalCenter
                                                 text: "Text-to-speech"
                                                 color: theme.textPrimary
-                                                font.pixelSize: 15
+                                                font.pixelSize: 14
                                             }
 
                                             Label {
+                                                anchors.left: parent.left
+                                                anchors.leftMargin: 115
+                                                anchors.verticalCenter: parent.verticalCenter
                                                 text: tts_size
                                                 color: theme.textSecondary
-                                                font.pixelSize: 13
+                                                font.pixelSize: 12
                                             }
 
                                             Item {
-                                                Layout.fillWidth: true
-                                            }
+                                                anchors.right: parent.right
+                                                anchors.verticalCenter: parent.verticalCenter
+                                                width: 24; height: 24
+                                                opacity: isBusy(tts_progress) ? 0.3 : 1.0
 
-                                            ToolButton {
-                                                enabled: !isBusy(tts_progress)
-                                                display: AbstractButton.IconOnly
-                                                icon.source: actionIcon(tts_installed)
-                                                icon.width: 18
-                                                icon.height: 18
-                                                icon.color: actionColor(tts_installed)
-                                                background: Item {}
-                                                onClicked: featureAction(code, 2, tts_installed)
+                                                Image {
+                                                    anchors.centerIn: parent
+                                                    width: 18; height: 18
+                                                    source: actionIcon(tts_installed)
+                                                    sourceSize.width: 18; sourceSize.height: 18
+                                                }
+
+                                                MouseArea {
+                                                    anchors.fill: parent
+                                                    enabled: !isBusy(tts_progress)
+                                                    onClicked: featureAction(code, 2, tts_installed)
+                                                }
                                             }
                                         }
 
@@ -396,21 +449,17 @@ Item {
                                             id: ttsProgress
                                             visible: isBusy(tts_progress)
                                             Layout.fillWidth: true
-                                            from: 0
-                                            to: 1
-                                            value: tts_progress
+                                            from: 0; to: 1; value: tts_progress
 
                                             background: Rectangle {
-                                                implicitHeight: 4
-                                                radius: 2
+                                                implicitHeight: 3; radius: 2
                                                 color: "#303240"
                                             }
 
                                             contentItem: Item {
                                                 Rectangle {
                                                     width: ttsProgress.visualPosition * parent.width
-                                                    height: parent.height
-                                                    radius: 2
+                                                    height: parent.height; radius: 2
                                                     color: theme.accentColor
                                                 }
                                             }

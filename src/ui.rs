@@ -290,6 +290,10 @@ impl AppBridge {
         eprintln!("ui.set_languages_value: {} languages", languages.len());
         self.all_languages = languages;
         self.refresh_language_views();
+
+        if self.current_screen == Screen::NoLanguages.as_i32() && self.has_languages {
+            self.set_current_screen(Screen::Translation);
+        }
     }
 
     pub fn set_feature_progress_value(&mut self, code: &str, feature: FeatureKind, progress: f32) {
