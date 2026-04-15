@@ -6,13 +6,13 @@ edition = "2024"
 [dependencies]
 cld2 = { git = "https://github.com/DavidVentura/rust-cld2.git" }
 #cld2 = { path = "../rust-cld2" }
-miniserde = "0.1.43"
 ureq = "3.1.2"
 qmetaobject = "0.2"
 flate2 = "1.0"
 rayon = "1.10"
 translator = { path = "/home/david/AndroidStudioProjects/Translator/translator" }
 whoami = { version = "1.6.1", default-features = false }
+zip = "2.4.2"
 
 [profile.dev]
 #debug = false

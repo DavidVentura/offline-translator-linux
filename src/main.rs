@@ -1,21 +1,17 @@
-mod data;
+mod catalog_state;
 mod download;
 mod eventloop;
-mod index;
 mod model;
-mod translate;
 mod ui;
 
-use flate2::read::GzDecoder;
 use qmetaobject::*;
 use std::error::Error;
-use std::io::Read;
 use std::path::PathBuf;
 use std::sync::mpsc;
 
-use crate::data::INDEX_JSON;
-use crate::index::{Index, IndexLanguage};
-use crate::ui::{AppBridge, LanguageListItem, create_ui_callbacks};
+use crate::catalog_state::{build_snapshot, bundled_catalog, languages_from_snapshot};
+use crate::model::FeatureKind;
+use crate::ui::{AppBridge, LanguageListItem, ManageLanguageListItem, create_ui_callbacks};
 
 const APP_NAME: &str = "dev.davidv.translator";
 
@@ -26,8 +22,14 @@ struct AppPaths {
 }
 
 enum IoEvent {
-    DownloadRequest(String),
-    DeleteLanguage(String),
+    DownloadRequest {
+        code: String,
+        feature: FeatureKind,
+    },
+    DeleteLanguage {
+        code: String,
+        feature: FeatureKind,
+    },
     SetAppPaths(AppPaths),
     TranslationRequest {
         text: String,
@@ -58,18 +60,23 @@ fn main() -> Result<(), Box<dyn Error>> {
     qmetaobject::log::init_qt_to_rust();
 
     let (bus_tx, bus_rx) = mpsc::channel::<IoEvent>();
-    let default_index = read_default_index();
     let app_paths = get_app_paths();
+    let catalog = bundled_catalog();
+    let initial_snapshot = build_snapshot(&catalog, &app_paths.data);
+    let initial_languages = languages_from_snapshot(&initial_snapshot);
     let main_qml = find_main_qml()?;
     let asset_dir = find_asset_dir(&main_qml)?;
     let mut engine = QmlEngine::new();
-    let app = QObjectBox::new(AppBridge::new(&default_index, bus_tx.clone(), asset_dir));
+    let app = QObjectBox::new(AppBridge::new(initial_languages, bus_tx.clone(), asset_dir));
     let installed_languages_model = QObjectBox::new(SimpleListModel::<LanguageListItem>::default());
     let available_languages_model = QObjectBox::new(SimpleListModel::<LanguageListItem>::default());
+    let manage_languages_model =
+        QObjectBox::new(SimpleListModel::<ManageLanguageListItem>::default());
 
     app.pinned().borrow_mut().attach_models(
         QPointer::from(installed_languages_model.pinned().borrow()),
         QPointer::from(available_languages_model.pinned().borrow()),
+        QPointer::from(manage_languages_model.pinned().borrow()),
     );
 
     engine.set_object_property("app".into(), app.pinned());
@@ -81,10 +88,13 @@ fn main() -> Result<(), Box<dyn Error>> {
         "availableLanguagesModel".into(),
         available_languages_model.pinned(),
     );
+    engine.set_object_property(
+        "manageLanguagesModel".into(),
+        manage_languages_model.pinned(),
+    );
 
     let ui_callbacks = create_ui_callbacks(QPointer::from(app.pinned().borrow()));
-    let jh =
-        std::thread::spawn(move || eventloop::run_eventloop(bus_rx, ui_callbacks, default_index));
+    let jh = std::thread::spawn(move || eventloop::run_eventloop(bus_rx, ui_callbacks, catalog));
 
     bus_tx.send(IoEvent::SetAppPaths(app_paths)).unwrap();
     engine.load_file(main_qml.into());
@@ -142,25 +152,4 @@ fn find_asset_dir(main_qml: &str) -> Result<String, Box<dyn Error>> {
     }
 
     Err("Could not locate assets directory".into())
-}
-
-fn read_default_index() -> Index {
-    let mut decoder = GzDecoder::new(INDEX_JSON);
-    let mut index_json = String::new();
-    decoder
-        .read_to_string(&mut index_json)
-        .expect("Failed to decompress gzip data");
-
-    let mut default_index: Index =
-        miniserde::json::from_str(&index_json).expect("Failed to deserialize Index");
-
-    default_index.languages.push(IndexLanguage {
-        code: "en".to_string(),
-        name: "English".to_string(),
-        script: "Latin".to_string(),
-        from: None,
-        to: None,
-        extra_files: vec![],
-    });
-    default_index
 }

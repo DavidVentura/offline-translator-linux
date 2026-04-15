@@ -5,14 +5,28 @@ pub enum Direction {
     Both,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FeatureKind {
+    Core,
+    Dictionary,
+    Tts,
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct Language {
     pub code: String,
     pub name: String,
-    pub size: String,
     pub direction: Direction,
-    pub installed: bool,
-    pub download_progress: f32,
+    pub built_in: bool,
+    pub core_size_bytes: u64,
+    pub core_installed: bool,
+    pub core_progress: f32,
+    pub dictionary_size_bytes: u64,
+    pub dictionary_installed: bool,
+    pub dictionary_progress: f32,
+    pub tts_size_bytes: u64,
+    pub tts_installed: bool,
+    pub tts_progress: f32,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -32,6 +46,25 @@ impl Screen {
 impl Default for Direction {
     fn default() -> Self {
         Self::Both
+    }
+}
+
+impl FeatureKind {
+    pub fn from_i32(value: i32) -> Option<Self> {
+        match value {
+            0 => Some(Self::Core),
+            1 => Some(Self::Dictionary),
+            2 => Some(Self::Tts),
+            _ => None,
+        }
+    }
+
+    pub fn as_i32(self) -> i32 {
+        match self {
+            Self::Core => 0,
+            Self::Dictionary => 1,
+            Self::Tts => 2,
+        }
     }
 }
 

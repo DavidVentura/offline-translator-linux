@@ -1,10 +1,11 @@
 use qmetaobject::*;
+use std::collections::HashSet;
 use std::sync::Arc;
 use std::sync::mpsc::Sender;
 
 use crate::IoEvent;
-use crate::index::Index;
-use crate::model::{Direction, Language, Screen};
+use crate::catalog_state::{format_size, total_size};
+use crate::model::{Direction, FeatureKind, Language, Screen};
 
 #[derive(Clone, Default, SimpleListItem)]
 pub struct LanguageListItem {
@@ -16,10 +17,32 @@ pub struct LanguageListItem {
     pub built_in: bool,
 }
 
+#[derive(Clone, Default, SimpleListItem)]
+pub struct ManageLanguageListItem {
+    pub code: QString,
+    pub name: QString,
+    pub total_size: QString,
+    pub built_in: bool,
+    pub expanded: bool,
+    pub core_available: bool,
+    pub core_installed: bool,
+    pub core_size: QString,
+    pub core_progress: f32,
+    pub dictionary_available: bool,
+    pub dictionary_installed: bool,
+    pub dictionary_size: QString,
+    pub dictionary_progress: f32,
+    pub tts_available: bool,
+    pub tts_installed: bool,
+    pub tts_size: QString,
+    pub tts_progress: f32,
+}
+
 #[derive(Default)]
 struct UiModels {
     installed: QPointer<SimpleListModel<LanguageListItem>>,
     available: QPointer<SimpleListModel<LanguageListItem>>,
+    manage: QPointer<SimpleListModel<ManageLanguageListItem>>,
 }
 
 #[derive(QObject, Default)]
@@ -71,6 +94,9 @@ pub struct AppBridge {
     pub active_tab: qt_property!(i32; NOTIFY active_tab_changed),
     pub active_tab_changed: qt_signal!(),
 
+    pub manage_filter_text: qt_property!(QString; NOTIFY manage_filter_text_changed),
+    pub manage_filter_text_changed: qt_signal!(),
+
     pub desktop_mode: qt_property!(bool; CONST),
 
     pub asset_url: qt_method!(
@@ -101,14 +127,47 @@ pub struct AppBridge {
     ),
     pub download_language: qt_method!(
         fn download_language(&mut self, code: QString) {
-            self.send_io(IoEvent::DownloadRequest(code.to_string()));
+            self.send_feature_request(code.to_string(), FeatureKind::Core, true);
         }
     ),
     pub delete_language: qt_method!(
         fn delete_language(&mut self, code: QString) {
+            self.send_feature_request(code.to_string(), FeatureKind::Core, false);
+        }
+    ),
+    pub download_feature: qt_method!(
+        fn download_feature(&mut self, code: QString, feature: i32) {
+            if let Some(feature) = FeatureKind::from_i32(feature) {
+                self.send_feature_request(code.to_string(), feature, true);
+            }
+        }
+    ),
+    pub delete_feature: qt_method!(
+        fn delete_feature(&mut self, code: QString, feature: i32) {
+            if let Some(feature) = FeatureKind::from_i32(feature) {
+                self.send_feature_request(code.to_string(), feature, false);
+            }
+        }
+    ),
+    pub toggle_manage_language: qt_method!(
+        fn toggle_manage_language(&mut self, code: QString) {
             let code = code.to_string();
-            self.send_io(IoEvent::DeleteLanguage(code.clone()));
-            self.mark_language_deleted(&code);
+            if !self.expanded_languages.remove(&code) {
+                self.expanded_languages.insert(code);
+            }
+            self.refresh_language_views();
+        }
+    ),
+    pub set_manage_filter: qt_method!(
+        fn set_manage_filter(&mut self, text: QString) {
+            let text = text.to_string();
+            let qtext = QString::from(text.clone());
+            if self.manage_filter_text != qtext {
+                self.manage_filter_text = qtext;
+                self.manage_filter_text_changed();
+            }
+            self.manage_filter = text.to_lowercase();
+            self.refresh_language_views();
         }
     ),
     pub show_settings: qt_method!(
@@ -177,34 +236,32 @@ pub struct AppBridge {
     bus_tx: Option<Sender<IoEvent>>,
     models: UiModels,
     asset_dir: String,
+    manage_filter: String,
+    expanded_languages: HashSet<String>,
 }
 
 #[derive(Clone)]
 pub struct UiCallbacks {
-    pub clear_languages: Arc<dyn Fn() + Send + Sync>,
-    pub mark_language_downloaded: Arc<dyn Fn(String) + Send + Sync>,
-    pub set_download_progress: Arc<dyn Fn(String, f32) + Send + Sync>,
+    pub set_languages: Arc<dyn Fn(Vec<Language>) + Send + Sync>,
+    pub set_feature_progress: Arc<dyn Fn(String, FeatureKind, f32) + Send + Sync>,
     pub set_output_text: Arc<dyn Fn(String) + Send + Sync>,
     pub set_detected_language_code: Arc<dyn Fn(String) + Send + Sync>,
     pub set_current_screen: Arc<dyn Fn(Screen) + Send + Sync>,
 }
 
 impl AppBridge {
-    pub fn new(index: &Index, bus_tx: Sender<IoEvent>, asset_dir: String) -> Self {
+    pub fn new(languages: Vec<Language>, bus_tx: Sender<IoEvent>, asset_dir: String) -> Self {
         let mut app = Self::default();
         app.bus_tx = Some(bus_tx);
         app.current_screen = Screen::NoLanguages.as_i32();
         app.previous_screen = Screen::Translation;
         app.desktop_mode = std::env::var_os("CLICKABLE_DESKTOP_MODE").is_some();
         app.asset_dir = asset_dir;
-        app.all_languages = index.languages.iter().map(Language::from).collect();
-        app.all_languages.sort_by(|a, b| a.name.cmp(&b.name));
         app.source_language_code = "en".to_string();
         app.target_language_code = "en".to_string();
         app.source_language_name = QString::from("English");
         app.target_language_name = QString::from("English");
-        app.refresh_language_views();
-        app.refresh_detected_language();
+        app.set_languages_value(languages);
         app
     }
 
@@ -212,39 +269,31 @@ impl AppBridge {
         &mut self,
         installed: QPointer<SimpleListModel<LanguageListItem>>,
         available: QPointer<SimpleListModel<LanguageListItem>>,
+        manage: QPointer<SimpleListModel<ManageLanguageListItem>>,
     ) {
         self.models.installed = installed;
         self.models.available = available;
+        self.models.manage = manage;
         self.refresh_language_views();
     }
 
-    pub fn clear_languages(&mut self) {
-        for language in &mut self.all_languages {
-            language.installed = false;
-            language.download_progress = 0.0;
-        }
+    pub fn set_languages_value(&mut self, mut languages: Vec<Language>) {
+        languages.sort_by(|left, right| left.name.cmp(&right.name));
+        self.all_languages = languages;
         self.refresh_language_views();
     }
 
-    pub fn mark_language_downloaded(&mut self, code: &str) {
+    pub fn set_feature_progress_value(&mut self, code: &str, feature: FeatureKind, progress: f32) {
         if let Some(language) = self
             .all_languages
             .iter_mut()
             .find(|language| language.code == code)
         {
-            language.installed = true;
-            language.download_progress = 0.0;
-        }
-        self.refresh_language_views();
-    }
-
-    pub fn set_download_progress(&mut self, code: &str, progress: f32) {
-        if let Some(language) = self
-            .all_languages
-            .iter_mut()
-            .find(|language| language.code == code)
-        {
-            language.download_progress = progress;
+            match feature {
+                FeatureKind::Core => language.core_progress = progress,
+                FeatureKind::Dictionary => language.dictionary_progress = progress,
+                FeatureKind::Tts => language.tts_progress = progress,
+            }
         }
         self.refresh_language_views();
     }
@@ -338,19 +387,6 @@ impl AppBridge {
         });
     }
 
-    fn mark_language_deleted(&mut self, code: &str) {
-        if let Some(language) = self
-            .all_languages
-            .iter_mut()
-            .find(|language| language.code == code)
-        {
-            language.installed = false;
-            language.download_progress = 0.0;
-        }
-        self.ensure_selected_languages_are_valid();
-        self.refresh_language_views();
-    }
-
     fn set_disable_auto_detect_impl(&mut self, value: bool) {
         if self.disable_auto_detect != value {
             self.disable_auto_detect = value;
@@ -371,10 +407,10 @@ impl AppBridge {
             .find(|language| language.code == detected_code)
             .cloned()
         {
-            if language.installed {
+            if language.core_installed || language.built_in {
                 self.set_source_language_by_name(language.name);
             } else {
-                self.send_io(IoEvent::DownloadRequest(language.code));
+                self.send_feature_request(language.code, FeatureKind::Core, true);
             }
         }
     }
@@ -383,16 +419,35 @@ impl AppBridge {
         let installed_items = self
             .all_languages
             .iter()
-            .filter(|language| language.installed || language.code == "en")
+            .filter(|language| language.core_installed || language.built_in)
             .cloned()
             .map(language_to_list_item)
             .collect::<Vec<_>>();
         let available_items = self
             .all_languages
             .iter()
-            .filter(|language| !language.installed && language.code != "en")
+            .filter(|language| !language.core_installed && !language.built_in)
             .cloned()
             .map(language_to_list_item)
+            .collect::<Vec<_>>();
+
+        let manage_items = self
+            .all_languages
+            .iter()
+            .filter(|language| {
+                self.manage_filter.is_empty()
+                    || language
+                        .name
+                        .to_lowercase()
+                        .contains(self.manage_filter.as_str())
+            })
+            .cloned()
+            .map(|language| {
+                manage_language_to_list_item(
+                    &language,
+                    self.expanded_languages.contains(&language.code),
+                )
+            })
             .collect::<Vec<_>>();
 
         if let Some(model) = self.models.installed.as_pinned() {
@@ -401,14 +456,14 @@ impl AppBridge {
         if let Some(model) = self.models.available.as_pinned() {
             model.borrow_mut().reset_data(available_items);
         }
+        if let Some(model) = self.models.manage.as_pinned() {
+            model.borrow_mut().reset_data(manage_items);
+        }
 
         let from_names = self
             .all_languages
             .iter()
-            .filter(|language| {
-                (language.installed || language.code == "en")
-                    && matches!(language.direction, Direction::FromOnly | Direction::Both)
-            })
+            .filter(|language| self.is_language_available(language, true))
             .map(|language| QString::from(language.name.clone()))
             .collect::<QStringList>();
         if self.installed_from_language_names != from_names {
@@ -419,10 +474,7 @@ impl AppBridge {
         let to_names = self
             .all_languages
             .iter()
-            .filter(|language| {
-                (language.installed || language.code == "en")
-                    && matches!(language.direction, Direction::ToOnly | Direction::Both)
-            })
+            .filter(|language| self.is_language_available(language, false))
             .map(|language| QString::from(language.name.clone()))
             .collect::<QStringList>();
         if self.installed_to_language_names != to_names {
@@ -433,7 +485,7 @@ impl AppBridge {
         let has_languages = self
             .all_languages
             .iter()
-            .any(|language| language.code != "en" && language.installed);
+            .any(|language| !language.built_in && language.core_installed);
         if self.has_languages != has_languages {
             self.has_languages = has_languages;
             self.has_languages_changed();
@@ -494,8 +546,8 @@ impl AppBridge {
                     && language.code != self.source_language_code;
                 (
                     QString::from(language.name.clone()),
-                    language.installed,
-                    language.download_progress,
+                    language.core_installed || language.built_in,
+                    language.core_progress,
                     show,
                 )
             }
@@ -520,39 +572,41 @@ impl AppBridge {
         }
     }
 
+    fn is_language_available(&self, language: &Language, source: bool) -> bool {
+        (language.core_installed || language.built_in)
+            && if source {
+                matches!(language.direction, Direction::FromOnly | Direction::Both)
+            } else {
+                matches!(language.direction, Direction::ToOnly | Direction::Both)
+            }
+    }
+
     fn is_language_selectable(&self, code: &str, source: bool) -> bool {
         self.find_language_by_code(code)
-            .map(|language| {
-                (language.installed || language.code == "en")
-                    && if source {
-                        matches!(language.direction, Direction::FromOnly | Direction::Both)
-                    } else {
-                        matches!(language.direction, Direction::ToOnly | Direction::Both)
-                    }
-            })
+            .map(|language| self.is_language_available(language, source))
             .unwrap_or(false)
     }
 
     fn first_selectable_language(&self, source: bool) -> Option<Language> {
-        self.all_languages.iter().find_map(|language| {
-            if (language.installed || language.code == "en")
-                && if source {
-                    matches!(language.direction, Direction::FromOnly | Direction::Both)
-                } else {
-                    matches!(language.direction, Direction::ToOnly | Direction::Both)
-                }
-            {
-                Some(language.clone())
-            } else {
-                None
-            }
-        })
+        self.all_languages
+            .iter()
+            .find(|language| self.is_language_available(language, source))
+            .cloned()
     }
 
     fn find_language_by_code(&self, code: &str) -> Option<&Language> {
         self.all_languages
             .iter()
             .find(|language| language.code == code)
+    }
+
+    fn send_feature_request(&self, code: String, feature: FeatureKind, download: bool) {
+        let event = if download {
+            IoEvent::DownloadRequest { code, feature }
+        } else {
+            IoEvent::DeleteLanguage { code, feature }
+        };
+        self.send_io(event);
     }
 
     fn send_io(&self, event: IoEvent) {
@@ -566,32 +620,50 @@ fn language_to_list_item(language: Language) -> LanguageListItem {
     LanguageListItem {
         code: QString::from(language.code.clone()),
         name: QString::from(language.name),
-        size: QString::from(language.size),
-        installed: language.installed,
-        download_progress: language.download_progress,
-        built_in: language.code == "en",
+        size: QString::from(format_size(language.core_size_bytes)),
+        installed: language.core_installed,
+        download_progress: language.core_progress,
+        built_in: language.built_in,
+    }
+}
+
+fn manage_language_to_list_item(language: &Language, expanded: bool) -> ManageLanguageListItem {
+    ManageLanguageListItem {
+        code: QString::from(language.code.clone()),
+        name: QString::from(language.name.clone()),
+        total_size: QString::from(format_size(total_size(language))),
+        built_in: language.built_in,
+        expanded,
+        core_available: language.core_size_bytes > 0,
+        core_installed: language.core_installed,
+        core_size: QString::from(format_size(language.core_size_bytes)),
+        core_progress: language.core_progress,
+        dictionary_available: language.dictionary_size_bytes > 0,
+        dictionary_installed: language.dictionary_installed,
+        dictionary_size: QString::from(format_size(language.dictionary_size_bytes)),
+        dictionary_progress: language.dictionary_progress,
+        tts_available: language.tts_size_bytes > 0,
+        tts_installed: language.tts_installed,
+        tts_size: QString::from(format_size(language.tts_size_bytes)),
+        tts_progress: language.tts_progress,
     }
 }
 
 pub fn create_ui_callbacks(app: QPointer<AppBridge>) -> UiCallbacks {
-    let clear_app = app.clone();
-    let clear_languages = queued_callback(move |()| {
-        if let Some(app) = clear_app.as_pinned() {
-            app.borrow_mut().clear_languages();
-        }
-    });
-
-    let downloaded_app = app.clone();
-    let mark_language_downloaded = queued_callback(move |code: String| {
-        if let Some(app) = downloaded_app.as_pinned() {
-            app.borrow_mut().mark_language_downloaded(&code);
+    let language_app = app.clone();
+    let set_languages = queued_callback(move |languages: Vec<Language>| {
+        if let Some(app) = language_app.as_pinned() {
+            app.borrow_mut().set_languages_value(languages);
         }
     });
 
     let progress_app = app.clone();
-    let set_download_progress = queued_callback(move |args: (String, f32)| {
-        if let Some(app) = progress_app.as_pinned() {
-            app.borrow_mut().set_download_progress(&args.0, args.1);
+    let set_feature_progress = queued_callback(move |args: (String, i32, f32)| {
+        if let Some(app) = progress_app.as_pinned()
+            && let Some(feature) = FeatureKind::from_i32(args.1)
+        {
+            app.borrow_mut()
+                .set_feature_progress_value(&args.0, feature, args.2);
         }
     });
 
@@ -617,10 +689,9 @@ pub fn create_ui_callbacks(app: QPointer<AppBridge>) -> UiCallbacks {
     });
 
     UiCallbacks {
-        clear_languages: Arc::new(move || clear_languages(())),
-        mark_language_downloaded: Arc::new(move |code| mark_language_downloaded(code)),
-        set_download_progress: Arc::new(move |code, progress| {
-            set_download_progress((code, progress))
+        set_languages: Arc::new(move |languages| set_languages(languages)),
+        set_feature_progress: Arc::new(move |code, feature, progress| {
+            set_feature_progress((code, feature.as_i32(), progress))
         }),
         set_output_text: Arc::new(move |text| set_output_text(text)),
         set_detected_language_code: Arc::new(move |code| set_detected_language_code(code)),

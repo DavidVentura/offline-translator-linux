@@ -5,8 +5,7 @@ import QtQuick.Layouts 1.15
 Item {
     property var appBridge
     property var theme
-    property var installedModel
-    property var availableModel
+    property var manageModel
 
     ColumnLayout {
         anchors.fill: parent
@@ -40,40 +39,12 @@ Item {
             wrapMode: Text.WordWrap
         }
 
-        TabBar {
-            Layout.fillWidth: true
-            currentIndex: appBridge.active_tab
-
-            TabButton {
-                text: "Languages"
-                onClicked: appBridge.set_active_tab(0)
-            }
-
-            TabButton {
-                text: "Dictionaries"
-                onClicked: appBridge.set_active_tab(1)
-            }
-        }
-
-        StackLayout {
+        LanguageCatalogBrowser {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            currentIndex: appBridge.active_tab
-
-            LanguageListView {
-                appBridge: parent.parent.parent.appBridge
-                theme: parent.parent.parent.theme
-                installedModel: parent.parent.parent.installedModel
-                availableModel: parent.parent.parent.availableModel
-            }
-
-            Item {
-                Label {
-                    anchors.centerIn: parent
-                    text: "Dictionaries coming soon..."
-                    color: parent.parent.parent.theme.textSecondary
-                }
-            }
+            appBridge: parent.parent.appBridge
+            theme: parent.parent.theme
+            manageModel: parent.parent.manageModel
         }
 
         Button {

@@ -2,6 +2,7 @@ import QtQml 2.15
 
 QtObject {
     readonly property color backgroundColor: "#1E1E2E"
+    readonly property color backgroundElevated: "#17181F"
     readonly property color surfaceColor: "#2A2A3E"
     readonly property color surfaceAltColor: "#3A3A4E"
     readonly property color borderColor: "#3A3A4E"

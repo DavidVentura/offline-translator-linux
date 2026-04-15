@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-use std::path::Path;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::mpsc::Receiver;
@@ -7,124 +5,124 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use cld2::{Format, detect_language};
-use rayon::prelude::*;
+use translator::{BergamotEngine, CatalogSnapshot, LanguageCatalog, translate_texts_in_snapshot};
 
+use crate::catalog_state::{
+    build_snapshot, delete_plan_for_feature, download_plan_for_feature, languages_from_snapshot,
+    remove_delete_plan,
+};
 use crate::download;
-use crate::index::{Index, IndexLanguage};
-use crate::model::Screen;
-use crate::translate::Translator;
+use crate::model::{FeatureKind, Screen};
 use crate::ui::UiCallbacks;
 use crate::{AppPaths, IoEvent};
 
-pub fn run_eventloop(bus_rx: Receiver<IoEvent>, ui: UiCallbacks, index: Index) {
-    let mut translator = None::<Translator>;
+pub fn run_eventloop(bus_rx: Receiver<IoEvent>, ui: UiCallbacks, catalog: LanguageCatalog) {
+    let mut engine = BergamotEngine::new();
     let mut app_paths = None::<AppPaths>;
+    let mut snapshot = None::<CatalogSnapshot>;
 
     while let Ok(msg) = bus_rx.recv() {
         match msg {
             IoEvent::SetAppPaths(path) => {
                 app_paths = Some(path.clone());
-                (ui.clear_languages)();
 
-                let mut has_languages = false;
                 let load_start = Instant::now();
                 std::fs::create_dir_all(&path.data).expect("can't make data dir");
-                std::fs::create_dir_all(&path.config).expect("can't make data dir");
-                let avail_files = std::fs::read_dir(&path.data).expect("bad data path");
-                let avail_files: HashSet<String> = HashSet::from_iter(
-                    avail_files
-                        .into_iter()
-                        .map(|f| f.unwrap().file_name().into_string().unwrap()),
-                );
+                std::fs::create_dir_all(&path.config).expect("can't make config dir");
 
-                for lang in &index.languages {
-                    let lang_files: HashSet<String> =
-                        HashSet::from_iter(lang.files().iter().map(|f| f.name.clone()));
-                    if avail_files.is_superset(&lang_files) {
-                        let code = lang.code.clone();
-                        if code != "en" {
-                            has_languages = true;
-                        }
-                        (ui.mark_language_downloaded)(code);
-                    }
-                }
+                let new_snapshot = build_snapshot(&catalog, &path.data);
+                let languages = languages_from_snapshot(&new_snapshot);
+                let has_languages = languages
+                    .iter()
+                    .any(|language| !language.built_in && language.core_installed);
 
+                (ui.set_languages)(languages);
                 if has_languages {
-                    translator = Some(Translator::new(path.data.clone()));
                     (ui.set_current_screen)(Screen::Translation);
                 }
-
+                snapshot = Some(new_snapshot);
                 println!("Load took {:?}", load_start.elapsed());
             }
-            IoEvent::DownloadRequest(code) => {
-                if app_paths.is_none() {
+            IoEvent::DownloadRequest { code, feature } => {
+                let Some(app_paths) = app_paths.clone() else {
                     println!("no app path, cant download");
                     continue;
-                }
-                let app_paths = app_paths.clone().unwrap();
-                let lang = index
-                    .languages
-                    .iter()
-                    .find(|l| l.code == code)
-                    .expect("Received illegal code for download")
-                    .clone();
-
-                let ui_clone = ui.clone();
-                let data_path_clone = app_paths.data.clone();
-                let jh = std::thread::spawn(move || {
-                    download(&lang, ui_clone, &data_path_clone);
-                });
-                jh.join().expect("thread panicked");
-                if translator.is_none() {
-                    translator = Some(Translator::new(app_paths.data.clone()));
-                    println!("init translator on download");
-                }
-            }
-            IoEvent::DeleteLanguage(code) => {
-                if app_paths.is_none() {
-                    println!("no app path, cant download");
+                };
+                let Some(current_snapshot) = snapshot.as_ref() else {
+                    println!("no snapshot, cant download");
                     continue;
-                }
-                let app_paths = app_paths.clone().unwrap();
-                println!("Deleting language: {}", code);
+                };
 
-                if let Some(lang) = index.languages.iter().find(|l| l.code == code) {
-                    let mut files = lang.files();
-                    files.sort_by(|a, b| a.name.cmp(&b.name));
-                    files.dedup_by_key(|f| f.name.clone());
-
-                    for file in files {
-                        let file_path = Path::new(&app_paths.data).join(&file.name);
-                        match std::fs::remove_file(&file_path) {
-                            Ok(_) => println!("Deleted file: {}", file.name),
-                            Err(e) => eprintln!("Failed to delete {}: {}", file.name, e),
-                        }
+                if let Some(plan) = download_plan_for_feature(current_snapshot, &code, feature) {
+                    if let Err(err) = download_feature(&code, feature, &plan, &app_paths.data, &ui)
+                    {
+                        eprintln!("Download failed for {code}: {err}");
                     }
-                } else {
-                    eprintln!("Language not found in index: {}", code);
                 }
+
+                let new_snapshot = build_snapshot(&catalog, &app_paths.data);
+                let languages = languages_from_snapshot(&new_snapshot);
+                let has_languages = languages
+                    .iter()
+                    .any(|language| !language.built_in && language.core_installed);
+                (ui.set_languages)(languages);
+                if has_languages {
+                    (ui.set_current_screen)(Screen::Translation);
+                }
+                snapshot = Some(new_snapshot);
+            }
+            IoEvent::DeleteLanguage { code, feature } => {
+                let Some(app_paths) = app_paths.clone() else {
+                    println!("no app path, cant delete");
+                    continue;
+                };
+                let Some(current_snapshot) = snapshot.as_ref() else {
+                    println!("no snapshot, cant delete");
+                    continue;
+                };
+
+                let delete_plan = delete_plan_for_feature(current_snapshot, &code, feature);
+                remove_delete_plan(&app_paths.data, &delete_plan);
+
+                let new_snapshot = build_snapshot(&catalog, &app_paths.data);
+                let languages = languages_from_snapshot(&new_snapshot);
+                (ui.set_languages)(languages);
+                snapshot = Some(new_snapshot);
             }
             IoEvent::TranslationRequest { text, from, to } => {
                 send_detection_to_ui(&text, &ui);
-                if let Some(ref mut translator) = translator {
-                    let lines: Vec<&str> = text.split('\n').collect();
-                    let start = Instant::now();
+                let Some(current_snapshot) = snapshot.as_ref() else {
+                    continue;
+                };
 
-                    if let Err(e) = translator.load_language_pair(&from, &to) {
-                        (ui.set_output_text)(format!(
-                            "Couldn't load language pair {from}->{to}: {e}"
-                        ));
-                        continue;
-                    }
-                    let result = match translator.translate(&from, &to, lines.as_slice()) {
-                        Ok(result) => result.join("\n"),
-                        Err(message) => message,
-                    };
-                    println!("translation took {:?} = '{}'", start.elapsed(), result);
-                    (ui.set_output_text)(result);
+                let lines = text
+                    .split('\n')
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>();
+                let start = Instant::now();
+
+                let result = if from == to {
+                    Ok(lines.join("\n"))
                 } else {
-                    println!("no translator, idk");
-                }
+                    match translate_texts_in_snapshot(
+                        &mut engine,
+                        current_snapshot,
+                        &from,
+                        &to,
+                        &lines,
+                    ) {
+                        Some(Ok(values)) => Ok(values.join("\n")),
+                        Some(Err(message)) => Err(message),
+                        None => Err(format!("Missing installed language pair {from}->{to}")),
+                    }
+                };
+
+                let text = match result {
+                    Ok(result) => result,
+                    Err(message) => message,
+                };
+                println!("translation took {:?} = '{}'", start.elapsed(), text);
+                (ui.set_output_text)(text);
             }
             IoEvent::Shutdown => {
                 println!("shutdown signal, exiting");
@@ -135,28 +133,26 @@ pub fn run_eventloop(bus_rx: Receiver<IoEvent>, ui: UiCallbacks, index: Index) {
     println!("all senders done, closing");
 }
 
-fn download(lang: &IndexLanguage, ui: UiCallbacks, data_path: &str) {
-    let code = lang.code.clone();
-    println!("Download language: {} ", code);
-
-    let mut files = lang.files();
-    files.sort_by(|a, b| a.name.cmp(&b.name));
-    files.dedup_by_key(|f| f.name.clone());
-
-    let total_size: usize = files.iter().map(|f| f.size_bytes as usize).sum();
-    println!("total size {total_size}");
+fn download_feature(
+    code: &str,
+    feature: FeatureKind,
+    plan: &translator::DownloadPlan,
+    data_path: &str,
+    ui: &UiCallbacks,
+) -> Result<(), String> {
+    let total_size = plan.total_size.max(1) as usize;
     let total_downloaded = Arc::new(AtomicUsize::new(0));
     let download_complete = Arc::new(AtomicBool::new(false));
+
+    (ui.set_feature_progress)(code.to_string(), feature, 0.00001);
 
     let progress_total_downloaded = total_downloaded.clone();
     let progress_download_complete = download_complete.clone();
     let progress_ui = ui.clone();
-    let progress_code = code.clone();
-
-    (ui.set_download_progress)(progress_code.clone(), 0.00001);
+    let progress_code = code.to_string();
 
     let progress_thread = thread::spawn(move || {
-        const UPDATE_THRESHOLD: usize = 512 * 1024;
+        const UPDATE_THRESHOLD: usize = 256 * 1024;
         let mut last_update = 0;
 
         while !progress_download_complete.load(Ordering::Relaxed) {
@@ -165,39 +161,17 @@ fn download(lang: &IndexLanguage, ui: UiCallbacks, data_path: &str) {
             let current = progress_total_downloaded.load(Ordering::Relaxed);
             if current.saturating_sub(last_update) >= UPDATE_THRESHOLD {
                 let percent = current as f32 / total_size as f32;
-                (progress_ui.set_download_progress)(progress_code.clone(), percent);
+                (progress_ui.set_feature_progress)(progress_code.clone(), feature, percent);
                 last_update = current;
             }
         }
     });
 
-    let results: Vec<Result<(), String>> = files
-        .par_iter()
-        .map(|file| {
-            let output_path = Path::new(data_path).join(&file.name);
-            download::download_file(&file.url, &output_path, total_downloaded.clone())
-        })
-        .collect();
-
+    let result = download::execute_download_plan(data_path, plan, total_downloaded);
     download_complete.store(true, Ordering::Relaxed);
     progress_thread.join().expect("Progress thread panicked");
 
-    let success = results.iter().all(|r| r.is_ok());
-
-    for (i, result) in results.iter().enumerate() {
-        match result {
-            Ok(_) => {
-                println!("Download completed for {} file {}", code, files[i].name);
-            }
-            Err(e) => {
-                eprintln!("Download failed for {} file {}: {}", code, files[i].name, e);
-            }
-        }
-    }
-
-    if success {
-        (ui.mark_language_downloaded)(lang.code.clone());
-    }
+    result
 }
 
 fn send_detection_to_ui(text: &str, ui: &UiCallbacks) {

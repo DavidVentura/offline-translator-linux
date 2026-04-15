@@ -5,47 +5,40 @@ import QtQuick.Layouts 1.15
 Item {
     property var appBridge
     property var theme
-    property var installedModel
-    property var availableModel
+    property var manageModel
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 16
-        spacing: 12
+        anchors.margins: 12
+        spacing: 10
 
         RowLayout {
             Layout.fillWidth: true
+            spacing: 12
 
             ToolButton {
                 display: AbstractButton.IconOnly
                 icon.source: appBridge.asset_url("back.svg")
-                icon.width: 24
-                icon.height: 24
-                text: "Back"
+                icon.width: 22
+                icon.height: 22
                 onClicked: appBridge.back_from_manage_languages()
             }
 
             Label {
-                text: "Manage Languages"
-                color: theme.textPrimary
-                font.pixelSize: 22
                 Layout.fillWidth: true
+                text: "Manage languages"
+                color: theme.textPrimary
+                font.pixelSize: 24
+                font.bold: true
             }
         }
 
-        Rectangle {
-            Layout.fillWidth: true
-            height: 1
-            color: theme.borderColor
-        }
-
-        LanguageListView {
+        LanguageCatalogBrowser {
             Layout.fillWidth: true
             Layout.fillHeight: true
             appBridge: parent.parent.appBridge
             theme: parent.parent.theme
-            installedModel: parent.parent.installedModel
-            availableModel: parent.parent.availableModel
+            manageModel: parent.parent.manageModel
         }
     }
 }

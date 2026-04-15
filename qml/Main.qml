@@ -32,8 +32,7 @@ ApplicationWindow {
         SetupScreen {
             appBridge: app
             theme: theme
-            installedModel: installedLanguagesModel
-            availableModel: availableLanguagesModel
+            manageModel: manageLanguagesModel
         }
 
         TranslationScreen {
@@ -49,8 +48,7 @@ ApplicationWindow {
         ManageLanguagesScreen {
             appBridge: app
             theme: theme
-            installedModel: installedLanguagesModel
-            availableModel: availableLanguagesModel
+            manageModel: manageLanguagesModel
         }
     }
 }
