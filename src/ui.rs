@@ -103,6 +103,8 @@ pub struct AppBridge {
 
     pub selected_image_url: qt_property!(QString; NOTIFY selected_image_url_changed),
     pub selected_image_url_changed: qt_signal!(),
+    pub share_image_url: qt_property!(QString; NOTIFY share_image_url_changed),
+    pub share_image_url_changed: qt_signal!(),
 
     pub processed_image_width: qt_property!(f32; NOTIFY processed_image_width_changed),
     pub processed_image_width_changed: qt_signal!(),
@@ -386,6 +388,7 @@ pub struct AppBridge {
             self.set_image_mode_value(false);
             self.set_image_viewer_open_value(false);
             self.set_selected_image_url_value(String::new());
+            self.set_share_image_url_value(String::new());
             self.set_image_overlay_value(Vec::new(), 0.0, 0.0);
         }
     ),
@@ -520,6 +523,7 @@ pub struct AppBridge {
     asset_dir: String,
     config_dir: String,
     tts_voice_overrides: BTreeMap<String, String>,
+    tts_prewarmed_language_code: String,
     original_image_path: String,
     manage_filter: String,
     expanded_languages: HashSet<String>,
@@ -753,6 +757,14 @@ impl AppBridge {
         }
     }
 
+    pub fn set_share_image_url_value(&mut self, url: String) {
+        let url = QString::from(url);
+        if self.share_image_url != url {
+            self.share_image_url = url;
+            self.share_image_url_changed();
+        }
+    }
+
     pub fn set_image_viewer_open_value(&mut self, value: bool) {
         if self.image_viewer_open != value {
             self.image_viewer_open = value;
@@ -833,6 +845,7 @@ impl AppBridge {
             self.stop_tts();
             self.refresh_swap_enabled();
             self.refresh_translation_content();
+            self.tts_prewarmed_language_code.clear();
             self.refresh_tts_availability();
             self.reset_tts_voice_selection_state();
             self.persist_settings();
@@ -881,7 +894,8 @@ impl AppBridge {
         self.stop_tts();
         self.set_image_mode_value(true);
         self.set_image_viewer_open_value(false);
-        self.set_selected_image_url_value(url);
+        self.set_selected_image_url_value(url.clone());
+        self.set_share_image_url_value(url);
         self.set_image_overlay_value(Vec::new(), 0.0, 0.0);
         self.set_input_text_value(String::new());
         self.set_output_text_value("Running OCR...".to_string());
@@ -937,29 +951,48 @@ impl AppBridge {
 
     fn toggle_speak_output_impl(&mut self) {
         if self.tts_loading || self.tts_playing {
+            eprintln!("tts.ui: speaker pressed while active; stopping playback");
             self.stop_tts();
             return;
         }
 
         let text = self.output_text.to_string();
         if text.trim().is_empty() || !self.tts_available {
+            eprintln!(
+                "tts.ui: speaker pressed but ignored text_empty={} tts_available={}",
+                text.trim().is_empty(),
+                self.tts_available
+            );
             return;
         }
+
+        let voice_name = self
+            .tts_voice_overrides
+            .get(&self.target_language_code)
+            .cloned()
+            .unwrap_or_default();
+        eprintln!(
+            "tts.ui: speaker pressed target_language={} chars={} speed={} voice='{}'",
+            self.target_language_code,
+            text.chars().count(),
+            self.tts_playback_speed.clamp(0.5, 2.0),
+            if voice_name.is_empty() { "Default" } else { &voice_name }
+        );
 
         self.send_io(IoEvent::SpeakRequest {
             language_code: self.target_language_code.clone(),
             text,
             speech_speed: self.tts_playback_speed.clamp(0.5, 2.0),
-            voice_name: self
-                .tts_voice_overrides
-                .get(&self.target_language_code)
-                .cloned()
-                .unwrap_or_default(),
+            voice_name,
         });
     }
 
     fn prepare_tts_options_impl(&mut self) {
         if self.tts_available {
+            eprintln!(
+                "tts.ui: opening voice options target_language={}",
+                self.target_language_code
+            );
             self.refresh_tts_voices();
         }
     }
@@ -1051,6 +1084,26 @@ impl AppBridge {
         });
     }
 
+    fn eager_load_tts_destination(&mut self) {
+        if !self.tts_available || self.target_language_code.is_empty() {
+            self.tts_prewarmed_language_code.clear();
+            return;
+        }
+
+        if self.tts_prewarmed_language_code == self.target_language_code {
+            return;
+        }
+
+        eprintln!(
+            "tts.ui: eager loading destination target_language={}",
+            self.target_language_code
+        );
+        self.tts_prewarmed_language_code = self.target_language_code.clone();
+        self.send_io(IoEvent::WarmTtsModel {
+            language_code: self.target_language_code.clone(),
+        });
+    }
+
     fn refresh_tts_availability(&mut self) {
         let available = self
             .find_language_by_code(&self.target_language_code)
@@ -1060,6 +1113,12 @@ impl AppBridge {
         if self.tts_available != available {
             self.tts_available = available;
             self.tts_available_changed();
+        }
+
+        if !available {
+            self.tts_prewarmed_language_code.clear();
+        } else {
+            self.eager_load_tts_destination();
         }
     }
 
@@ -1255,6 +1314,7 @@ impl AppBridge {
         self.ensure_selected_languages_are_valid();
         self.refresh_swap_enabled();
         self.refresh_detected_language();
+        self.tts_prewarmed_language_code.clear();
         self.refresh_tts_availability();
         self.reset_tts_voice_selection_state();
     }

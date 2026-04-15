@@ -163,6 +163,15 @@ pub fn run_eventloop(bus_rx: Receiver<IoEvent>, ui: UiCallbacks, catalog: Langua
                     }
                 }
             }
+            IoEvent::WarmTtsModel { language_code } => {
+                let Some(current_snapshot) = snapshot.as_ref() else {
+                    continue;
+                };
+
+                if let Err(err) = tts::warm_tts_model(current_snapshot, &language_code) {
+                    eprintln!("Failed to warm TTS model for {language_code}: {err}");
+                }
+            }
             IoEvent::SpeakRequest {
                 language_code,
                 text,

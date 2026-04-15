@@ -54,6 +54,9 @@ enum IoEvent {
         language_code: String,
         selected_voice_name: String,
     },
+    WarmTtsModel {
+        language_code: String,
+    },
     SpeakRequest {
         language_code: String,
         text: String,
