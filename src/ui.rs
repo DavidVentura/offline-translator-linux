@@ -306,7 +306,14 @@ impl AppBridge {
     pub fn new(languages: Vec<Language>, bus_tx: Sender<IoEvent>, asset_dir: String) -> Self {
         let mut app = Self::default();
         app.bus_tx = Some(bus_tx);
-        app.current_screen = Screen::NoLanguages.as_i32();
+        app.current_screen = if std::env::var_os("START_SCREEN").is_some() {
+            std::env::var("START_SCREEN")
+                .ok()
+                .and_then(|s| s.parse::<i32>().ok())
+                .unwrap_or(Screen::NoLanguages.as_i32())
+        } else {
+            Screen::NoLanguages.as_i32()
+        };
         app.previous_screen = Screen::Translation;
         app.desktop_mode = std::env::var_os("CLICKABLE_DESKTOP_MODE").is_some();
         app.asset_dir = asset_dir;

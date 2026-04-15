@@ -6,46 +6,176 @@ Item {
     property var appBridge
     property var theme
 
-    ColumnLayout {
+    Flickable {
         anchors.fill: parent
-        anchors.margins: 16
-        spacing: 12
+        contentWidth: width
+        contentHeight: content.implicitHeight
+        boundsBehavior: Flickable.StopAtBounds
 
-        RowLayout {
-            Layout.fillWidth: true
+        ColumnLayout {
+            id: content
+            width: parent.width
+            spacing: 0
 
-            ToolButton {
-                display: AbstractButton.IconOnly
-                icon.source: appBridge.asset_url("back.svg")
-                icon.width: 24
-                icon.height: 24
-                text: "Back"
-                onClicked: appBridge.back_from_settings()
-            }
-
-            Label {
-                text: "Settings"
-                color: theme.textPrimary
-                font.pixelSize: 22
+            // Header
+            Item {
                 Layout.fillWidth: true
+                Layout.preferredHeight: 56
+                Layout.leftMargin: 16
+                Layout.rightMargin: 16
+
+                Item {
+                    anchors.left: parent.left
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 32; height: 32
+
+                    Image {
+                        anchors.centerIn: parent
+                        width: 24; height: 24
+                        source: appBridge.asset_url("back.svg")
+                        sourceSize.width: 24; sourceSize.height: 24
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        onClicked: appBridge.back_from_settings()
+                    }
+                }
+
+                Label {
+                    anchors.left: parent.left
+                    anchors.leftMargin: 40
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: "Settings"
+                    color: theme.textPrimary
+                    font.pixelSize: 24
+                    font.bold: true
+                }
             }
-        }
 
-        Rectangle {
-            Layout.fillWidth: true
-            height: 1
-            color: theme.borderColor
-        }
+            Item { Layout.preferredHeight: 12 }
 
-        Button {
-            text: "Manage languages"
-            onClicked: appBridge.show_manage_languages()
-        }
+            // Languages card
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.leftMargin: 16
+                Layout.rightMargin: 16
+                implicitHeight: langCol.implicitHeight + 32
+                radius: 12
+                color: theme.surfaceColor
 
-        CheckBox {
-            checked: appBridge.disable_auto_detect
-            text: "Disable automatic language detection"
-            onToggled: appBridge.set_disable_auto_detect_value(checked)
+                ColumnLayout {
+                    id: langCol
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    anchors.margins: 16
+                    spacing: 12
+
+                    Label {
+                        text: "Languages"
+                        color: theme.accentColor
+                        font.pixelSize: 18
+                        font.bold: true
+                    }
+
+                    Item {
+                        Layout.fillWidth: true
+                        implicitHeight: 28
+
+                        Label {
+                            anchors.left: parent.left
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "Language Packs"
+                            color: theme.textPrimary
+                            font.pixelSize: 15
+                        }
+
+                        Label {
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "Manage"
+                            color: theme.accentColor
+                            font.pixelSize: 15
+
+                            MouseArea {
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: appBridge.show_manage_languages()
+                            }
+                        }
+                    }
+                }
+            }
+
+            Item { Layout.preferredHeight: 16 }
+
+            // General card
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.leftMargin: 16
+                Layout.rightMargin: 16
+                implicitHeight: generalCol.implicitHeight + 32
+                radius: 12
+                color: theme.surfaceColor
+
+                ColumnLayout {
+                    id: generalCol
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    anchors.margins: 16
+                    spacing: 16
+
+                    Label {
+                        text: "General"
+                        color: theme.accentColor
+                        font.pixelSize: 18
+                        font.bold: true
+                    }
+
+                    Item {
+                        Layout.fillWidth: true
+                        implicitHeight: 32
+
+                        Label {
+                            anchors.left: parent.left
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "Disable automatic language detection"
+                            color: theme.textPrimary
+                            font.pixelSize: 15
+                        }
+
+                        Switch {
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                            checked: appBridge.disable_auto_detect
+                            onToggled: appBridge.set_disable_auto_detect_value(checked)
+
+                            indicator: Rectangle {
+                                implicitWidth: 48
+                                implicitHeight: 26
+                                x: parent.leftPadding
+                                y: parent.height / 2 - height / 2
+                                radius: 13
+                                color: parent.checked ? theme.accentColor : "#555"
+
+                                Rectangle {
+                                    x: parent.parent.checked ? parent.width - width - 3 : 3
+                                    y: (parent.height - height) / 2
+                                    width: 20; height: 20
+                                    radius: 10
+                                    color: "white"
+
+                                    Behavior on x { NumberAnimation { duration: 150 } }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Item { Layout.preferredHeight: 32 }
         }
     }
 }

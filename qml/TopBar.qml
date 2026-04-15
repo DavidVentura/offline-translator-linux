@@ -12,7 +12,7 @@ ToolBar {
     }
 
     background: Rectangle {
-        color: theme.backgroundElevated
+        color: theme.backgroundColor
     }
 
     Component.onCompleted: {

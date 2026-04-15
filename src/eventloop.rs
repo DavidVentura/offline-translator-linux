@@ -12,7 +12,7 @@ use crate::catalog_state::{
     remove_delete_plan,
 };
 use crate::download;
-use crate::model::{FeatureKind, Screen};
+use crate::model::FeatureKind;
 use crate::ui::UiCallbacks;
 use crate::{AppPaths, IoEvent};
 
@@ -32,14 +32,7 @@ pub fn run_eventloop(bus_rx: Receiver<IoEvent>, ui: UiCallbacks, catalog: Langua
 
                 let new_snapshot = build_snapshot(&catalog, &path.data);
                 let languages = languages_from_snapshot(&new_snapshot);
-                let has_languages = languages
-                    .iter()
-                    .any(|language| !language.built_in && language.core_installed);
-
                 (ui.set_languages)(languages);
-                if has_languages {
-                    (ui.set_current_screen)(Screen::Translation);
-                }
                 snapshot = Some(new_snapshot);
                 println!("Load took {:?}", load_start.elapsed());
             }
