@@ -6,11 +6,12 @@ Item {
     id: root
     property var appBridge
     property var theme
+    UiScale { id: ui; desktopMode: root.appBridge && root.appBridge.desktop_mode }
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 16
-        spacing: 12
+        anchors.margins: ui.dp(16)
+        spacing: ui.dp(12)
 
         RowLayout {
             Layout.fillWidth: true
@@ -18,15 +19,16 @@ Item {
             Label {
                 text: "Language Setup"
                 color: theme.textPrimary
-                font.pixelSize: 22
+                font.pointSize: ui.pt(22)
                 Layout.fillWidth: true
             }
 
             ToolButton {
                 display: AbstractButton.IconOnly
                 icon.source: appBridge.asset_url("settings.svg")
-                icon.width: 24
-                icon.height: 24
+                icon.color: theme.textPrimary
+                icon.width: ui.dp(24)
+                icon.height: ui.dp(24)
                 text: "Settings"
                 onClicked: appBridge.show_settings()
             }
@@ -43,6 +45,7 @@ Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
             appBridge: root.appBridge
+            desktopMode: root.appBridge.desktop_mode
             theme: root.theme
         }
 

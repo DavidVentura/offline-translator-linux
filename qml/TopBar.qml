@@ -6,6 +6,8 @@ ToolBar {
     id: topBarRoot
     property var appBridge
     property var theme
+    UiScale { id: ui; desktopMode: topBarRoot.appBridge && topBarRoot.appBridge.desktop_mode }
+    implicitHeight: ui.dp(56)
 
     function syncComboBox(comboBox, value) {
         const index = comboBox.find(value)
@@ -43,13 +45,18 @@ ToolBar {
 
     RowLayout {
         anchors.fill: parent
-        anchors.margins: 8
-        spacing: 8
+        anchors.leftMargin: ui.dp(12)
+        anchors.rightMargin: ui.dp(12)
+        anchors.topMargin: ui.dp(4)
+        anchors.bottomMargin: ui.dp(4)
+        spacing: ui.dp(8)
 
         DarkComboBox {
             id: fromCombo
             Layout.fillWidth: true
             Layout.preferredWidth: 1
+            Layout.fillHeight: true
+            desktopMode: topBarRoot.appBridge.desktop_mode
             theme: topBarRoot.theme
             iconSource: appBridge.asset_url("expand_more.svg")
             model: appBridge.installed_from_language_names
@@ -57,10 +64,13 @@ ToolBar {
         }
 
         ToolButton {
+            Layout.preferredWidth: ui.dp(36)
+            Layout.fillHeight: true
             display: AbstractButton.IconOnly
             icon.source: appBridge.asset_url("swap.svg")
-            icon.width: 20
-            icon.height: 20
+            icon.color: theme.textPrimary
+            icon.width: ui.dp(20)
+            icon.height: ui.dp(20)
             text: "Swap"
             enabled: appBridge.swap_enabled
             onClicked: appBridge.swap_languages()
@@ -70,6 +80,8 @@ ToolBar {
             id: toCombo
             Layout.fillWidth: true
             Layout.preferredWidth: 1
+            Layout.fillHeight: true
+            desktopMode: topBarRoot.appBridge.desktop_mode
             theme: topBarRoot.theme
             iconSource: appBridge.asset_url("expand_more.svg")
             model: appBridge.installed_to_language_names
@@ -77,10 +89,13 @@ ToolBar {
         }
 
         ToolButton {
+            Layout.preferredWidth: ui.dp(36)
+            Layout.fillHeight: true
             display: AbstractButton.IconOnly
             icon.source: appBridge.asset_url("settings.svg")
-            icon.width: 20
-            icon.height: 20
+            icon.color: theme.textPrimary
+            icon.width: ui.dp(20)
+            icon.height: ui.dp(20)
             text: "Settings"
             onClicked: appBridge.show_settings()
         }

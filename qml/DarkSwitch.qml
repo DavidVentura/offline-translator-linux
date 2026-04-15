@@ -3,21 +3,23 @@ import QtQuick.Controls 2.15
 
 Item {
     id: control
+    UiScale { id: ui; desktopMode: control.desktopMode }
     property string label
     property bool checked
     property var theme
+    property bool desktopMode: false
     signal toggled(bool checked)
 
-    implicitHeight: 36
+    implicitHeight: ui.dp(36)
 
     Label {
         anchors.left: parent.left
         anchors.right: sw.left
-        anchors.rightMargin: 12
+        anchors.rightMargin: ui.dp(12)
         anchors.verticalCenter: parent.verticalCenter
         text: control.label
         color: theme.textPrimary
-        font.pixelSize: 15
+        font.pointSize: ui.pt(15)
         wrapMode: Text.WordWrap
     }
 
@@ -29,16 +31,16 @@ Item {
         onToggled: control.toggled(checked)
 
         indicator: Rectangle {
-            implicitWidth: 48; implicitHeight: 26
+            implicitWidth: ui.dp(48); implicitHeight: ui.dp(26)
             x: sw.leftPadding
             y: sw.height / 2 - height / 2
-            radius: 13
+            radius: ui.dp(13)
             color: sw.checked ? theme.accentColor : "#555"
 
             Rectangle {
-                x: sw.checked ? parent.width - width - 3 : 3
+                x: sw.checked ? parent.width - width - ui.dp(3) : ui.dp(3)
                 y: (parent.height - height) / 2
-                width: 20; height: 20; radius: 10
+                width: ui.dp(20); height: ui.dp(20); radius: ui.dp(10)
                 color: "white"
                 Behavior on x { NumberAnimation { duration: 150 } }
             }

@@ -5,6 +5,9 @@ import QtQuick.Layouts 1.15
 Item {
     property var appBridge
     property var theme
+    property bool desktopMode: false
+
+    UiScale { id: ui; desktopMode: desktopMode }
 
     function actionIcon(installed) {
         return installed ? appBridge.asset_url("delete.svg") : appBridge.asset_url("download.svg")
@@ -55,12 +58,12 @@ Item {
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
         x: Math.round((parent.width - width) / 2)
         y: Math.round((parent.height - height) / 2)
-        width: Math.min(parent.width - 24, 420)
-        height: Math.min(parent.height - 80, 520)
+        width: Math.min(parent.width - ui.dp(24), ui.dp(420))
+        height: Math.min(parent.height - ui.dp(80), ui.dp(520))
         padding: 0
 
         background: Rectangle {
-            radius: 28
+            radius: ui.dp(28)
             color: "#2B2D36"
         }
 
@@ -75,23 +78,23 @@ Item {
 
             Label {
                 Layout.fillWidth: true
-                Layout.topMargin: 18
-                Layout.leftMargin: 20
-                Layout.rightMargin: 20
+                Layout.topMargin: ui.dp(18)
+                Layout.leftMargin: ui.dp(20)
+                Layout.rightMargin: ui.dp(20)
                 text: "Pick a voice"
                 color: "white"
-                font.pixelSize: 22
+                font.pointSize: ui.pt(22)
                 font.bold: true
             }
 
             ListView {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                Layout.topMargin: 14
-                Layout.leftMargin: 14
-                Layout.rightMargin: 14
+                Layout.topMargin: ui.dp(14)
+                Layout.leftMargin: ui.dp(14)
+                Layout.rightMargin: ui.dp(14)
                 clip: true
-                spacing: 2
+                spacing: ui.dp(2)
                 model: appBridge.manage_tts_picker_model
                 section.property: "region_display_name"
                 section.criteria: ViewSection.FullString
@@ -100,11 +103,11 @@ Item {
                     width: ListView.view.width
                     text: section
                     color: "#E4E6F2"
-                    font.pixelSize: 14
+                    font.pointSize: ui.pt(14)
                     font.bold: true
-                    leftPadding: 4
-                    topPadding: 8
-                    bottomPadding: 4
+                    leftPadding: ui.dp(4)
+                    topPadding: ui.dp(8)
+                    bottomPadding: ui.dp(4)
                 }
 
                 delegate: Item {
@@ -115,21 +118,21 @@ Item {
                     required property bool installed
 
                     width: ListView.view.width
-                    height: 46
+                    height: ui.dp(46)
 
                     Column {
                         anchors.left: parent.left
-                        anchors.leftMargin: 12
+                        anchors.leftMargin: ui.dp(12)
                         anchors.right: actionItem.left
-                        anchors.rightMargin: 10
+                        anchors.rightMargin: ui.dp(10)
                         anchors.verticalCenter: parent.verticalCenter
-                        spacing: 1
+                        spacing: ui.dp(1)
 
                         Label {
                             width: parent.width
                             text: voice_display_name
                             color: installed ? "#8A8E9F" : "#F1F3FB"
-                            font.pixelSize: 16
+                            font.pointSize: ui.pt(16)
                             elide: Text.ElideRight
                         }
 
@@ -137,7 +140,8 @@ Item {
                             width: parent.width
                             text: size_text
                             color: "#A9ADBC"
-                            font.pixelSize: 13
+                            font.pointSize: ui.pt(13)
+                            horizontalAlignment: Text.AlignLeft
                             elide: Text.ElideRight
                         }
                     }
@@ -145,27 +149,27 @@ Item {
                     Item {
                         id: actionItem
                         anchors.right: parent.right
-                        anchors.rightMargin: 10
+                        anchors.rightMargin: ui.dp(10)
                         anchors.verticalCenter: parent.verticalCenter
-                        width: installed ? 62 : 28
-                        height: 28
+                        width: installed ? ui.dp(62) : ui.dp(28)
+                        height: ui.dp(28)
 
                         Label {
                             anchors.centerIn: parent
                             visible: installed
                             text: "Installed"
                             color: "#8A8E9F"
-                            font.pixelSize: 12
+                            font.pointSize: ui.pt(12)
                         }
 
                         Image {
                             anchors.centerIn: parent
                             visible: !installed
-                            width: 18
-                            height: 18
+                            width: ui.dp(18)
+                            height: ui.dp(18)
                             source: appBridge.asset_url("download.svg")
-                            sourceSize.width: 18
-                            sourceSize.height: 18
+                            sourceSize.width: ui.dp(18)
+                            sourceSize.height: ui.dp(18)
                         }
 
                         MouseArea {
@@ -179,11 +183,11 @@ Item {
 
             Item {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 64
+                Layout.preferredHeight: ui.dp(64)
 
                 Button {
                     anchors.right: parent.right
-                    anchors.rightMargin: 18
+                    anchors.rightMargin: ui.dp(18)
                     anchors.verticalCenter: parent.verticalCenter
                     text: "Cancel"
                     flat: true
@@ -192,7 +196,7 @@ Item {
                     contentItem: Text {
                         text: parent.text
                         color: theme.accentColor
-                        font.pixelSize: 16
+                        font.pointSize: ui.pt(16)
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter
                     }
@@ -205,7 +209,7 @@ Item {
 
     ColumnLayout {
         anchors.fill: parent
-        spacing: 10
+        spacing: ui.dp(10)
 
         TextField {
             Layout.fillWidth: true
@@ -216,7 +220,7 @@ Item {
             onTextChanged: appBridge.set_manage_filter(text)
 
             background: Rectangle {
-                radius: 4
+                radius: ui.dp(4)
                 color: "#181922"
                 border.width: 1
                 border.color: "#343646"
@@ -273,7 +277,7 @@ Item {
 
                     Item {
                         Layout.fillWidth: true
-                        implicitHeight: 52
+                        implicitHeight: ui.dp(52)
 
                         MouseArea {
                             anchors.fill: parent
@@ -283,12 +287,12 @@ Item {
                         ToolButton {
                             id: chevronBtn
                             anchors.left: parent.left
-                            anchors.leftMargin: 4
+                            anchors.leftMargin: ui.dp(4)
                             anchors.verticalCenter: parent.verticalCenter
                             z: 1
                             display: AbstractButton.IconOnly
                             icon.source: expanded ? appBridge.asset_url("expand_less.svg") : appBridge.asset_url("expand_more.svg")
-                            icon.width: 16; icon.height: 16
+                            icon.width: ui.dp(16); icon.height: ui.dp(16)
                             icon.color: theme.textSecondary
                             background: Item {}
                             onClicked: toggleLanguage(code)
@@ -298,56 +302,58 @@ Item {
                             anchors.left: chevronBtn.right
                             anchors.right: actionArea.left
                             anchors.verticalCenter: parent.verticalCenter
-                            anchors.rightMargin: 8
-                            spacing: 1
+                            anchors.rightMargin: ui.dp(8)
+                            spacing: ui.dp(1)
 
                             Label {
                                 text: name
                                 width: parent.width
                                 color: theme.textPrimary
-                                font.pixelSize: 16
+                                font.pointSize: ui.pt(16)
                                 font.bold: true
                                 elide: Text.ElideRight
                             }
 
                             Label {
                                 text: total_size
+                                width: parent.width
                                 color: theme.textSecondary
-                                font.pixelSize: 12
+                                font.pointSize: ui.pt(12)
+                                horizontalAlignment: Text.AlignLeft
                             }
                         }
 
                         Row {
                             id: actionArea
                             anchors.right: parent.right
-                            anchors.rightMargin: 12
+                            anchors.rightMargin: ui.dp(12)
                             anchors.verticalCenter: parent.verticalCenter
-                            spacing: 4
+                            spacing: ui.dp(4)
 
                             // T D S icons: when expanded (always) or collapsed with partial install, and not busy
                             Row {
                                 visible: (expanded || someInstalled) && !anyBusy
-                                spacing: 2
+                                spacing: ui.dp(2)
                                 anchors.verticalCenter: parent.verticalCenter
 
                                 Image {
-                                    width: 20; height: 20
+                                    width: ui.dp(20); height: ui.dp(20)
                                     source: appBridge.asset_url("translate.svg")
-                                    sourceSize.width: 20; sourceSize.height: 20
+                                    sourceSize.width: ui.dp(20); sourceSize.height: ui.dp(20)
                                     opacity: (core_available && !built_in) ? (core_installed ? 1.0 : 0.3) : 0
                                 }
 
                                 Image {
-                                    width: 20; height: 20
+                                    width: ui.dp(20); height: ui.dp(20)
                                     source: appBridge.asset_url("dictionary.svg")
-                                    sourceSize.width: 20; sourceSize.height: 20
+                                    sourceSize.width: ui.dp(20); sourceSize.height: ui.dp(20)
                                     opacity: dictionary_available ? (dictionary_installed ? 1.0 : 0.3) : 0
                                 }
 
                                 Image {
-                                    width: 20; height: 20
+                                    width: ui.dp(20); height: ui.dp(20)
                                     source: appBridge.asset_url("tts.svg")
-                                    sourceSize.width: 20; sourceSize.height: 20
+                                    sourceSize.width: ui.dp(20); sourceSize.height: ui.dp(20)
                                     opacity: tts_available ? (tts_installed ? 1.0 : 0.3) : 0
                                 }
                             }
@@ -355,14 +361,14 @@ Item {
                             // Download button: collapsed + nothing installed + not busy
                             Item {
                                 visible: !expanded && noneInstalled && !anyBusy
-                                width: 24; height: 24
+                                width: ui.dp(24); height: ui.dp(24)
                                 anchors.verticalCenter: parent.verticalCenter
 
                                 Image {
                                     anchors.centerIn: parent
-                                    width: 20; height: 20
+                                    width: ui.dp(20); height: ui.dp(20)
                                     source: appBridge.asset_url("download.svg")
-                                    sourceSize.width: 20; sourceSize.height: 20
+                                    sourceSize.width: ui.dp(20); sourceSize.height: ui.dp(20)
                                 }
 
                                 MouseArea {
@@ -375,14 +381,14 @@ Item {
                             // Delete button: collapsed + everything installed + not busy
                             Item {
                                 visible: !expanded && allInstalled && !anyBusy
-                                width: 24; height: 24
+                                width: ui.dp(24); height: ui.dp(24)
                                 anchors.verticalCenter: parent.verticalCenter
 
                                 Image {
                                     anchors.centerIn: parent
-                                    width: 20; height: 20
+                                    width: ui.dp(20); height: ui.dp(20)
                                     source: appBridge.asset_url("delete.svg")
-                                    sourceSize.width: 20; sourceSize.height: 20
+                                    sourceSize.width: ui.dp(20); sourceSize.height: ui.dp(20)
                                 }
 
                                 MouseArea {
@@ -411,32 +417,34 @@ Item {
                     ColumnLayout {
                         visible: expanded
                         Layout.fillWidth: true
-                        Layout.leftMargin: 40
-                        Layout.rightMargin: 8
-                        Layout.bottomMargin: 8
-                        spacing: 2
+                        Layout.leftMargin: ui.dp(40)
+                        Layout.rightMargin: ui.dp(8)
+                        Layout.bottomMargin: ui.dp(8)
+                        spacing: ui.dp(2)
 
                         // Translation feature (hidden for built-in languages like English)
                         Item {
                             visible: core_available && !built_in
                             Layout.fillWidth: true
-                            implicitHeight: 28
+                            implicitHeight: ui.dp(28)
 
                             Label {
+                                id: coreTitleLabel
                                 anchors.left: parent.left
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: "Translation"
                                 color: theme.textPrimary
-                                font.pixelSize: 14
+                                font.pointSize: ui.pt(14)
                             }
 
                             Label {
-                                anchors.left: parent.left
-                                anchors.leftMargin: 90
+                                anchors.left: coreTitleLabel.right
+                                anchors.leftMargin: ui.dp(8)
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: core_size
                                 color: theme.textSecondary
-                                font.pixelSize: 12
+                                font.pointSize: ui.pt(12)
+                                horizontalAlignment: Text.AlignLeft
                             }
 
                             // Circular progress when downloading
@@ -453,13 +461,13 @@ Item {
                                 visible: !isBusy(core_progress)
                                 anchors.right: parent.right
                                 anchors.verticalCenter: parent.verticalCenter
-                                width: 24; height: 24
+                                width: ui.dp(24); height: ui.dp(24)
 
                                 Image {
                                     anchors.centerIn: parent
-                                    width: 18; height: 18
+                                    width: ui.dp(18); height: ui.dp(18)
                                     source: actionIcon(core_installed)
-                                    sourceSize.width: 18; sourceSize.height: 18
+                                    sourceSize.width: ui.dp(18); sourceSize.height: ui.dp(18)
                                 }
 
                                 MouseArea {
@@ -473,23 +481,25 @@ Item {
                         Item {
                             visible: dictionary_available
                             Layout.fillWidth: true
-                            implicitHeight: 28
+                            implicitHeight: ui.dp(28)
 
                             Label {
+                                id: dictionaryTitleLabel
                                 anchors.left: parent.left
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: "Dictionary"
                                 color: theme.textPrimary
-                                font.pixelSize: 14
+                                font.pointSize: ui.pt(14)
                             }
 
                             Label {
-                                anchors.left: parent.left
-                                anchors.leftMargin: 90
+                                anchors.left: dictionaryTitleLabel.right
+                                anchors.leftMargin: ui.dp(8)
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: dictionary_size
                                 color: theme.textSecondary
-                                font.pixelSize: 12
+                                font.pointSize: ui.pt(12)
+                                horizontalAlignment: Text.AlignLeft
                             }
 
                             CircularProgress {
@@ -504,13 +514,13 @@ Item {
                                 visible: !isBusy(dictionary_progress)
                                 anchors.right: parent.right
                                 anchors.verticalCenter: parent.verticalCenter
-                                width: 24; height: 24
+                                width: ui.dp(24); height: ui.dp(24)
 
                                 Image {
                                     anchors.centerIn: parent
-                                    width: 18; height: 18
+                                    width: ui.dp(18); height: ui.dp(18)
                                     source: actionIcon(dictionary_installed)
-                                    sourceSize.width: 18; sourceSize.height: 18
+                                    sourceSize.width: ui.dp(18); sourceSize.height: ui.dp(18)
                                 }
 
                                 MouseArea {
@@ -524,23 +534,25 @@ Item {
                         Item {
                             visible: tts_available
                             Layout.fillWidth: true
-                            implicitHeight: 28
+                            implicitHeight: ui.dp(28)
 
                             Label {
+                                id: ttsTitleLabel
                                 anchors.left: parent.left
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: "Text-to-speech"
                                 color: theme.textPrimary
-                                font.pixelSize: 14
+                                font.pointSize: ui.pt(14)
                             }
 
                             Label {
-                                anchors.left: parent.left
-                                anchors.leftMargin: 115
+                                anchors.left: ttsTitleLabel.right
+                                anchors.leftMargin: ui.dp(8)
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: tts_size
                                 color: theme.textSecondary
-                                font.pixelSize: 12
+                                font.pointSize: ui.pt(12)
+                                horizontalAlignment: Text.AlignLeft
                             }
 
                             CircularProgress {
@@ -555,13 +567,13 @@ Item {
                                 visible: !isBusy(tts_progress)
                                 anchors.right: parent.right
                                 anchors.verticalCenter: parent.verticalCenter
-                                width: 24; height: 24
+                                width: ui.dp(24); height: ui.dp(24)
 
                                 Image {
                                     anchors.centerIn: parent
-                                    width: 18; height: 18
+                                    width: ui.dp(18); height: ui.dp(18)
                                     source: actionIcon(tts_installed)
-                                    sourceSize.width: 18; sourceSize.height: 18
+                                    sourceSize.width: ui.dp(18); sourceSize.height: ui.dp(18)
                                 }
 
                                 MouseArea {

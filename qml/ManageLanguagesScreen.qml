@@ -6,21 +6,23 @@ Item {
     id: root
     property var appBridge
     property var theme
+    UiScale { id: ui; desktopMode: root.appBridge && root.appBridge.desktop_mode }
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 12
-        spacing: 10
+        anchors.margins: ui.dp(12)
+        spacing: ui.dp(10)
 
         RowLayout {
             Layout.fillWidth: true
-            spacing: 12
+            spacing: ui.dp(12)
 
             ToolButton {
                 display: AbstractButton.IconOnly
                 icon.source: appBridge.asset_url("back.svg")
-                icon.width: 22
-                icon.height: 22
+                icon.color: theme.textPrimary
+                icon.width: ui.dp(22)
+                icon.height: ui.dp(22)
                 onClicked: appBridge.back_from_manage_languages()
             }
 
@@ -28,7 +30,7 @@ Item {
                 Layout.fillWidth: true
                 text: "Manage languages"
                 color: theme.textPrimary
-                font.pixelSize: 24
+                font.pointSize: ui.pt(24)
                 font.bold: true
             }
         }
@@ -37,6 +39,7 @@ Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
             appBridge: root.appBridge
+            desktopMode: root.appBridge.desktop_mode
             theme: root.theme
         }
     }

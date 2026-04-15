@@ -3,6 +3,8 @@ import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 
 Rectangle {
+    UiScale { id: ui; desktopMode: root.desktopMode }
+    id: root
     required property string code
     required property string name
     required property string size
@@ -11,17 +13,18 @@ Rectangle {
     property bool installed: false
     property var appBridge
     property var theme
+    property bool desktopMode: false
 
     Layout.fillWidth: true
     color: theme.surfaceColor
-    radius: 12
+    radius: ui.dp(12)
     border.color: theme.borderColor
-    implicitHeight: 72
+    implicitHeight: ui.dp(72)
 
     RowLayout {
         anchors.fill: parent
-        anchors.margins: 16
-        spacing: 12
+        anchors.margins: ui.dp(16)
+        spacing: ui.dp(12)
 
         ColumnLayout {
             Layout.fillWidth: true
@@ -29,13 +32,13 @@ Rectangle {
             Label {
                 text: parent.parent.name
                 color: parent.parent.parent.theme.textPrimary
-                font.pixelSize: 16
+                font.pointSize: ui.pt(16)
             }
 
             Label {
                 text: parent.parent.parent.built_in ? "Built in" : parent.parent.parent.size
                 color: parent.parent.parent.theme.textSecondary
-                font.pixelSize: 13
+                font.pointSize: ui.pt(13)
             }
         }
 
@@ -44,7 +47,7 @@ Rectangle {
             value: parent.parent.download_progress
             from: 0
             to: 1
-            Layout.preferredWidth: 96
+            Layout.preferredWidth: ui.dp(96)
         }
 
         Button {

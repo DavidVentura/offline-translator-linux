@@ -189,6 +189,9 @@ pub struct AppBridge {
     pub tts_selected_voice_display_name: qt_property!(QString; NOTIFY tts_selected_voice_display_name_changed),
     pub tts_selected_voice_display_name_changed: qt_signal!(),
 
+    pub tts_voice_option_count: qt_property!(i32; NOTIFY tts_voice_option_count_changed),
+    pub tts_voice_option_count_changed: qt_signal!(),
+
     pub asset_url: qt_method!(
         fn asset_url(&self, name: QString) -> QString {
             format!("file://{}/{}", self.asset_dir, name).into()
@@ -690,7 +693,13 @@ impl AppBridge {
         selected_name: String,
         selected_display_name: String,
     ) {
+        let item_count = items.len() as i32;
         self.tts_voice_options_model.borrow_mut().reset_data(items);
+
+        if self.tts_voice_option_count != item_count {
+            self.tts_voice_option_count = item_count;
+            self.tts_voice_option_count_changed();
+        }
 
         if self.tts_available != available {
             self.tts_available = available;

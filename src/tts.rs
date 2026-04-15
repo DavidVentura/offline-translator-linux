@@ -1,5 +1,5 @@
 use std::panic::{AssertUnwindSafe, catch_unwind};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread;
 
@@ -38,15 +38,38 @@ pub fn load_tts_voices(
         });
     };
 
+    let model_path = absolute_install_path(snapshot, &files.model_install_path);
+    let aux_path = absolute_install_path(snapshot, &files.aux_install_path);
+    let support_data_root = support_data_root(snapshot, &files);
+
+    eprintln!(
+        "tts.load_tts_voices: language={} engine={} model={} aux={} support_root={}",
+        language_code,
+        files.engine,
+        model_path,
+        aux_path,
+        support_data_root.as_deref().unwrap_or("<none>")
+    );
+
     let voices = catch_tts_panic(|| {
         list_voices(
             &files.engine,
-            &absolute_install_path(snapshot, &files.model_install_path),
-            &absolute_install_path(snapshot, &files.aux_install_path),
-            support_data_root(snapshot, &files).as_deref(),
+            &model_path,
+            &aux_path,
+            support_data_root.as_deref(),
             language_code,
         )
     })?;
+
+    eprintln!(
+        "tts.load_tts_voices: language={} returned {} voice(s): {:?}",
+        language_code,
+        voices.len(),
+        voices
+            .iter()
+            .map(|voice| format!("{}={}", voice.name, voice.speaker_id))
+            .collect::<Vec<_>>()
+    );
 
     let selected_voice_name = selected_voice_name
         .filter(|value| voices.iter().any(|voice| voice.name == **value))
@@ -142,20 +165,12 @@ fn absolute_install_path(snapshot: &CatalogSnapshot, relative_path: &str) -> Str
 }
 
 fn support_data_root(snapshot: &CatalogSnapshot, files: &ResolvedTtsVoiceFiles) -> Option<String> {
-    let model_path = Path::new(&snapshot.base_dir).join(&files.model_install_path);
-    let mut candidates = Vec::<PathBuf>::new();
-
-    candidates.push(Path::new(&snapshot.base_dir).join("bin"));
-    candidates.push(PathBuf::from(&snapshot.base_dir));
-
-    for ancestor in model_path.ancestors() {
-        candidates.push(ancestor.to_path_buf());
-    }
-
-    candidates
-        .into_iter()
-        .find(|candidate| candidate.join("espeak-ng-data").is_dir())
-        .map(|path| path.display().to_string())
+    let _ = files;
+    let data_dir = Path::new(&snapshot.base_dir).join("bin");
+    data_dir
+        .join("espeak-ng-data")
+        .is_dir()
+        .then(|| data_dir.display().to_string())
 }
 
 fn synthesize_full_audio(

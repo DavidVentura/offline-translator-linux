@@ -6,6 +6,7 @@ Item {
     id: root
     property var appBridge
     property var theme
+    UiScale { id: ui; desktopMode: root.appBridge && root.appBridge.desktop_mode }
 
     property bool advancedExpanded: false
     property string expandMoreIcon: appBridge.asset_url("expand_more.svg")
@@ -24,19 +25,19 @@ Item {
             // Header
             Item {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 56
-                Layout.leftMargin: 16; Layout.rightMargin: 16
+                Layout.preferredHeight: ui.dp(56)
+                Layout.leftMargin: ui.dp(16); Layout.rightMargin: ui.dp(16)
 
                 Item {
                     anchors.left: parent.left
                     anchors.verticalCenter: parent.verticalCenter
-                    width: 32; height: 32
+                    width: ui.dp(32); height: ui.dp(32)
 
                     Image {
                         anchors.centerIn: parent
-                        width: 24; height: 24
+                        width: ui.dp(24); height: ui.dp(24)
                         source: appBridge.asset_url("back.svg")
-                        sourceSize.width: 24; sourceSize.height: 24
+                        sourceSize.width: ui.dp(24); sourceSize.height: ui.dp(24)
                     }
                     MouseArea {
                         anchors.fill: parent
@@ -46,68 +47,69 @@ Item {
 
                 Label {
                     anchors.left: parent.left
-                    anchors.leftMargin: 40
+                    anchors.leftMargin: ui.dp(40)
                     anchors.verticalCenter: parent.verticalCenter
                     text: "Settings"
                     color: theme.textPrimary
-                    font.pixelSize: 24
+                    font.pointSize: ui.pt(24)
                     font.bold: true
                 }
             }
 
-            Item { Layout.preferredHeight: 12 }
+            Item { Layout.preferredHeight: ui.dp(12) }
 
             // ── Languages ──
             Rectangle {
                 Layout.fillWidth: true
-                Layout.leftMargin: 16; Layout.rightMargin: 16
-                implicitHeight: langCol.implicitHeight + 32
-                radius: 12; color: theme.surfaceColor
+                Layout.leftMargin: ui.dp(16); Layout.rightMargin: ui.dp(16)
+                implicitHeight: langCol.implicitHeight + ui.dp(32)
+                radius: ui.dp(12); color: theme.surfaceColor
 
                 ColumnLayout {
                     id: langCol
-                    anchors { left: parent.left; right: parent.right; top: parent.top; margins: 16 }
-                    spacing: 12
+                    anchors { left: parent.left; right: parent.right; top: parent.top; margins: ui.dp(16) }
+                    spacing: ui.dp(12)
 
-                    Label { text: "Languages"; color: theme.accentColor; font.pixelSize: 18; font.bold: true }
+                    Label { text: "Languages"; color: theme.accentColor; font.pointSize: ui.pt(18); font.bold: true }
 
                     Item {
-                        Layout.fillWidth: true; implicitHeight: 28
+                        Layout.fillWidth: true; implicitHeight: ui.dp(28)
 
                         Label {
                             anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter
-                            text: "Language Packs"; color: theme.textPrimary; font.pixelSize: 15
+                            text: "Language Packs"; color: theme.textPrimary; font.pointSize: ui.pt(15)
                         }
                         Label {
                             anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
-                            text: "Manage"; color: theme.accentColor; font.pixelSize: 15
+                            text: "Manage"; color: theme.accentColor; font.pointSize: ui.pt(15)
                             MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: appBridge.show_manage_languages() }
                         }
                     }
                 }
             }
 
-            Item { Layout.preferredHeight: 16 }
+            Item { Layout.preferredHeight: ui.dp(16) }
 
             // ── General ──
             Rectangle {
                 Layout.fillWidth: true
-                Layout.leftMargin: 16; Layout.rightMargin: 16
-                implicitHeight: generalCol.implicitHeight + 32
-                radius: 12; color: theme.surfaceColor
+                Layout.leftMargin: ui.dp(16); Layout.rightMargin: ui.dp(16)
+                implicitHeight: generalCol.implicitHeight + ui.dp(32)
+                radius: ui.dp(12); color: theme.surfaceColor
 
                 ColumnLayout {
                     id: generalCol
-                    anchors { left: parent.left; right: parent.right; top: parent.top; margins: 16 }
-                    spacing: 16
+                    anchors { left: parent.left; right: parent.right; top: parent.top; margins: ui.dp(16) }
+                    spacing: ui.dp(16)
 
-                    Label { text: "General"; color: theme.accentColor; font.pixelSize: 18; font.bold: true }
+                    Label { text: "General"; color: theme.accentColor; font.pointSize: ui.pt(18); font.bold: true }
 
                     ColumnLayout {
-                        Layout.fillWidth: true; spacing: 6
-                        Label { text: "Default 'from' language"; color: theme.textSecondary; font.pixelSize: 13 }
+                        Layout.fillWidth: true; spacing: ui.dp(6)
+                        Label { text: "Default 'from' language"; color: theme.textSecondary; font.pointSize: ui.pt(13) }
                         DarkComboBox {
-                            Layout.fillWidth: true; Layout.preferredHeight: 40
+                            Layout.fillWidth: true; Layout.preferredHeight: ui.dp(40)
+                            desktopMode: root.appBridge.desktop_mode
                             theme: root.theme; iconSource: expandMoreIcon
                             model: appBridge.installed_from_language_names
                             Component.onCompleted: { var idx = find(appBridge.source_language_name); if (idx >= 0) currentIndex = idx }
@@ -116,10 +118,11 @@ Item {
                     }
 
                     ColumnLayout {
-                        Layout.fillWidth: true; spacing: 6
-                        Label { text: "Default 'to' language"; color: theme.textSecondary; font.pixelSize: 13 }
+                        Layout.fillWidth: true; spacing: ui.dp(6)
+                        Label { text: "Default 'to' language"; color: theme.textSecondary; font.pointSize: ui.pt(13) }
                         DarkComboBox {
-                            Layout.fillWidth: true; Layout.preferredHeight: 40
+                            Layout.fillWidth: true; Layout.preferredHeight: ui.dp(40)
+                            desktopMode: root.appBridge.desktop_mode
                             theme: root.theme; iconSource: expandMoreIcon
                             model: appBridge.installed_to_language_names
                             Component.onCompleted: { var idx = find(appBridge.target_language_name); if (idx >= 0) currentIndex = idx }
@@ -130,27 +133,28 @@ Item {
                 }
             }
 
-            Item { Layout.preferredHeight: 16 }
+            Item { Layout.preferredHeight: ui.dp(16) }
 
             // ── OCR ──
             Rectangle {
                 Layout.fillWidth: true
-                Layout.leftMargin: 16; Layout.rightMargin: 16
-                implicitHeight: ocrCol.implicitHeight + 32
-                radius: 12; color: theme.surfaceColor
+                Layout.leftMargin: ui.dp(16); Layout.rightMargin: ui.dp(16)
+                implicitHeight: ocrCol.implicitHeight + ui.dp(32)
+                radius: ui.dp(12); color: theme.surfaceColor
 
                 ColumnLayout {
                     id: ocrCol
-                    anchors { left: parent.left; right: parent.right; top: parent.top; margins: 16 }
-                    spacing: 16
+                    anchors { left: parent.left; right: parent.right; top: parent.top; margins: ui.dp(16) }
+                    spacing: ui.dp(16)
 
-                    Label { text: "OCR"; color: theme.accentColor; font.pixelSize: 18; font.bold: true }
+                    Label { text: "OCR"; color: theme.accentColor; font.pointSize: ui.pt(18); font.bold: true }
 
                     ColumnLayout {
-                        Layout.fillWidth: true; spacing: 6
-                        Label { text: "Background Mode"; color: theme.textSecondary; font.pixelSize: 13 }
+                        Layout.fillWidth: true; spacing: ui.dp(6)
+                        Label { text: "Background Mode"; color: theme.textSecondary; font.pointSize: ui.pt(13) }
                         DarkComboBox {
-                            Layout.fillWidth: true; Layout.preferredHeight: 40
+                            Layout.fillWidth: true; Layout.preferredHeight: ui.dp(40)
+                            desktopMode: root.appBridge.desktop_mode
                             theme: root.theme; iconSource: expandMoreIcon
                             model: ["Auto-detect Colors", "Light Background", "Dark Background"]
                             Component.onCompleted: { var idx = find(appBridge.ocr_background_mode); if (idx >= 0) currentIndex = idx }
@@ -159,10 +163,10 @@ Item {
                     }
 
                     ColumnLayout {
-                        Layout.fillWidth: true; spacing: 6
-                        Label { text: "Min Confidence: " + appBridge.ocr_min_confidence + "%"; color: theme.textSecondary; font.pixelSize: 13 }
+                        Layout.fillWidth: true; spacing: ui.dp(6)
+                        Label { text: "Min Confidence: " + appBridge.ocr_min_confidence + "%"; color: theme.textSecondary; font.pointSize: ui.pt(13) }
                         DarkSlider {
-                            Layout.fillWidth: true; Layout.preferredHeight: 28
+                            Layout.fillWidth: true; Layout.preferredHeight: ui.dp(28)
                             theme: root.theme
                             from: 0; to: 100; stepSize: 5
                             value: appBridge.ocr_min_confidence
@@ -171,10 +175,10 @@ Item {
                     }
 
                     ColumnLayout {
-                        Layout.fillWidth: true; spacing: 6
-                        Label { text: "Max Image Size: " + appBridge.ocr_max_image_size + "px"; color: theme.textSecondary; font.pixelSize: 13 }
+                        Layout.fillWidth: true; spacing: ui.dp(6)
+                        Label { text: "Max Image Size: " + appBridge.ocr_max_image_size + "px"; color: theme.textSecondary; font.pointSize: ui.pt(13) }
                         DarkSlider {
-                            Layout.fillWidth: true; Layout.preferredHeight: 28
+                            Layout.fillWidth: true; Layout.preferredHeight: ui.dp(28)
                             theme: root.theme
                             from: 1500; to: 4000; stepSize: 100
                             value: appBridge.ocr_max_image_size
@@ -184,32 +188,32 @@ Item {
                 }
             }
 
-            Item { Layout.preferredHeight: 16 }
+            Item { Layout.preferredHeight: ui.dp(16) }
 
             // ── Advanced Settings ──
             Rectangle {
                 Layout.fillWidth: true
-                Layout.leftMargin: 16; Layout.rightMargin: 16
-                implicitHeight: advCol.implicitHeight + 32
-                radius: 12; color: theme.surfaceColor
+                Layout.leftMargin: ui.dp(16); Layout.rightMargin: ui.dp(16)
+                implicitHeight: advCol.implicitHeight + ui.dp(32)
+                radius: ui.dp(12); color: theme.surfaceColor
 
                 ColumnLayout {
                     id: advCol
-                    anchors { left: parent.left; right: parent.right; top: parent.top; margins: 16 }
-                    spacing: 16
+                    anchors { left: parent.left; right: parent.right; top: parent.top; margins: ui.dp(16) }
+                    spacing: ui.dp(16)
 
                     Item {
-                        Layout.fillWidth: true; implicitHeight: 28
+                        Layout.fillWidth: true; implicitHeight: ui.dp(28)
 
                         Label {
                             anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter
-                            text: "Advanced Settings"; color: theme.accentColor; font.pixelSize: 18; font.bold: true
+                            text: "Advanced Settings"; color: theme.accentColor; font.pointSize: ui.pt(18); font.bold: true
                         }
                         Image {
                             anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
-                            width: 20; height: 20
+                            width: ui.dp(20); height: ui.dp(20)
                             source: advancedExpanded ? appBridge.asset_url("expand_less.svg") : expandMoreIcon
-                            sourceSize.width: 20; sourceSize.height: 20
+                            sourceSize.width: ui.dp(20); sourceSize.height: ui.dp(20)
                         }
                         MouseArea { anchors.fill: parent; onClicked: advancedExpanded = !advancedExpanded }
                     }
@@ -217,23 +221,24 @@ Item {
                     ColumnLayout {
                         visible: advancedExpanded
                         Layout.fillWidth: true
-                        spacing: 16
+                        spacing: ui.dp(16)
 
                         ColumnLayout {
-                            Layout.fillWidth: true; spacing: 6
-                            Label { text: "Catalog Index URL"; color: theme.textSecondary; font.pixelSize: 13 }
+                            Layout.fillWidth: true; spacing: ui.dp(6)
+                            Label { text: "Catalog Index URL"; color: theme.textSecondary; font.pointSize: ui.pt(13) }
                             TextField {
                                 Layout.fillWidth: true
                                 text: appBridge.catalog_index_url
                                 color: theme.textPrimary
                                 placeholderTextColor: theme.textSecondary
                                 onEditingFinished: appBridge.set_catalog_index_url_value(text)
-                                background: Rectangle { radius: 8; color: theme.backgroundElevated; border.width: 1; border.color: theme.borderColor }
+                                background: Rectangle { radius: ui.dp(8); color: theme.backgroundElevated; border.width: 1; border.color: theme.borderColor }
                             }
                         }
 
                         DarkSwitch {
                             Layout.fillWidth: true; theme: root.theme
+                            desktopMode: root.appBridge.desktop_mode
                             label: "Disable OCR"
                             checked: appBridge.disable_ocr
                             onToggled: appBridge.set_disable_ocr_value(checked)
@@ -241,6 +246,7 @@ Item {
 
                         DarkSwitch {
                             Layout.fillWidth: true; theme: root.theme
+                            desktopMode: root.appBridge.desktop_mode
                             label: "Disable automatic language detection"
                             checked: appBridge.disable_auto_detect
                             onToggled: appBridge.set_disable_auto_detect_value(checked)
@@ -248,6 +254,7 @@ Item {
 
                         DarkSwitch {
                             Layout.fillWidth: true; theme: root.theme
+                            desktopMode: root.appBridge.desktop_mode
                             label: "Show transliteration for output"
                             checked: appBridge.show_transliteration_output
                             onToggled: appBridge.set_show_transliteration_output_value(checked)
@@ -255,6 +262,7 @@ Item {
 
                         DarkSwitch {
                             Layout.fillWidth: true; theme: root.theme
+                            desktopMode: root.appBridge.desktop_mode
                             label: "Show transliteration for input"
                             checked: appBridge.show_transliteration_input
                             onToggled: appBridge.set_show_transliteration_input_value(checked)
@@ -263,7 +271,7 @@ Item {
                 }
             }
 
-            Item { Layout.preferredHeight: 32 }
+            Item { Layout.preferredHeight: ui.dp(32) }
         }
     }
 }

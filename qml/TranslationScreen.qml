@@ -7,6 +7,7 @@ Item {
     property var appBridge
     property var theme
     property bool speechLongPressTriggered: false
+    UiScale { id: ui; desktopMode: root.appBridge && root.appBridge.desktop_mode }
 
     function shareCurrentImage() {
         if (imageShareLoader.item) {
@@ -40,22 +41,27 @@ Item {
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 16
-        spacing: 12
+        anchors.leftMargin: ui.dp(16)
+        anchors.rightMargin: ui.dp(16)
+        anchors.topMargin: 0
+        anchors.bottomMargin: ui.dp(16)
+        spacing: ui.dp(12)
 
         ScrollView {
             visible: !appBridge.image_mode
             Layout.fillWidth: true
             Layout.fillHeight: true
-            Layout.preferredHeight: Math.max(180, root.height * 0.38)
-            Layout.minimumHeight: 120
+            Layout.preferredHeight: Math.max(ui.dp(180), root.height * 0.38)
+            Layout.minimumHeight: ui.dp(120)
             clip: true
 
             TextArea {
                 text: appBridge.input_text
                 color: theme.textPrimary
                 placeholderText: "Enter text"
+                placeholderTextColor: theme.textSecondary
                 wrapMode: TextEdit.Wrap
+                verticalAlignment: TextEdit.AlignTop
                 selectByMouse: true
                 background: Rectangle {
                     color: theme.backgroundColor
@@ -69,7 +75,7 @@ Item {
         Rectangle {
             visible: appBridge.image_mode
             Layout.fillWidth: true
-            Layout.preferredHeight: Math.min(380, Math.max(220, root.height * 0.42))
+            Layout.preferredHeight: Math.min(ui.dp(380), Math.max(ui.dp(220), root.height * 0.42))
             radius: 0
             color: theme.backgroundElevated
             border.color: theme.borderColor
@@ -79,7 +85,7 @@ Item {
             TranslatedImageView {
                 anchors.fill: parent
                 appBridge: root.appBridge
-                imageMargin: 12
+                imageMargin: ui.dp(12)
                 interactive: true
                 onImageClicked: appBridge.open_image_viewer()
             }
@@ -87,17 +93,17 @@ Item {
             Row {
                 anchors.top: parent.top
                 anchors.right: parent.right
-                anchors.margins: 12
-                spacing: 8
+                anchors.margins: ui.dp(12)
+                spacing: ui.dp(8)
 
                 RoundButton {
-                    width: 36
-                    height: 36
+                    width: ui.dp(36)
+                    height: ui.dp(36)
                     display: AbstractButton.IconOnly
                     icon.source: appBridge.asset_url("share.svg")
                     icon.color: theme.textPrimary
-                    icon.width: 18
-                    icon.height: 18
+                    icon.width: ui.dp(18)
+                    icon.height: ui.dp(18)
                     text: "Share"
                     onClicked: root.shareCurrentImage()
                     background: Rectangle {
@@ -109,13 +115,13 @@ Item {
                 }
 
                 RoundButton {
-                    width: 36
-                    height: 36
+                    width: ui.dp(36)
+                    height: ui.dp(36)
                     display: AbstractButton.IconOnly
                     icon.source: appBridge.asset_url("close.svg")
                     icon.color: theme.textPrimary
-                    icon.width: 18
-                    icon.height: 18
+                    icon.width: ui.dp(18)
+                    icon.height: ui.dp(18)
                     text: "Close"
                     onClicked: appBridge.clear_selected_image()
                     background: Rectangle {
@@ -131,28 +137,28 @@ Item {
         Rectangle {
             visible: appBridge.show_missing_card
             Layout.fillWidth: true
-            Layout.topMargin: 4
-            Layout.bottomMargin: 4
+            Layout.topMargin: ui.dp(4)
+            Layout.bottomMargin: ui.dp(4)
             color: theme.surfaceColor
-            radius: 8
-            implicitHeight: 52
+            radius: ui.dp(8)
+            implicitHeight: ui.dp(52)
 
             Column {
                 anchors.left: parent.left
-                anchors.leftMargin: 16
+                anchors.leftMargin: ui.dp(16)
                 anchors.verticalCenter: parent.verticalCenter
-                spacing: 2
+                spacing: ui.dp(2)
 
                 Label {
                     text: "Translate from"
                     color: theme.textSecondary
-                    font.pixelSize: 13
+                    font.pointSize: ui.pt(13)
                 }
 
                 Label {
                     text: appBridge.detected_language_name
                     color: theme.textPrimary
-                    font.pixelSize: 16
+                    font.pointSize: ui.pt(16)
                     font.bold: true
                 }
             }
@@ -160,7 +166,7 @@ Item {
             CircularProgress {
                 visible: appBridge.detected_language_progress > 0 && appBridge.detected_language_progress < 1
                 anchors.right: parent.right
-                anchors.rightMargin: 16
+                anchors.rightMargin: ui.dp(16)
                 anchors.verticalCenter: parent.verticalCenter
                 progress: appBridge.detected_language_progress
                 progressColor: theme.accentColor
@@ -169,15 +175,15 @@ Item {
             Item {
                 visible: appBridge.detected_language_progress <= 0 || appBridge.detected_language_progress >= 1
                 anchors.right: parent.right
-                anchors.rightMargin: 8
+                anchors.rightMargin: ui.dp(8)
                 anchors.verticalCenter: parent.verticalCenter
-                width: 40; height: 40
+                width: ui.dp(40); height: ui.dp(40)
 
                 Image {
                     anchors.centerIn: parent
-                    width: 24; height: 24
+                    width: ui.dp(24); height: ui.dp(24)
                     source: appBridge.asset_url("forward.svg")
-                    sourceSize.width: 24; sourceSize.height: 24
+                    sourceSize.width: ui.dp(24); sourceSize.height: ui.dp(24)
                 }
 
                 MouseArea {
@@ -191,14 +197,14 @@ Item {
             visible: !appBridge.show_missing_card
             Layout.fillWidth: true
             color: "transparent"
-            implicitHeight: 8
+            implicitHeight: ui.dp(8)
 
             Rectangle {
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.verticalCenter: parent.verticalCenter
                 width: parent.width / 2
-                height: 4
-                radius: 2
+                height: ui.dp(4)
+                radius: ui.dp(2)
                 color: theme.borderColor
             }
         }
@@ -206,18 +212,19 @@ Item {
         Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            Layout.preferredHeight: Math.max(180, root.height * 0.3)
-            Layout.minimumHeight: 140
+            Layout.preferredHeight: Math.max(ui.dp(180), root.height * 0.3)
+            Layout.minimumHeight: ui.dp(140)
 
             ScrollView {
                 anchors.fill: parent
-                anchors.rightMargin: (speechButton.visible ? 32 : 0)
+                anchors.rightMargin: speechButton.visible ? ui.dp(32) : 0
                 clip: true
 
                 TextArea {
                     text: appBridge.output_text
                     readOnly: true
                     wrapMode: TextEdit.Wrap
+                    verticalAlignment: TextEdit.AlignTop
                     color: theme.textPrimary
                     background: Rectangle {
                         color: theme.backgroundColor
@@ -233,16 +240,16 @@ Item {
                          && appBridge.output_text.length > 0
                 anchors.top: parent.top
                 anchors.right: parent.right
-                width: 24
-                height: 24
+                width: ui.dp(24)
+                height: ui.dp(24)
 
                 Image {
                     anchors.centerIn: parent
-                    width: 22
-                    height: 22
+                    width: ui.dp(22)
+                    height: ui.dp(22)
                     source: appBridge.asset_url((appBridge.tts_loading || appBridge.tts_playing) ? "close.svg" : "tts.svg")
-                    sourceSize.width: 22
-                    sourceSize.height: 22
+                    sourceSize.width: ui.dp(22)
+                    sourceSize.height: ui.dp(22)
                 }
 
                 MouseArea {
@@ -265,51 +272,57 @@ Item {
 
             Popup {
                 id: speechOptionsPopup
+                property bool voicePickerExpanded: false
                 x: Math.max(0, speechButton.x - width + speechButton.width)
-                y: speechButton.y + speechButton.height + 8
-                width: Math.min(220, parent.width - 24)
+                y: speechButton.y + speechButton.height + ui.dp(8)
+                width: Math.min(ui.dp(220), parent.width - ui.dp(24))
+                height: popupContent.implicitHeight
                 modal: false
+                closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
                 padding: 0
+                onClosed: voicePickerExpanded = false
 
                 background: Rectangle {
-                    radius: 8
+                    radius: ui.dp(8)
                     color: theme.surfaceColor
                     border.color: theme.borderColor
                     border.width: 1
                 }
 
                 contentItem: Item {
+                    id: popupContent
                     implicitWidth: speechOptionsPopup.width
-                    implicitHeight: popupColumn.implicitHeight + 24
+                    implicitHeight: popupColumn.implicitHeight + ui.dp(24)
 
                     Column {
                         id: popupColumn
-                        anchors.fill: parent
-                        anchors.margins: 12
-                        spacing: 12
+                        x: ui.dp(12)
+                        y: ui.dp(12)
+                        width: Math.max(0, parent.width - ui.dp(24))
+                        spacing: ui.dp(12)
 
                         Label {
                             text: "Playback speed"
                             color: theme.textPrimary
-                            font.pixelSize: 16
+                            font.pointSize: ui.pt(16)
                             font.bold: true
                         }
 
                         Row {
                             width: parent.width
-                            spacing: 10
+                            spacing: ui.dp(10)
 
                             Rectangle {
-                                width: 28
-                                height: 28
-                                radius: 8
+                                width: ui.dp(28)
+                                height: ui.dp(28)
+                                radius: ui.dp(8)
                                 color: theme.backgroundElevated
 
                                 Label {
                                     anchors.centerIn: parent
                                     text: "-"
                                     color: theme.textPrimary
-                                    font.pixelSize: 18
+                                    font.pointSize: ui.pt(18)
                                 }
 
                                 MouseArea {
@@ -319,25 +332,25 @@ Item {
                             }
 
                             Label {
-                                width: parent.width - 76
+                                width: parent.width - ui.dp(76)
                                 horizontalAlignment: Text.AlignHCenter
                                 verticalAlignment: Text.AlignVCenter
                                 text: appBridge.tts_playback_speed.toFixed(2) + "x"
                                 color: theme.textPrimary
-                                font.pixelSize: 16
+                                font.pointSize: ui.pt(16)
                             }
 
                             Rectangle {
-                                width: 28
-                                height: 28
-                                radius: 8
+                                width: ui.dp(28)
+                                height: ui.dp(28)
+                                radius: ui.dp(8)
                                 color: theme.backgroundElevated
 
                                 Label {
                                     anchors.centerIn: parent
                                     text: "+"
                                     color: theme.textPrimary
-                                    font.pixelSize: 18
+                                    font.pointSize: ui.pt(18)
                                 }
 
                                 MouseArea {
@@ -357,83 +370,86 @@ Item {
                         Label {
                             text: "Voice"
                             color: theme.textPrimary
-                            font.pixelSize: 16
+                            font.pointSize: ui.pt(16)
                             font.bold: true
                         }
 
                         Column {
                             width: parent.width
-                            spacing: 6
+                            spacing: ui.dp(6)
 
                             Rectangle {
-                                visible: true
                                 width: parent.width
-                                height: 40
-                                radius: 8
+                                height: ui.dp(40)
+                                radius: ui.dp(8)
                                 color: theme.backgroundElevated
                                 border.color: theme.borderColor
                                 border.width: 1
 
                                 Label {
                                     anchors.left: parent.left
-                                    anchors.leftMargin: 12
-                                    anchors.right: voicePickerIndicator.left
-                                    anchors.rightMargin: 8
+                                    anchors.leftMargin: ui.dp(12)
+                                    anchors.right: voiceExpandIndicator.left
+                                    anchors.rightMargin: ui.dp(8)
                                     anchors.verticalCenter: parent.verticalCenter
                                     text: appBridge.tts_selected_voice_display_name
                                     color: theme.textPrimary
                                     verticalAlignment: Text.AlignVCenter
                                     elide: Text.ElideRight
+                                    font.pointSize: ui.pt(15)
                                 }
 
                                 Image {
-                                    id: voicePickerIndicator
+                                    id: voiceExpandIndicator
                                     anchors.right: parent.right
-                                    anchors.rightMargin: 10
+                                    anchors.rightMargin: ui.dp(10)
                                     anchors.verticalCenter: parent.verticalCenter
-                                    visible: appBridge.tts_voice_options_model.count > 1
+                                    visible: appBridge.tts_voice_option_count > 1
                                     source: appBridge.asset_url("expand_more.svg")
-                                    width: 18
-                                    height: 18
-                                    sourceSize.width: 18
-                                    sourceSize.height: 18
+                                    width: ui.dp(18)
+                                    height: ui.dp(18)
+                                    rotation: speechOptionsPopup.voicePickerExpanded ? 180 : 0
+                                    sourceSize.width: ui.dp(18)
+                                    sourceSize.height: ui.dp(18)
                                 }
 
                                 MouseArea {
                                     anchors.fill: parent
-                                    enabled: appBridge.tts_voice_options_model.count > 1
-                                    onClicked: voicePickerPopup.open()
+                                    enabled: appBridge.tts_voice_option_count > 1
+                                    onClicked: speechOptionsPopup.voicePickerExpanded = !speechOptionsPopup.voicePickerExpanded
                                 }
+                            }
 
-                                Popup {
-                                    id: voicePickerPopup
-                                    y: parent.height + 4
-                                    width: parent.width
-                                    padding: 1
+                            Rectangle {
+                                visible: speechOptionsPopup.voicePickerExpanded && appBridge.tts_voice_option_count > 1
+                                width: parent.width
+                                height: visible ? Math.min(ui.dp(222), voiceListView.contentHeight + ui.dp(2)) : 0
+                                radius: ui.dp(8)
+                                color: theme.surfaceColor
+                                border.color: theme.borderColor
+                                border.width: 1
+                                clip: true
 
-                                    contentItem: ListView {
-                                        clip: true
-                                        implicitHeight: Math.min(contentHeight, 220)
-                                        model: voicePickerPopup.visible ? appBridge.tts_voice_options_model : null
-                                        delegate: ItemDelegate {
-                                            required property string name
-                                            required property string display_name
+                                ListView {
+                                    id: voiceListView
+                                    anchors.fill: parent
+                                    anchors.margins: ui.dp(1)
+                                    clip: true
+                                    model: speechOptionsPopup.voicePickerExpanded ? appBridge.tts_voice_options_model : null
 
-                                            width: voicePickerPopup.width - 2
-                                            text: display_name
-                                            highlighted: appBridge.tts_selected_voice_name === name
-                                            onClicked: {
-                                                appBridge.set_tts_voice_name(name)
-                                                voicePickerPopup.close()
-                                            }
+                                    ScrollIndicator.vertical: ScrollIndicator { }
+
+                                    delegate: ItemDelegate {
+                                        required property string name
+                                        required property string display_name
+
+                                        width: voiceListView.width
+                                        text: display_name
+                                        highlighted: appBridge.tts_selected_voice_name === name
+                                        onClicked: {
+                                            appBridge.set_tts_voice_name(name)
+                                            speechOptionsPopup.voicePickerExpanded = false
                                         }
-                                    }
-
-                                    background: Rectangle {
-                                        radius: 8
-                                        color: theme.surfaceColor
-                                        border.color: theme.borderColor
-                                        border.width: 1
                                     }
                                 }
                             }
@@ -447,13 +463,13 @@ Item {
     RoundButton {
         anchors.right: parent.right
         anchors.bottom: parent.bottom
-        anchors.margins: 24
-        width: 64
-        height: 64
+        anchors.margins: ui.dp(24)
+        width: ui.dp(64)
+        height: ui.dp(64)
         display: AbstractButton.IconOnly
         icon.source: appBridge.asset_url("camera.svg")
-        icon.width: 28
-        icon.height: 28
+        icon.width: ui.dp(28)
+        icon.height: ui.dp(28)
         text: "Camera"
         background: Rectangle {
             radius: width / 2
@@ -479,14 +495,14 @@ Item {
         RoundButton {
             anchors.top: parent.top
             anchors.left: parent.left
-            anchors.margins: 16
-            width: 44
-            height: 44
+            anchors.margins: ui.dp(16)
+            width: ui.dp(44)
+            height: ui.dp(44)
             display: AbstractButton.IconOnly
             icon.source: appBridge.asset_url("back.svg")
             icon.color: "#FFFFFF"
-            icon.width: 22
-            icon.height: 22
+            icon.width: ui.dp(22)
+            icon.height: ui.dp(22)
             text: "Back"
             onClicked: appBridge.close_image_viewer()
             background: Rectangle {
@@ -499,14 +515,14 @@ Item {
         RoundButton {
             anchors.top: parent.top
             anchors.right: parent.right
-            anchors.margins: 16
-            width: 44
-            height: 44
+            anchors.margins: ui.dp(16)
+            width: ui.dp(44)
+            height: ui.dp(44)
             display: AbstractButton.IconOnly
             icon.source: appBridge.asset_url("share.svg")
             icon.color: "#FFFFFF"
-            icon.width: 22
-            icon.height: 22
+            icon.width: ui.dp(22)
+            icon.height: ui.dp(22)
             text: "Share"
             onClicked: root.shareCurrentImage()
             background: Rectangle {

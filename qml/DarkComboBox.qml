@@ -5,18 +5,21 @@ ComboBox {
     id: control
     property var theme
     property string iconSource
+    property bool desktopMode: false
+    UiScale { id: ui; desktopMode: control.desktopMode }
 
     contentItem: Label {
-        leftPadding: 12
-        rightPadding: control.indicator ? control.indicator.width + 10 : 30
+        leftPadding: ui.dp(12)
+        rightPadding: control.indicator ? control.indicator.width + ui.dp(10) : ui.dp(30)
         text: control.displayText
         color: theme.textPrimary
         verticalAlignment: Text.AlignVCenter
         elide: Text.ElideRight
+        font.pointSize: ui.pt(15)
     }
 
     background: Rectangle {
-        radius: 8
+        radius: ui.dp(8)
         color: theme.backgroundElevated
         border.width: 1
         border.color: theme.borderColor
@@ -24,8 +27,8 @@ ComboBox {
 
     indicator: Image {
         source: iconSource
-        width: 16; height: 16
-        x: control.width - width - 10
+        width: ui.dp(16); height: ui.dp(16)
+        x: control.width - width - ui.dp(10)
         y: (control.height - height) / 2
     }
 
@@ -33,7 +36,7 @@ ComboBox {
         y: control.height
         width: control.width
         implicitHeight: contentItem.implicitHeight
-        padding: 1
+        padding: ui.dp(1)
 
         contentItem: ListView {
             clip: true
@@ -42,15 +45,16 @@ ComboBox {
 
             delegate: Rectangle {
                 width: control.width
-                height: 36
+                height: ui.dp(36)
                 color: delegateMouseArea.containsMouse ? theme.surfaceAltColor : theme.surfaceColor
 
                 Label {
                     anchors.fill: parent
-                    leftPadding: 12
+                    leftPadding: ui.dp(12)
                     text: modelData
                     color: theme.textPrimary
                     verticalAlignment: Text.AlignVCenter
+                    font.pointSize: ui.pt(15)
                 }
 
                 MouseArea {
@@ -69,7 +73,7 @@ ComboBox {
         background: Rectangle {
             color: theme.surfaceColor
             border.color: theme.borderColor
-            radius: 4
+            radius: ui.dp(4)
         }
     }
 }

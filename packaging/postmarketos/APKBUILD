@@ -49,8 +49,8 @@ package() {
 		"$pkgdir"/usr/share/applications/offline-translator-linux.desktop
 
 	install -Dm644 \
-		clickable/assets/logo.svg \
-		"$pkgdir"/usr/share/icons/hicolor/scalable/apps/offline-translator-linux.svg
+		clickable/assets/logo.png \
+		"$pkgdir"/usr/share/icons/hicolor/512x512/apps/offline-translator-linux.png
 }
 sha512sums="
 bc6b30d73e58678db97d428bd0a247b12a0243b3901c93f02e6f6e4aa9f1051abe41365a75639183e6a657e2456a1c4b14212f29bbd9ee5f6b7c225c184b55c8  offline-translator-linux-0.1.0.tar.gz

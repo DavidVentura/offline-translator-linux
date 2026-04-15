@@ -6,6 +6,10 @@ dependencies_host:
 - libpulse-dev
 dependencies_target:
 - libpulse-dev
+env_vars:
+  QT_INCLUDE_PATH: /usr/include/${ARCH_TRIPLET}/qt5
+  QT_LIBRARY_PATH: /usr/lib/${ARCH_TRIPLET}
+  BINDGEN_EXTRA_CLANG_ARGS_aarch64_unknown_linux_gnu: --target=aarch64-linux-gnu --sysroot=/ -I/usr/lib/gcc-cross/aarch64-linux-gnu/13/include -I/usr/aarch64-linux-gnu/include
 kill: offline-translator-linux
 install_qml:
 - qml/*.qml

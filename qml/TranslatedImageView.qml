@@ -6,6 +6,7 @@ Item {
     property int imageMargin: 0
     property bool interactive: false
     signal imageClicked()
+    UiScale { id: ui }
 
     Image {
         id: selectedImage
@@ -42,7 +43,7 @@ Item {
 
                     Text {
                         anchors.fill: parent
-                        anchors.margins: 2
+                        anchors.margins: ui.dp(2)
                         text: translated_text
                         color: foreground_color
                         wrapMode: Text.Wrap
