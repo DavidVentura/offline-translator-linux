@@ -13,17 +13,30 @@ Item {
             return
         }
 
-        pendingUrl = url
+        pendingUrl = ("" + url).trim()
+        if (!pendingUrl.length) {
+            return
+        }
         picker.visible = true
+    }
+
+    function destroySharedItem() {
+        if (sharedItem) {
+            sharedItem.destroy()
+            sharedItem = null
+        }
+    }
+
+    function createSharedItem() {
+        destroySharedItem()
+        sharedItem = shareItemComponent.createObject(root, { "url": pendingUrl })
+        return sharedItem
     }
 
     function cleanupTransfer() {
         activeTransfer = null
         pendingUrl = ""
-        if (sharedItem) {
-            sharedItem.destroy()
-            sharedItem = null
-        }
+        destroySharedItem()
     }
 
     ContentPeerPicker {
@@ -40,13 +53,7 @@ Item {
                 return
             }
 
-            if (sharedItem) {
-                sharedItem.destroy()
-                sharedItem = null
-            }
-
-            sharedItem = shareItemComponent.createObject(root, { "url": pendingUrl })
-            if (!sharedItem) {
+            if (!createSharedItem()) {
                 cleanupTransfer()
                 return
             }
