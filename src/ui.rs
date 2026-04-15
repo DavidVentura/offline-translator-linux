@@ -406,6 +406,11 @@ pub struct AppBridge {
             self.toggle_speak_output_impl();
         }
     ),
+    pub prepare_tts_options: qt_method!(
+        fn prepare_tts_options(&mut self) {
+            self.prepare_tts_options_impl();
+        }
+    ),
     pub set_tts_playback_speed_value: qt_method!(
         fn set_tts_playback_speed_value(&mut self, value: f32) {
             self.set_tts_playback_speed_impl(value);
@@ -688,7 +693,7 @@ impl AppBridge {
 
     pub fn set_tts_voices_value(
         &mut self,
-        available: bool,
+        _available: bool,
         items: Vec<TtsVoiceListItem>,
         selected_name: String,
         selected_display_name: String,
@@ -699,11 +704,6 @@ impl AppBridge {
         if self.tts_voice_option_count != item_count {
             self.tts_voice_option_count = item_count;
             self.tts_voice_option_count_changed();
-        }
-
-        if self.tts_available != available {
-            self.tts_available = available;
-            self.tts_available_changed();
         }
 
         let selected_name = QString::from(selected_name);
@@ -833,7 +833,8 @@ impl AppBridge {
             self.stop_tts();
             self.refresh_swap_enabled();
             self.refresh_translation_content();
-            self.refresh_tts_voices();
+            self.refresh_tts_availability();
+            self.reset_tts_voice_selection_state();
             self.persist_settings();
         }
     }
@@ -949,8 +950,18 @@ impl AppBridge {
             language_code: self.target_language_code.clone(),
             text,
             speech_speed: self.tts_playback_speed.clamp(0.5, 2.0),
-            voice_name: self.tts_selected_voice_name.to_string(),
+            voice_name: self
+                .tts_voice_overrides
+                .get(&self.target_language_code)
+                .cloned()
+                .unwrap_or_default(),
         });
+    }
+
+    fn prepare_tts_options_impl(&mut self) {
+        if self.tts_available {
+            self.refresh_tts_voices();
+        }
     }
 
     fn set_tts_playback_speed_impl(&mut self, value: f32) {
@@ -970,7 +981,7 @@ impl AppBridge {
                 .insert(self.target_language_code.clone(), value.clone());
         }
         self.persist_settings();
-        self.refresh_tts_voices();
+        self.apply_tts_voice_selection_preview(value.as_str());
     }
 
     fn open_tts_download_picker_impl(&mut self, code: String) {
@@ -1038,6 +1049,63 @@ impl AppBridge {
             language_code: self.target_language_code.clone(),
             selected_voice_name,
         });
+    }
+
+    fn refresh_tts_availability(&mut self) {
+        let available = self
+            .find_language_by_code(&self.target_language_code)
+            .map(|language| language.tts_installed)
+            .unwrap_or(false);
+
+        if self.tts_available != available {
+            self.tts_available = available;
+            self.tts_available_changed();
+        }
+    }
+
+    fn reset_tts_voice_selection_state(&mut self) {
+        self.tts_voice_options_model.borrow_mut().reset_data(Vec::new());
+        if self.tts_voice_option_count != 0 {
+            self.tts_voice_option_count = 0;
+            self.tts_voice_option_count_changed();
+        }
+
+        let selected_name = QString::from("");
+        if self.tts_selected_voice_name != selected_name {
+            self.tts_selected_voice_name = selected_name;
+            self.tts_selected_voice_name_changed();
+        }
+
+        let selected_display_name = QString::from("Default");
+        if self.tts_selected_voice_display_name != selected_display_name {
+            self.tts_selected_voice_display_name = selected_display_name;
+            self.tts_selected_voice_display_name_changed();
+        }
+    }
+
+    fn apply_tts_voice_selection_preview(&mut self, selected_voice_name: &str) {
+        let display_name = if selected_voice_name.is_empty() {
+            "Default".to_string()
+        } else {
+            self.tts_voice_options_model
+                .borrow()
+                .iter()
+                .find(|item| item.name.to_string() == selected_voice_name)
+                .map(|item| item.display_name.to_string())
+                .unwrap_or_else(|| "Default".to_string())
+        };
+
+        let selected_name = QString::from(selected_voice_name);
+        if self.tts_selected_voice_name != selected_name {
+            self.tts_selected_voice_name = selected_name;
+            self.tts_selected_voice_name_changed();
+        }
+
+        let selected_display_name = QString::from(display_name);
+        if self.tts_selected_voice_display_name != selected_display_name {
+            self.tts_selected_voice_display_name = selected_display_name;
+            self.tts_selected_voice_display_name_changed();
+        }
     }
 
     fn stop_tts(&mut self) {
@@ -1187,7 +1255,8 @@ impl AppBridge {
         self.ensure_selected_languages_are_valid();
         self.refresh_swap_enabled();
         self.refresh_detected_language();
-        self.refresh_tts_voices();
+        self.refresh_tts_availability();
+        self.reset_tts_voice_selection_state();
     }
 
     fn ensure_selected_languages_are_valid(&mut self) {

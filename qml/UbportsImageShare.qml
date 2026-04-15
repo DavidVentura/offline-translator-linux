@@ -4,49 +4,81 @@ import Lomiri.Content 1.1
 Item {
     id: root
     property var appBridge
+    property string pendingUrl: ""
     property var activeTransfer: null
     property var sharedItem: null
-    property bool transferCharged: false
 
     function share(url) {
         if (!url) {
             return
         }
 
-        if (sharedItem) {
-            sharedItem.destroy()
-            sharedItem = null
-        }
-
-        sharedItem = shareItemComponent.createObject(root, { "url": url })
-        transferCharged = false
-        activeTransfer = sharePeer.request()
-        if (!activeTransfer || !sharedItem) {
-            cleanupTransfer()
-            return
-        }
+        pendingUrl = url
+        picker.visible = true
     }
 
     function cleanupTransfer() {
         activeTransfer = null
-        transferCharged = false
+        pendingUrl = ""
         if (sharedItem) {
             sharedItem.destroy()
             sharedItem = null
         }
     }
 
-    ContentPeer {
-        id: sharePeer
+    ContentPeerPicker {
+        id: picker
+        anchors.fill: parent
+        visible: false
+        showTitle: false
         contentType: ContentType.Pictures
         handler: ContentHandler.Share
-        selectionType: ContentTransfer.Single
+        onPeerSelected: {
+            peer.selectionType = ContentTransfer.Single
+            activeTransfer = peer.request()
+            visible = false
+            if (!activeTransfer) {
+                cleanupTransfer()
+            }
+        }
+        onCancelPressed: {
+            visible = false
+            cleanupTransfer()
+        }
     }
 
     Component {
         id: shareItemComponent
 
         ContentItem {}
+    }
+
+    Connections {
+        target: ContentHub
+        ignoreUnknownSignals: true
+
+        function onShareRequested(transfer) {
+            if (!pendingUrl.length) {
+                transfer.state = ContentTransfer.Aborted
+                return
+            }
+
+            if (sharedItem) {
+                sharedItem.destroy()
+                sharedItem = null
+            }
+
+            sharedItem = shareItemComponent.createObject(root, { "url": pendingUrl })
+            if (!sharedItem) {
+                transfer.state = ContentTransfer.Aborted
+                cleanupTransfer()
+                return
+            }
+
+            activeTransfer = transfer
+            transfer.items = [sharedItem]
+            transfer.state = ContentTransfer.Charged
+        }
     }
 
     Connections {
@@ -58,17 +90,14 @@ Item {
                 return
             }
 
-            if (!transferCharged && activeTransfer.state === ContentTransfer.InProgress && sharedItem) {
-                activeTransfer.items = [sharedItem]
-                activeTransfer.state = ContentTransfer.Charged
-                transferCharged = true
+            if (activeTransfer.state === ContentTransfer.Collected) {
+                activeTransfer.finalize()
+                cleanupTransfer()
                 return
             }
 
             if (activeTransfer.state === ContentTransfer.Aborted ||
-                    activeTransfer.state === ContentTransfer.Charged ||
-                    activeTransfer.state === ContentTransfer.Finalized ||
-                    activeTransfer.state === ContentTransfer.Collected) {
+                    activeTransfer.state === ContentTransfer.Finalized) {
                 cleanupTransfer()
             }
         }

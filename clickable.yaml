@@ -16,6 +16,7 @@ install_qml:
 install_root_data:
 - packaging/ubuntu-touch/manifest.json
 - packaging/ubuntu-touch/translator.apparmor
+- packaging/ubuntu-touch/translator-contenthub.json
 - packaging/ubuntu-touch/translator.desktop
 - assets
 - runtime-lib

@@ -34,6 +34,8 @@ Item {
     Loader {
         id: imageShareLoader
         active: true
+        anchors.fill: parent
+        z: 40
         source: appBridge.desktop_mode ? "DesktopImageShare.qml" : "UbportsImageShare.qml"
 
         onLoaded: {
@@ -270,6 +272,7 @@ Item {
                     onPressed: root.speechLongPressTriggered = false
                     onPressAndHold: {
                         root.speechLongPressTriggered = true
+                        appBridge.prepare_tts_options()
                         speechOptionsPopup.open()
                     }
                     onClicked: {

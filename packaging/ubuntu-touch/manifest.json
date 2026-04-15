@@ -6,6 +6,7 @@
     "hooks": {
         "translator": {
             "apparmor": "translator.apparmor",
+            "content-hub": "translator-contenthub.json",
             "desktop":  "translator.desktop"
         }
     },

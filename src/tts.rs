@@ -1,14 +1,16 @@
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::Path;
+use std::sync::mpsc::{RecvTimeoutError, SyncSender, sync_channel};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread;
+use std::time::Duration;
 
 use translator::{
     CatalogSnapshot, PcmAudio, ResolvedTtsVoiceFiles, TtsVoiceOption, list_voices,
     plan_speech_chunks_for_text, resolve_tts_voice_files_in_snapshot, synthesize_pcm,
 };
 
-use crate::pulse::play_pcm_buffer;
+use crate::pulse::PulsePlaybackStream;
 use crate::ui::UiCallbacks;
 
 pub struct TtsVoiceRefresh {
@@ -19,6 +21,8 @@ pub struct TtsVoiceRefresh {
 }
 
 static PLAYBACK_GENERATION: AtomicU64 = AtomicU64::new(0);
+const SYNTHESIS_QUEUE_DEPTH: usize = 2;
+const STREAM_POLL_INTERVAL_MS: u64 = 50;
 
 pub fn stop_playback() {
     PLAYBACK_GENERATION.fetch_add(1, Ordering::SeqCst);
@@ -107,12 +111,14 @@ pub fn play_text_async(
     (ui.set_tts_state)(true, false);
 
     thread::spawn(move || {
-        let result = synthesize_full_audio(
+        let result = play_text_streaming(
             &snapshot,
             &language_code,
             &text,
             speech_speed,
             voice_name.as_deref(),
+            generation,
+            &ui,
         );
 
         if PLAYBACK_GENERATION.load(Ordering::SeqCst) != generation {
@@ -120,28 +126,13 @@ pub fn play_text_async(
         }
 
         match result {
-            Ok(audio) => {
-                if PLAYBACK_GENERATION.load(Ordering::SeqCst) != generation {
-                    return;
-                }
-
-                (ui.set_tts_state)(false, true);
-                match start_playback(audio, generation) {
-                    Ok(()) => {
-                        if PLAYBACK_GENERATION.load(Ordering::SeqCst) == generation {
-                            (ui.set_tts_state)(false, false);
-                        }
-                    }
-                    Err(err) => {
-                        eprintln!("TTS playback failed: {err}");
-                        if PLAYBACK_GENERATION.load(Ordering::SeqCst) == generation {
-                            (ui.set_tts_state)(false, false);
-                        }
-                    }
+            Ok(()) => {
+                if PLAYBACK_GENERATION.load(Ordering::SeqCst) == generation {
+                    (ui.set_tts_state)(false, false);
                 }
             }
             Err(err) => {
-                eprintln!("TTS synthesis failed: {err}");
+                eprintln!("TTS streaming failed: {err}");
                 if PLAYBACK_GENERATION.load(Ordering::SeqCst) == generation {
                     (ui.set_tts_state)(false, false);
                 }
@@ -173,13 +164,21 @@ fn support_data_root(snapshot: &CatalogSnapshot, files: &ResolvedTtsVoiceFiles) 
         .then(|| data_dir.display().to_string())
 }
 
-fn synthesize_full_audio(
+#[derive(Debug)]
+struct QueuedAudioChunk {
+    audio: PcmAudio,
+    pause_after_ms: Option<i32>,
+}
+
+fn play_text_streaming(
     snapshot: &CatalogSnapshot,
     language_code: &str,
     text: &str,
     speech_speed: f32,
     voice_name: Option<&str>,
-) -> Result<PcmAudio, String> {
+    generation: u64,
+    ui: &UiCallbacks,
+) -> Result<(), String> {
     let files = resolve_tts_files(snapshot, language_code)
         .ok_or_else(|| format!("No TTS voice installed for {language_code}"))?;
     let model_path = absolute_install_path(snapshot, &files.model_install_path);
@@ -201,48 +200,132 @@ fn synthesize_full_audio(
         return Err("Nothing to speak".to_string());
     }
 
-    let mut sample_rate = None::<i32>;
-    let mut combined_samples = Vec::<i16>::new();
+    let (tx, rx) = sync_channel::<Result<QueuedAudioChunk, String>>(SYNTHESIS_QUEUE_DEPTH);
+    let producer_files_engine = files.engine.clone();
+    let producer_model_path = model_path.clone();
+    let producer_aux_path = aux_path.clone();
+    let producer_support_data_root = support_data_root.clone();
+    let producer_language_code = language_code.to_string();
+    let producer_voice_name = voice_name.map(ToOwned::to_owned);
 
-    for chunk in planned_chunks {
-        let pcm = catch_tts_panic(|| {
-            synthesize_pcm(
-                &files.engine,
-                &model_path,
-                &aux_path,
-                support_data_root.as_deref(),
-                language_code,
-                &chunk.content,
-                speech_speed,
-                voice_name,
-                speaker_id,
-                chunk.is_phonemes,
-            )
-        })?;
+    thread::spawn(move || {
+        produce_audio_chunks(
+            planned_chunks,
+            tx,
+            generation,
+            producer_files_engine,
+            producer_model_path,
+            producer_aux_path,
+            producer_support_data_root,
+            producer_language_code,
+            speech_speed,
+            producer_voice_name,
+            speaker_id,
+        );
+    });
 
-        let current_sample_rate = sample_rate.get_or_insert(pcm.sample_rate);
-        if *current_sample_rate != pcm.sample_rate {
-            return Err("Mismatched sample rates across synthesized speech chunks".to_string());
-        }
+    let mut should_stop = || PLAYBACK_GENERATION.load(Ordering::SeqCst) != generation;
+    let first_chunk = match recv_chunk(&rx, &mut should_stop)? {
+        Some(chunk) => chunk,
+        None => return Ok(()),
+    };
 
-        combined_samples.extend(pcm.pcm_samples);
+    let playback = PulsePlaybackStream::new(first_chunk.audio.sample_rate)?;
+    (ui.set_tts_state)(false, true);
+    playback.write_audio(&first_chunk.audio, &mut should_stop)?;
+    if let Some(pause_after_ms) = first_chunk.pause_after_ms {
+        playback.write_pause_ms(pause_after_ms, &mut should_stop)?;
+    }
 
+    while let Some(chunk) = recv_chunk(&rx, &mut should_stop)? {
+        playback.write_audio(&chunk.audio, &mut should_stop)?;
         if let Some(pause_after_ms) = chunk.pause_after_ms {
-            let silence = PcmAudio::silence(*current_sample_rate, pause_after_ms);
-            combined_samples.extend(silence.pcm_samples);
+            playback.write_pause_ms(pause_after_ms, &mut should_stop)?;
         }
     }
 
-    Ok(PcmAudio {
-        sample_rate: sample_rate.unwrap_or(22_050),
-        pcm_samples: combined_samples,
-    })
+    if should_stop() {
+        let _ = playback.flush();
+    }
+
+    Ok(())
 }
 
-fn start_playback(audio: PcmAudio, generation: u64) -> Result<(), String> {
-    play_pcm_buffer(&audio, || {
-        PLAYBACK_GENERATION.load(Ordering::SeqCst) != generation
-    })
+#[allow(clippy::too_many_arguments)]
+fn produce_audio_chunks(
+    planned_chunks: Vec<translator::SpeechChunk>,
+    tx: SyncSender<Result<QueuedAudioChunk, String>>,
+    generation: u64,
+    engine: String,
+    model_path: String,
+    aux_path: String,
+    support_data_root: Option<String>,
+    language_code: String,
+    speech_speed: f32,
+    voice_name: Option<String>,
+    speaker_id: Option<i64>,
+) {
+    for chunk in planned_chunks {
+        if PLAYBACK_GENERATION.load(Ordering::SeqCst) != generation {
+            return;
+        }
+
+        let pcm = match catch_tts_panic(|| {
+            synthesize_pcm(
+                &engine,
+                &model_path,
+                &aux_path,
+                support_data_root.as_deref(),
+                &language_code,
+                &chunk.content,
+                speech_speed,
+                voice_name.as_deref(),
+                speaker_id,
+                chunk.is_phonemes,
+            )
+        }) {
+            Ok(pcm) => pcm,
+            Err(err) => {
+                let _ = tx.send(Err(err));
+                return;
+            }
+        };
+
+        if PLAYBACK_GENERATION.load(Ordering::SeqCst) != generation {
+            return;
+        }
+
+        if tx
+            .send(Ok(QueuedAudioChunk {
+                audio: pcm,
+                pause_after_ms: chunk.pause_after_ms,
+            }))
+            .is_err()
+        {
+            return;
+        }
+    }
+}
+
+fn recv_chunk<F>(
+    rx: &std::sync::mpsc::Receiver<Result<QueuedAudioChunk, String>>,
+    should_stop: &mut F,
+) -> Result<Option<QueuedAudioChunk>, String>
+where
+    F: FnMut() -> bool,
+{
+    loop {
+        if should_stop() {
+            return Ok(None);
+        }
+
+        match rx.recv_timeout(Duration::from_millis(STREAM_POLL_INTERVAL_MS)) {
+            Ok(Ok(chunk)) => return Ok(Some(chunk)),
+            Ok(Err(err)) => return Err(err),
+            Err(RecvTimeoutError::Timeout) => continue,
+            Err(RecvTimeoutError::Disconnected) => return Ok(None),
+        }
+    }
 }
 
 fn catch_tts_panic<T, F>(f: F) -> Result<T, String>

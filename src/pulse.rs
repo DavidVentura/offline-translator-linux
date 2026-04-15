@@ -55,6 +55,11 @@ struct PulsePlayback {
     handle: *mut PaSimple,
 }
 
+pub struct PulsePlaybackStream {
+    playback: PulsePlayback,
+    sample_rate: i32,
+}
+
 impl PulsePlayback {
     fn new(sample_rate: i32) -> Result<Self, String> {
         if sample_rate <= 0 {
@@ -140,27 +145,65 @@ impl Drop for PulsePlayback {
     }
 }
 
-pub fn play_pcm_buffer<F>(audio: &PcmAudio, mut should_stop: F) -> Result<(), String>
-where
-    F: FnMut() -> bool,
-{
-    let playback = PulsePlayback::new(audio.sample_rate)?;
-    if should_stop() {
-        let _ = playback.flush();
-        return Ok(());
+impl PulsePlaybackStream {
+    pub fn new(sample_rate: i32) -> Result<Self, String> {
+        Ok(Self {
+            playback: PulsePlayback::new(sample_rate)?,
+            sample_rate,
+        })
     }
 
-    for chunk in audio.pcm_samples.chunks(PLAYBACK_CHUNK_SAMPLES) {
-        if should_stop() {
-            let _ = playback.flush();
+    pub fn write_audio<F>(&self, audio: &PcmAudio, should_stop: &mut F) -> Result<(), String>
+    where
+        F: FnMut() -> bool,
+    {
+        if audio.sample_rate != self.sample_rate {
+            return Err(format!(
+                "Mismatched sample rate for playback stream: expected {}, got {}",
+                self.sample_rate, audio.sample_rate
+            ));
+        }
+
+        self.write_samples(&audio.pcm_samples, should_stop)
+    }
+
+    pub fn write_pause_ms<F>(&self, duration_ms: i32, should_stop: &mut F) -> Result<(), String>
+    where
+        F: FnMut() -> bool,
+    {
+        if duration_ms <= 0 {
             return Ok(());
         }
 
-        playback.write_samples(chunk)?;
-        sleep_for_chunk(chunk.len(), audio.sample_rate, &mut should_stop, &playback)?;
+        let silence = PcmAudio::silence(self.sample_rate, duration_ms);
+        self.write_samples(&silence.pcm_samples, should_stop)
     }
 
-    Ok(())
+    pub fn flush(&self) -> Result<(), String> {
+        self.playback.flush()
+    }
+
+    fn write_samples<F>(&self, samples: &[i16], should_stop: &mut F) -> Result<(), String>
+    where
+        F: FnMut() -> bool,
+    {
+        if should_stop() {
+            let _ = self.playback.flush();
+            return Ok(());
+        }
+
+        for chunk in samples.chunks(PLAYBACK_CHUNK_SAMPLES) {
+            if should_stop() {
+                let _ = self.playback.flush();
+                return Ok(());
+            }
+
+            self.playback.write_samples(chunk)?;
+            sleep_for_chunk(chunk.len(), self.sample_rate, should_stop, &self.playback)?;
+        }
+
+        Ok(())
+    }
 }
 
 fn sleep_for_chunk<F>(
