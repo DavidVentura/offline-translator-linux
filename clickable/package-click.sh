@@ -12,10 +12,4 @@ if [ -z "$clickable_bin" ]; then
   fi
 fi
 
-if [ "${SKIP_BINARY_BUILD:-0}" != "1" ]; then
-  cargo build --manifest-path ../Cargo.toml --release
-  cp ../target/release/offline-translator-linux translator
-  strip translator || true
-fi
-
 exec "$clickable_bin" build "$@"

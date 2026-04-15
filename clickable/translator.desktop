@@ -1,6 +1,6 @@
 [Desktop Entry]
 Name=Offline translator
-Exec=translator %U
+Exec=offline-translator-linux %U
 Icon=assets/logo.svg
 Terminal=false
 Type=Application
