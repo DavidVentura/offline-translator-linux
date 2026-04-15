@@ -1,4 +1,5 @@
 use qmetaobject::*;
+use std::cell::RefCell;
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::sync::mpsc::Sender;
@@ -36,13 +37,6 @@ pub struct ManageLanguageListItem {
     pub tts_installed: bool,
     pub tts_size: QString,
     pub tts_progress: f32,
-}
-
-#[derive(Default)]
-struct UiModels {
-    installed: QPointer<SimpleListModel<LanguageListItem>>,
-    available: QPointer<SimpleListModel<LanguageListItem>>,
-    manage: QPointer<SimpleListModel<ManageLanguageListItem>>,
 }
 
 #[derive(QObject, Default)]
@@ -96,6 +90,10 @@ pub struct AppBridge {
 
     pub manage_filter_text: qt_property!(QString; NOTIFY manage_filter_text_changed),
     pub manage_filter_text_changed: qt_signal!(),
+
+    pub installed_languages_model: qt_property!(RefCell<SimpleListModel<LanguageListItem>>; CONST),
+    pub available_languages_model: qt_property!(RefCell<SimpleListModel<LanguageListItem>>; CONST),
+    pub manage_languages_model: qt_property!(RefCell<SimpleListModel<ManageLanguageListItem>>; CONST),
 
     pub desktop_mode: qt_property!(bool; CONST),
 
@@ -152,10 +150,33 @@ pub struct AppBridge {
     pub toggle_manage_language: qt_method!(
         fn toggle_manage_language(&mut self, code: QString) {
             let code = code.to_string();
-            if !self.expanded_languages.remove(&code) {
-                self.expanded_languages.insert(code);
+            let expanded = if !self.expanded_languages.remove(&code) {
+                self.expanded_languages.insert(code.clone());
+                true
+            } else {
+                false
+            };
+
+            let visible = self.manage_filter.is_empty()
+                || self
+                    .find_language_by_code(&code)
+                    .map(|language| {
+                        language
+                            .name
+                            .to_lowercase()
+                            .contains(self.manage_filter.as_str())
+                    })
+                    .unwrap_or(false);
+
+            if visible
+                && let Some(language) = self.find_language_by_code(&code).cloned()
+            {
+                update_manage_progress_item(
+                    &mut self.manage_languages_model.borrow_mut(),
+                    &language,
+                    expanded,
+                );
             }
-            self.refresh_language_views();
         }
     ),
     pub set_manage_filter: qt_method!(
@@ -234,7 +255,6 @@ pub struct AppBridge {
     detected_language_code: String,
     previous_screen: Screen,
     bus_tx: Option<Sender<IoEvent>>,
-    models: UiModels,
     asset_dir: String,
     manage_filter: String,
     expanded_languages: HashSet<String>,
@@ -265,37 +285,52 @@ impl AppBridge {
         app
     }
 
-    pub fn attach_models(
-        &mut self,
-        installed: QPointer<SimpleListModel<LanguageListItem>>,
-        available: QPointer<SimpleListModel<LanguageListItem>>,
-        manage: QPointer<SimpleListModel<ManageLanguageListItem>>,
-    ) {
-        self.models.installed = installed;
-        self.models.available = available;
-        self.models.manage = manage;
-        self.refresh_language_views();
-    }
-
     pub fn set_languages_value(&mut self, mut languages: Vec<Language>) {
         languages.sort_by(|left, right| left.name.cmp(&right.name));
+        eprintln!("ui.set_languages_value: {} languages", languages.len());
         self.all_languages = languages;
         self.refresh_language_views();
     }
 
     pub fn set_feature_progress_value(&mut self, code: &str, feature: FeatureKind, progress: f32) {
-        if let Some(language) = self
+        let Some(language) = self
             .all_languages
             .iter_mut()
             .find(|language| language.code == code)
-        {
-            match feature {
-                FeatureKind::Core => language.core_progress = progress,
-                FeatureKind::Dictionary => language.dictionary_progress = progress,
-                FeatureKind::Tts => language.tts_progress = progress,
-            }
+        else {
+            return;
+        };
+
+        match feature {
+            FeatureKind::Core => language.core_progress = progress,
+            FeatureKind::Dictionary => language.dictionary_progress = progress,
+            FeatureKind::Tts => language.tts_progress = progress,
         }
-        self.refresh_language_views();
+
+        let language = language.clone();
+        update_progress_list_item(
+            &mut self.installed_languages_model.borrow_mut(),
+            &language,
+            false,
+        );
+        update_progress_list_item(
+            &mut self.available_languages_model.borrow_mut(),
+            &language,
+            true,
+        );
+        if self.manage_filter.is_empty()
+            || language
+                .name
+                .to_lowercase()
+                .contains(self.manage_filter.as_str())
+        {
+            update_manage_progress_item(
+                &mut self.manage_languages_model.borrow_mut(),
+                &language,
+                self.expanded_languages.contains(&language.code),
+            );
+        }
+        self.refresh_detected_language();
     }
 
     pub fn set_output_text_value(&mut self, text: String) {
@@ -450,15 +485,24 @@ impl AppBridge {
             })
             .collect::<Vec<_>>();
 
-        if let Some(model) = self.models.installed.as_pinned() {
-            model.borrow_mut().reset_data(installed_items);
-        }
-        if let Some(model) = self.models.available.as_pinned() {
-            model.borrow_mut().reset_data(available_items);
-        }
-        if let Some(model) = self.models.manage.as_pinned() {
-            model.borrow_mut().reset_data(manage_items);
-        }
+        eprintln!(
+            "ui.refresh_language_views: installed={} available={} manage={} filter='{}'",
+            installed_items.len(),
+            available_items.len(),
+            manage_items.len(),
+            self.manage_filter
+        );
+
+        self.installed_languages_model
+            .borrow_mut()
+            .reset_data(installed_items);
+        self.available_languages_model
+            .borrow_mut()
+            .reset_data(available_items);
+        eprintln!("ui.refresh_language_views: resetting manage model");
+        self.manage_languages_model
+            .borrow_mut()
+            .reset_data(manage_items);
 
         let from_names = self
             .all_languages
@@ -646,6 +690,41 @@ fn manage_language_to_list_item(language: &Language, expanded: bool) -> ManageLa
         tts_installed: language.tts_installed,
         tts_size: QString::from(format_size(language.tts_size_bytes)),
         tts_progress: language.tts_progress,
+    }
+}
+
+fn update_progress_list_item(
+    model: &mut SimpleListModel<LanguageListItem>,
+    language: &Language,
+    available_list: bool,
+) {
+    let target_code = QString::from(language.code.clone());
+    let index = {
+        model.iter().position(|item| item.code == target_code)
+    };
+    if let Some(index) = index {
+        let should_be_visible = if available_list {
+            !language.core_installed && !language.built_in
+        } else {
+            language.core_installed || language.built_in
+        };
+        if should_be_visible {
+            model.change_line(index, language_to_list_item(language.clone()));
+        }
+    }
+}
+
+fn update_manage_progress_item(
+    model: &mut SimpleListModel<ManageLanguageListItem>,
+    language: &Language,
+    expanded: bool,
+) {
+    let target_code = QString::from(language.code.clone());
+    let index = {
+        model.iter().position(|item| item.code == target_code)
+    };
+    if let Some(index) = index {
+        model.change_line(index, manage_language_to_list_item(language, expanded));
     }
 }
 

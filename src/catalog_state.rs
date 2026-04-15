@@ -64,12 +64,26 @@ impl PackInstallChecker for EmptyInstallChecker {
 }
 
 pub fn bundled_catalog() -> LanguageCatalog {
-    parse_and_validate_catalog(BUNDLED_CATALOG_JSON).expect("bundled catalog should parse")
+    let catalog =
+        parse_and_validate_catalog(BUNDLED_CATALOG_JSON).expect("bundled catalog should parse");
+    eprintln!(
+        "catalog loaded: format={} languages={}",
+        catalog.format_version,
+        catalog.language_list().len()
+    );
+    catalog
 }
 
 pub fn build_snapshot(catalog: &LanguageCatalog, base_dir: &str) -> CatalogSnapshot {
     let checker = FsInstallChecker::new(base_dir);
-    build_catalog_snapshot(catalog.clone(), base_dir.to_string(), &checker)
+    let snapshot = build_catalog_snapshot(catalog.clone(), base_dir.to_string(), &checker);
+    eprintln!(
+        "snapshot built: base_dir={} languages={} statuses={}",
+        base_dir,
+        snapshot.catalog.language_list().len(),
+        snapshot.pack_statuses.len()
+    );
+    snapshot
 }
 
 pub fn languages_from_snapshot(snapshot: &CatalogSnapshot) -> Vec<Language> {
@@ -135,6 +149,7 @@ pub fn languages_from_snapshot(snapshot: &CatalogSnapshot) -> Vec<Language> {
         .collect::<Vec<_>>();
 
     languages.sort_by(|left, right| left.name.cmp(&right.name));
+    eprintln!("languages_from_snapshot: {} rows", languages.len());
     languages
 }
 

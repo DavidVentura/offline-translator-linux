@@ -3,9 +3,9 @@ import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 
 Item {
+    id: root
     property var appBridge
     property var theme
-    property var manageModel
 
     ColumnLayout {
         anchors.fill: parent
@@ -42,9 +42,8 @@ Item {
         LanguageCatalogBrowser {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            appBridge: parent.parent.appBridge
-            theme: parent.parent.theme
-            manageModel: parent.parent.manageModel
+            appBridge: root.appBridge
+            theme: root.theme
         }
 
         Button {

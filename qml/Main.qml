@@ -32,7 +32,6 @@ ApplicationWindow {
         SetupScreen {
             appBridge: app
             theme: theme
-            manageModel: manageLanguagesModel
         }
 
         TranslationScreen {
@@ -48,7 +47,6 @@ ApplicationWindow {
         ManageLanguagesScreen {
             appBridge: app
             theme: theme
-            manageModel: manageLanguagesModel
         }
     }
 }

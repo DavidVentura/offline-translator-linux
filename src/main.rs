@@ -11,7 +11,7 @@ use std::sync::mpsc;
 
 use crate::catalog_state::{build_snapshot, bundled_catalog, languages_from_snapshot};
 use crate::model::FeatureKind;
-use crate::ui::{AppBridge, LanguageListItem, ManageLanguageListItem, create_ui_callbacks};
+use crate::ui::{AppBridge, create_ui_callbacks};
 
 const APP_NAME: &str = "dev.davidv.translator";
 
@@ -68,30 +68,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let asset_dir = find_asset_dir(&main_qml)?;
     let mut engine = QmlEngine::new();
     let app = QObjectBox::new(AppBridge::new(initial_languages, bus_tx.clone(), asset_dir));
-    let installed_languages_model = QObjectBox::new(SimpleListModel::<LanguageListItem>::default());
-    let available_languages_model = QObjectBox::new(SimpleListModel::<LanguageListItem>::default());
-    let manage_languages_model =
-        QObjectBox::new(SimpleListModel::<ManageLanguageListItem>::default());
-
-    app.pinned().borrow_mut().attach_models(
-        QPointer::from(installed_languages_model.pinned().borrow()),
-        QPointer::from(available_languages_model.pinned().borrow()),
-        QPointer::from(manage_languages_model.pinned().borrow()),
-    );
 
     engine.set_object_property("app".into(), app.pinned());
-    engine.set_object_property(
-        "installedLanguagesModel".into(),
-        installed_languages_model.pinned(),
-    );
-    engine.set_object_property(
-        "availableLanguagesModel".into(),
-        available_languages_model.pinned(),
-    );
-    engine.set_object_property(
-        "manageLanguagesModel".into(),
-        manage_languages_model.pinned(),
-    );
 
     let ui_callbacks = create_ui_callbacks(QPointer::from(app.pinned().borrow()));
     let jh = std::thread::spawn(move || eventloop::run_eventloop(bus_rx, ui_callbacks, catalog));

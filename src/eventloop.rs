@@ -152,11 +152,12 @@ fn download_feature(
     let progress_code = code.to_string();
 
     let progress_thread = thread::spawn(move || {
-        const UPDATE_THRESHOLD: usize = 256 * 1024;
+        const UPDATE_THRESHOLD: usize = 1024 * 1024;
+        const UPDATE_INTERVAL: Duration = Duration::from_millis(120);
         let mut last_update = 0;
 
         while !progress_download_complete.load(Ordering::Relaxed) {
-            thread::sleep(Duration::from_millis(33));
+            thread::sleep(UPDATE_INTERVAL);
 
             let current = progress_total_downloaded.load(Ordering::Relaxed);
             if current.saturating_sub(last_update) >= UPDATE_THRESHOLD {
