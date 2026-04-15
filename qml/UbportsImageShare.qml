@@ -6,6 +6,7 @@ Item {
     property var appBridge
     property var activeTransfer: null
     property var sharedItem: null
+    property bool transferCharged: false
 
     function share(url) {
         if (!url) {
@@ -18,17 +19,17 @@ Item {
         }
 
         sharedItem = shareItemComponent.createObject(root, { "url": url })
+        transferCharged = false
         activeTransfer = sharePeer.request()
         if (!activeTransfer || !sharedItem) {
+            cleanupTransfer()
             return
         }
-
-        activeTransfer.items = [sharedItem]
-        activeTransfer.start()
     }
 
     function cleanupTransfer() {
         activeTransfer = null
+        transferCharged = false
         if (sharedItem) {
             sharedItem.destroy()
             sharedItem = null
@@ -57,7 +58,15 @@ Item {
                 return
             }
 
+            if (!transferCharged && activeTransfer.state === ContentTransfer.InProgress && sharedItem) {
+                activeTransfer.items = [sharedItem]
+                activeTransfer.state = ContentTransfer.Charged
+                transferCharged = true
+                return
+            }
+
             if (activeTransfer.state === ContentTransfer.Aborted ||
+                    activeTransfer.state === ContentTransfer.Charged ||
                     activeTransfer.state === ContentTransfer.Finalized ||
                     activeTransfer.state === ContentTransfer.Collected) {
                 cleanupTransfer()

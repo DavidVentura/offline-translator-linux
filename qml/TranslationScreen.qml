@@ -10,8 +10,8 @@ Item {
     UiScale { id: ui; desktopMode: root.appBridge && root.appBridge.desktop_mode }
     readonly property real imageOverlayButtonSize: appBridge.desktop_mode ? ui.dp(36) : ui.dp(40)
     readonly property real imageOverlayIconSize: appBridge.desktop_mode ? ui.dp(18) : ui.dp(20)
-    readonly property real fullscreenOverlayButtonSize: appBridge.desktop_mode ? ui.dp(40) : ui.dp(40)
-    readonly property real fullscreenOverlayIconSize: appBridge.desktop_mode ? ui.dp(20) : ui.dp(20)
+    readonly property real fullscreenOverlayButtonSize: ui.dp(40)
+    readonly property real fullscreenOverlayIconSize: ui.dp(20)
 
     function shareCurrentImage() {
         if (imageShareLoader.item) {
