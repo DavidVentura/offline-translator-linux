@@ -10,14 +10,10 @@ cld2 = { git = "https://github.com/DavidVentura/rust-cld2.git" }
 #cld2 = { path = "../rust-cld2" }
 miniserde = "0.1.43"
 ureq = "3.1.2"
-slint = { version = "1.13.1", default-features = false, features = ["backend-qt", "std", "compat-1-2"] }
-i-slint-renderer-femtovg = { version = "1.13.1", features = ["opengl"] }
+qmetaobject = "0.2"
 flate2 = "1.0"
 rayon = "1.10"
 whoami = { version = "1.6.1", default-features = false }
-
-[build-dependencies]
-slint-build = "1.13.1"
 
 [profile.dev]
 #debug = false

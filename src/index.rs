@@ -1,6 +1,6 @@
 use miniserde::{Deserialize, Serialize};
 
-use crate::{Direction, Language};
+use crate::model::{Direction, Language};
 
 #[derive(Serialize, Deserialize)]
 pub struct Index {

@@ -1,0 +1,629 @@
+use qmetaobject::*;
+use std::sync::Arc;
+use std::sync::mpsc::Sender;
+
+use crate::IoEvent;
+use crate::index::Index;
+use crate::model::{Direction, Language, Screen};
+
+#[derive(Clone, Default, SimpleListItem)]
+pub struct LanguageListItem {
+    pub code: QString,
+    pub name: QString,
+    pub size: QString,
+    pub installed: bool,
+    pub download_progress: f32,
+    pub built_in: bool,
+}
+
+#[derive(Default)]
+struct UiModels {
+    installed: QPointer<SimpleListModel<LanguageListItem>>,
+    available: QPointer<SimpleListModel<LanguageListItem>>,
+}
+
+#[derive(QObject, Default)]
+pub struct AppBridge {
+    base: qt_base_class!(trait QObject),
+
+    pub current_screen: qt_property!(i32; NOTIFY current_screen_changed),
+    pub current_screen_changed: qt_signal!(),
+
+    pub disable_auto_detect: qt_property!(bool; NOTIFY disable_auto_detect_changed),
+    pub disable_auto_detect_changed: qt_signal!(),
+
+    pub has_languages: qt_property!(bool; NOTIFY has_languages_changed),
+    pub has_languages_changed: qt_signal!(),
+
+    pub input_text: qt_property!(QString; NOTIFY input_text_changed),
+    pub input_text_changed: qt_signal!(),
+
+    pub output_text: qt_property!(QString; NOTIFY output_text_changed),
+    pub output_text_changed: qt_signal!(),
+
+    pub source_language_name: qt_property!(QString; NOTIFY source_language_name_changed),
+    pub source_language_name_changed: qt_signal!(),
+
+    pub target_language_name: qt_property!(QString; NOTIFY target_language_name_changed),
+    pub target_language_name_changed: qt_signal!(),
+
+    pub installed_from_language_names: qt_property!(QStringList; NOTIFY installed_from_language_names_changed),
+    pub installed_from_language_names_changed: qt_signal!(),
+
+    pub installed_to_language_names: qt_property!(QStringList; NOTIFY installed_to_language_names_changed),
+    pub installed_to_language_names_changed: qt_signal!(),
+
+    pub swap_enabled: qt_property!(bool; NOTIFY swap_enabled_changed),
+    pub swap_enabled_changed: qt_signal!(),
+
+    pub detected_language_name: qt_property!(QString; NOTIFY detected_language_name_changed),
+    pub detected_language_name_changed: qt_signal!(),
+
+    pub detected_language_installed: qt_property!(bool; NOTIFY detected_language_installed_changed),
+    pub detected_language_installed_changed: qt_signal!(),
+
+    pub detected_language_progress: qt_property!(f32; NOTIFY detected_language_progress_changed),
+    pub detected_language_progress_changed: qt_signal!(),
+
+    pub show_missing_card: qt_property!(bool; NOTIFY show_missing_card_changed),
+    pub show_missing_card_changed: qt_signal!(),
+
+    pub active_tab: qt_property!(i32; NOTIFY active_tab_changed),
+    pub active_tab_changed: qt_signal!(),
+
+    pub desktop_mode: qt_property!(bool; CONST),
+
+    pub asset_url: qt_method!(
+        fn asset_url(&self, name: QString) -> QString {
+            format!("file://{}/{}", self.asset_dir, name).into()
+        }
+    ),
+
+    pub set_from: qt_method!(
+        fn set_from(&mut self, name: QString) {
+            self.set_source_language_by_name(name.to_string());
+        }
+    ),
+    pub set_to: qt_method!(
+        fn set_to(&mut self, name: QString) {
+            self.set_target_language_by_name(name.to_string());
+        }
+    ),
+    pub swap_languages: qt_method!(
+        fn swap_languages(&mut self) {
+            self.swap_languages_impl();
+        }
+    ),
+    pub process_text: qt_method!(
+        fn process_text(&mut self, text: QString) {
+            self.process_text_impl(text.to_string());
+        }
+    ),
+    pub download_language: qt_method!(
+        fn download_language(&mut self, code: QString) {
+            self.send_io(IoEvent::DownloadRequest(code.to_string()));
+        }
+    ),
+    pub delete_language: qt_method!(
+        fn delete_language(&mut self, code: QString) {
+            let code = code.to_string();
+            self.send_io(IoEvent::DeleteLanguage(code.clone()));
+            self.mark_language_deleted(&code);
+        }
+    ),
+    pub show_settings: qt_method!(
+        fn show_settings(&mut self) {
+            self.set_current_screen(Screen::Settings);
+        }
+    ),
+    pub back_from_settings: qt_method!(
+        fn back_from_settings(&mut self) {
+            self.set_current_screen(Screen::Translation);
+        }
+    ),
+    pub show_manage_languages: qt_method!(
+        fn show_manage_languages(&mut self) {
+            self.previous_screen = Screen::Settings;
+            self.set_current_screen(Screen::ManageLanguages);
+        }
+    ),
+    pub back_from_manage_languages: qt_method!(
+        fn back_from_manage_languages(&mut self) {
+            if self.previous_screen == Screen::Settings {
+                self.set_current_screen(Screen::Settings);
+            } else if self.has_languages {
+                self.set_current_screen(Screen::Translation);
+            } else {
+                self.set_current_screen(Screen::NoLanguages);
+            }
+        }
+    ),
+    pub finish_language_setup: qt_method!(
+        fn finish_language_setup(&mut self) {
+            if self.has_languages {
+                self.set_current_screen(Screen::Translation);
+            }
+        }
+    ),
+    pub set_disable_auto_detect_value: qt_method!(
+        fn set_disable_auto_detect_value(&mut self, value: bool) {
+            self.set_disable_auto_detect_impl(value);
+        }
+    ),
+    pub set_active_tab: qt_method!(
+        fn set_active_tab(&mut self, tab: i32) {
+            if self.active_tab != tab {
+                self.active_tab = tab;
+                self.active_tab_changed();
+            }
+        }
+    ),
+    pub missing_language_action: qt_method!(
+        fn missing_language_action(&mut self) {
+            self.missing_language_action_impl();
+        }
+    ),
+    pub camera_clicked: qt_method!(
+        fn camera_clicked(&self) {
+            println!("Camera clicked");
+        }
+    ),
+
+    all_languages: Vec<Language>,
+    source_language_code: String,
+    target_language_code: String,
+    detected_language_code: String,
+    previous_screen: Screen,
+    bus_tx: Option<Sender<IoEvent>>,
+    models: UiModels,
+    asset_dir: String,
+}
+
+#[derive(Clone)]
+pub struct UiCallbacks {
+    pub clear_languages: Arc<dyn Fn() + Send + Sync>,
+    pub mark_language_downloaded: Arc<dyn Fn(String) + Send + Sync>,
+    pub set_download_progress: Arc<dyn Fn(String, f32) + Send + Sync>,
+    pub set_output_text: Arc<dyn Fn(String) + Send + Sync>,
+    pub set_detected_language_code: Arc<dyn Fn(String) + Send + Sync>,
+    pub set_current_screen: Arc<dyn Fn(Screen) + Send + Sync>,
+}
+
+impl AppBridge {
+    pub fn new(index: &Index, bus_tx: Sender<IoEvent>, asset_dir: String) -> Self {
+        let mut app = Self::default();
+        app.bus_tx = Some(bus_tx);
+        app.current_screen = Screen::NoLanguages.as_i32();
+        app.previous_screen = Screen::Translation;
+        app.desktop_mode = std::env::var_os("CLICKABLE_DESKTOP_MODE").is_some();
+        app.asset_dir = asset_dir;
+        app.all_languages = index.languages.iter().map(Language::from).collect();
+        app.all_languages.sort_by(|a, b| a.name.cmp(&b.name));
+        app.source_language_code = "en".to_string();
+        app.target_language_code = "en".to_string();
+        app.source_language_name = QString::from("English");
+        app.target_language_name = QString::from("English");
+        app.refresh_language_views();
+        app.refresh_detected_language();
+        app
+    }
+
+    pub fn attach_models(
+        &mut self,
+        installed: QPointer<SimpleListModel<LanguageListItem>>,
+        available: QPointer<SimpleListModel<LanguageListItem>>,
+    ) {
+        self.models.installed = installed;
+        self.models.available = available;
+        self.refresh_language_views();
+    }
+
+    pub fn clear_languages(&mut self) {
+        for language in &mut self.all_languages {
+            language.installed = false;
+            language.download_progress = 0.0;
+        }
+        self.refresh_language_views();
+    }
+
+    pub fn mark_language_downloaded(&mut self, code: &str) {
+        if let Some(language) = self
+            .all_languages
+            .iter_mut()
+            .find(|language| language.code == code)
+        {
+            language.installed = true;
+            language.download_progress = 0.0;
+        }
+        self.refresh_language_views();
+    }
+
+    pub fn set_download_progress(&mut self, code: &str, progress: f32) {
+        if let Some(language) = self
+            .all_languages
+            .iter_mut()
+            .find(|language| language.code == code)
+        {
+            language.download_progress = progress;
+        }
+        self.refresh_language_views();
+    }
+
+    pub fn set_output_text_value(&mut self, text: String) {
+        let text = QString::from(text);
+        if self.output_text != text {
+            self.output_text = text;
+            self.output_text_changed();
+        }
+    }
+
+    pub fn set_detected_language_code_value(&mut self, code: &str) {
+        if self.detected_language_code != code {
+            self.detected_language_code = code.to_string();
+            self.refresh_detected_language();
+        }
+    }
+
+    pub fn set_current_screen(&mut self, screen: Screen) {
+        let screen = screen.as_i32();
+        if self.current_screen != screen {
+            self.current_screen = screen;
+            self.current_screen_changed();
+        }
+    }
+
+    fn set_source_language_by_name(&mut self, name: String) {
+        if let Some(language) = self
+            .all_languages
+            .iter()
+            .find(|language| language.name == name)
+            .cloned()
+        {
+            self.source_language_code = language.code.clone();
+            let qname = QString::from(language.name);
+            if self.source_language_name != qname {
+                self.source_language_name = qname;
+                self.source_language_name_changed();
+            }
+            self.refresh_swap_enabled();
+            self.refresh_detected_language();
+            self.retranslate();
+        }
+    }
+
+    fn set_target_language_by_name(&mut self, name: String) {
+        if let Some(language) = self
+            .all_languages
+            .iter()
+            .find(|language| language.name == name)
+            .cloned()
+        {
+            self.target_language_code = language.code.clone();
+            let qname = QString::from(language.name);
+            if self.target_language_name != qname {
+                self.target_language_name = qname;
+                self.target_language_name_changed();
+            }
+            self.refresh_swap_enabled();
+            self.retranslate();
+        }
+    }
+
+    fn swap_languages_impl(&mut self) {
+        let source = self.source_language_name.to_string();
+        let target = self.target_language_name.to_string();
+        self.set_source_language_by_name(target);
+        self.set_target_language_by_name(source);
+    }
+
+    fn process_text_impl(&mut self, text: String) {
+        let qtext = QString::from(text.clone());
+        if self.input_text != qtext {
+            self.input_text = qtext;
+            self.input_text_changed();
+        }
+
+        self.send_io(IoEvent::TranslationRequest {
+            text,
+            from: self.source_language_code.clone(),
+            to: self.target_language_code.clone(),
+        });
+    }
+
+    fn retranslate(&mut self) {
+        self.send_io(IoEvent::TranslationRequest {
+            text: self.input_text.to_string(),
+            from: self.source_language_code.clone(),
+            to: self.target_language_code.clone(),
+        });
+    }
+
+    fn mark_language_deleted(&mut self, code: &str) {
+        if let Some(language) = self
+            .all_languages
+            .iter_mut()
+            .find(|language| language.code == code)
+        {
+            language.installed = false;
+            language.download_progress = 0.0;
+        }
+        self.ensure_selected_languages_are_valid();
+        self.refresh_language_views();
+    }
+
+    fn set_disable_auto_detect_impl(&mut self, value: bool) {
+        if self.disable_auto_detect != value {
+            self.disable_auto_detect = value;
+            self.disable_auto_detect_changed();
+            self.refresh_detected_language();
+        }
+    }
+
+    fn missing_language_action_impl(&mut self) {
+        let detected_code = self.detected_language_code.clone();
+        if detected_code.is_empty() {
+            return;
+        }
+
+        if let Some(language) = self
+            .all_languages
+            .iter()
+            .find(|language| language.code == detected_code)
+            .cloned()
+        {
+            if language.installed {
+                self.set_source_language_by_name(language.name);
+            } else {
+                self.send_io(IoEvent::DownloadRequest(language.code));
+            }
+        }
+    }
+
+    fn refresh_language_views(&mut self) {
+        let installed_items = self
+            .all_languages
+            .iter()
+            .filter(|language| language.installed || language.code == "en")
+            .cloned()
+            .map(language_to_list_item)
+            .collect::<Vec<_>>();
+        let available_items = self
+            .all_languages
+            .iter()
+            .filter(|language| !language.installed && language.code != "en")
+            .cloned()
+            .map(language_to_list_item)
+            .collect::<Vec<_>>();
+
+        if let Some(model) = self.models.installed.as_pinned() {
+            model.borrow_mut().reset_data(installed_items);
+        }
+        if let Some(model) = self.models.available.as_pinned() {
+            model.borrow_mut().reset_data(available_items);
+        }
+
+        let from_names = self
+            .all_languages
+            .iter()
+            .filter(|language| {
+                (language.installed || language.code == "en")
+                    && matches!(language.direction, Direction::FromOnly | Direction::Both)
+            })
+            .map(|language| QString::from(language.name.clone()))
+            .collect::<QStringList>();
+        if self.installed_from_language_names != from_names {
+            self.installed_from_language_names = from_names;
+            self.installed_from_language_names_changed();
+        }
+
+        let to_names = self
+            .all_languages
+            .iter()
+            .filter(|language| {
+                (language.installed || language.code == "en")
+                    && matches!(language.direction, Direction::ToOnly | Direction::Both)
+            })
+            .map(|language| QString::from(language.name.clone()))
+            .collect::<QStringList>();
+        if self.installed_to_language_names != to_names {
+            self.installed_to_language_names = to_names;
+            self.installed_to_language_names_changed();
+        }
+
+        let has_languages = self
+            .all_languages
+            .iter()
+            .any(|language| language.code != "en" && language.installed);
+        if self.has_languages != has_languages {
+            self.has_languages = has_languages;
+            self.has_languages_changed();
+        }
+
+        self.ensure_selected_languages_are_valid();
+        self.refresh_swap_enabled();
+        self.refresh_detected_language();
+    }
+
+    fn ensure_selected_languages_are_valid(&mut self) {
+        if !self.is_language_selectable(&self.source_language_code, true) {
+            if let Some(language) = self.first_selectable_language(true) {
+                self.source_language_code = language.code.clone();
+                let qname = QString::from(language.name);
+                if self.source_language_name != qname {
+                    self.source_language_name = qname;
+                    self.source_language_name_changed();
+                }
+            }
+        }
+
+        if !self.is_language_selectable(&self.target_language_code, false) {
+            if let Some(language) = self.first_selectable_language(false) {
+                self.target_language_code = language.code.clone();
+                let qname = QString::from(language.name);
+                if self.target_language_name != qname {
+                    self.target_language_name = qname;
+                    self.target_language_name_changed();
+                }
+            }
+        }
+    }
+
+    fn refresh_swap_enabled(&mut self) {
+        let enabled = self
+            .find_language_by_code(&self.source_language_code)
+            .zip(self.find_language_by_code(&self.target_language_code))
+            .map(|(source, target)| {
+                matches!(source.direction, Direction::Both)
+                    && matches!(target.direction, Direction::Both)
+            })
+            .unwrap_or(false);
+
+        if self.swap_enabled != enabled {
+            self.swap_enabled = enabled;
+            self.swap_enabled_changed();
+        }
+    }
+
+    fn refresh_detected_language(&mut self) {
+        let visible = !self.disable_auto_detect && !self.detected_language_code.is_empty();
+        let detected = self.find_language_by_code(&self.detected_language_code);
+        let (name, installed, progress, show_card) = match detected {
+            Some(language) => {
+                let show = visible
+                    && !matches!(language.direction, Direction::ToOnly)
+                    && language.code != self.source_language_code;
+                (
+                    QString::from(language.name.clone()),
+                    language.installed,
+                    language.download_progress,
+                    show,
+                )
+            }
+            None => (QString::default(), false, 0.0, false),
+        };
+
+        if self.detected_language_name != name {
+            self.detected_language_name = name;
+            self.detected_language_name_changed();
+        }
+        if self.detected_language_installed != installed {
+            self.detected_language_installed = installed;
+            self.detected_language_installed_changed();
+        }
+        if (self.detected_language_progress - progress).abs() > f32::EPSILON {
+            self.detected_language_progress = progress;
+            self.detected_language_progress_changed();
+        }
+        if self.show_missing_card != show_card {
+            self.show_missing_card = show_card;
+            self.show_missing_card_changed();
+        }
+    }
+
+    fn is_language_selectable(&self, code: &str, source: bool) -> bool {
+        self.find_language_by_code(code)
+            .map(|language| {
+                (language.installed || language.code == "en")
+                    && if source {
+                        matches!(language.direction, Direction::FromOnly | Direction::Both)
+                    } else {
+                        matches!(language.direction, Direction::ToOnly | Direction::Both)
+                    }
+            })
+            .unwrap_or(false)
+    }
+
+    fn first_selectable_language(&self, source: bool) -> Option<Language> {
+        self.all_languages.iter().find_map(|language| {
+            if (language.installed || language.code == "en")
+                && if source {
+                    matches!(language.direction, Direction::FromOnly | Direction::Both)
+                } else {
+                    matches!(language.direction, Direction::ToOnly | Direction::Both)
+                }
+            {
+                Some(language.clone())
+            } else {
+                None
+            }
+        })
+    }
+
+    fn find_language_by_code(&self, code: &str) -> Option<&Language> {
+        self.all_languages
+            .iter()
+            .find(|language| language.code == code)
+    }
+
+    fn send_io(&self, event: IoEvent) {
+        if let Some(bus_tx) = &self.bus_tx {
+            bus_tx.send(event).unwrap();
+        }
+    }
+}
+
+fn language_to_list_item(language: Language) -> LanguageListItem {
+    LanguageListItem {
+        code: QString::from(language.code.clone()),
+        name: QString::from(language.name),
+        size: QString::from(language.size),
+        installed: language.installed,
+        download_progress: language.download_progress,
+        built_in: language.code == "en",
+    }
+}
+
+pub fn create_ui_callbacks(app: QPointer<AppBridge>) -> UiCallbacks {
+    let clear_app = app.clone();
+    let clear_languages = queued_callback(move |()| {
+        if let Some(app) = clear_app.as_pinned() {
+            app.borrow_mut().clear_languages();
+        }
+    });
+
+    let downloaded_app = app.clone();
+    let mark_language_downloaded = queued_callback(move |code: String| {
+        if let Some(app) = downloaded_app.as_pinned() {
+            app.borrow_mut().mark_language_downloaded(&code);
+        }
+    });
+
+    let progress_app = app.clone();
+    let set_download_progress = queued_callback(move |args: (String, f32)| {
+        if let Some(app) = progress_app.as_pinned() {
+            app.borrow_mut().set_download_progress(&args.0, args.1);
+        }
+    });
+
+    let output_app = app.clone();
+    let set_output_text = queued_callback(move |text: String| {
+        if let Some(app) = output_app.as_pinned() {
+            app.borrow_mut().set_output_text_value(text);
+        }
+    });
+
+    let detected_app = app.clone();
+    let set_detected_language_code = queued_callback(move |code: String| {
+        if let Some(app) = detected_app.as_pinned() {
+            app.borrow_mut().set_detected_language_code_value(&code);
+        }
+    });
+
+    let screen_app = app.clone();
+    let set_current_screen = queued_callback(move |screen: Screen| {
+        if let Some(app) = screen_app.as_pinned() {
+            app.borrow_mut().set_current_screen(screen);
+        }
+    });
+
+    UiCallbacks {
+        clear_languages: Arc::new(move || clear_languages(())),
+        mark_language_downloaded: Arc::new(move |code| mark_language_downloaded(code)),
+        set_download_progress: Arc::new(move |code, progress| {
+            set_download_progress((code, progress))
+        }),
+        set_output_text: Arc::new(move |text| set_output_text(text)),
+        set_detected_language_code: Arc::new(move |code| set_detected_language_code(code)),
+        set_current_screen: Arc::new(move |screen| set_current_screen(screen)),
+    }
+}

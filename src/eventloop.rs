@@ -9,12 +9,14 @@ use std::time::{Duration, Instant};
 use cld2::{Format, detect_language};
 use rayon::prelude::*;
 
+use crate::download;
 use crate::index::{Index, IndexLanguage};
+use crate::model::Screen;
 use crate::translate::Translator;
-use crate::{AppPaths, AppWindow, IoEvent};
-use crate::{Screen, download};
+use crate::ui::UiCallbacks;
+use crate::{AppPaths, IoEvent};
 
-pub fn run_eventloop(bus_rx: Receiver<IoEvent>, ui_handle: slint::Weak<AppWindow>, index: Index) {
+pub fn run_eventloop(bus_rx: Receiver<IoEvent>, ui: UiCallbacks, index: Index) {
     let mut translator = None::<Translator>;
     let mut app_paths = None::<AppPaths>;
 
@@ -22,11 +24,7 @@ pub fn run_eventloop(bus_rx: Receiver<IoEvent>, ui_handle: slint::Weak<AppWindow
         match msg {
             IoEvent::SetAppPaths(path) => {
                 app_paths = Some(path.clone());
-                ui_handle
-                    .upgrade_in_event_loop(move |ui: AppWindow| {
-                        ui.invoke_languages_cleared();
-                    })
-                    .expect("Failed to update UI");
+                (ui.clear_languages)();
 
                 let mut has_languages = false;
                 let load_start = Instant::now();
@@ -47,24 +45,13 @@ pub fn run_eventloop(bus_rx: Receiver<IoEvent>, ui_handle: slint::Weak<AppWindow
                         if code != "en" {
                             has_languages = true;
                         }
-                        ui_handle
-                            .upgrade_in_event_loop(move |ui: AppWindow| {
-                                ui.invoke_language_downloaded(code.into());
-                            })
-                            .expect("Failed to update UI");
+                        (ui.mark_language_downloaded)(code);
                     }
                 }
 
                 if has_languages {
-                    println!("has langs");
                     translator = Some(Translator::new(path.data.clone()));
-                    ui_handle
-                        .upgrade_in_event_loop(move |ui: AppWindow| {
-                            ui.set_current_screen(Screen::Translation);
-                        })
-                        .expect("Failed to update UI");
-                } else {
-                    println!("has NO langs");
+                    (ui.set_current_screen)(Screen::Translation);
                 }
 
                 println!("Load took {:?}", load_start.elapsed());
@@ -78,15 +65,14 @@ pub fn run_eventloop(bus_rx: Receiver<IoEvent>, ui_handle: slint::Weak<AppWindow
                 let lang = index
                     .languages
                     .iter()
-                    .filter(|l| l.code == code)
-                    .next()
+                    .find(|l| l.code == code)
                     .expect("Received illegal code for download")
                     .clone();
 
-                let ui_handle_clone = ui_handle.clone();
+                let ui_clone = ui.clone();
                 let data_path_clone = app_paths.data.clone();
                 let jh = std::thread::spawn(move || {
-                    download(&lang, ui_handle_clone, &data_path_clone);
+                    download(&lang, ui_clone, &data_path_clone);
                 });
                 jh.join().expect("thread panicked");
                 if translator.is_none() {
@@ -119,19 +105,15 @@ pub fn run_eventloop(bus_rx: Receiver<IoEvent>, ui_handle: slint::Weak<AppWindow
                 }
             }
             IoEvent::TranslationRequest { text, from, to } => {
-                send_detection_to_ui(&text, &ui_handle);
+                send_detection_to_ui(&text, &ui);
                 if let Some(ref mut translator) = translator {
-                    let lines: Vec<&str> = text.split("\n").collect();
+                    let lines: Vec<&str> = text.split('\n').collect();
                     let start = Instant::now();
 
                     if let Err(e) = translator.load_language_pair(&from, &to) {
-                        ui_handle
-                            .upgrade_in_event_loop(move |ui: AppWindow| {
-                                ui.set_output_text(
-                                    format!("Couldn't load language pair {from}->{to}: {e}").into(),
-                                );
-                            })
-                            .unwrap();
+                        (ui.set_output_text)(format!(
+                            "Couldn't load language pair {from}->{to}: {e}"
+                        ));
                         continue;
                     }
                     let result = match translator.translate(&from, &to, lines.as_slice()) {
@@ -139,11 +121,7 @@ pub fn run_eventloop(bus_rx: Receiver<IoEvent>, ui_handle: slint::Weak<AppWindow
                         Err(message) => message,
                     };
                     println!("translation took {:?} = '{}'", start.elapsed(), result);
-                    ui_handle
-                        .upgrade_in_event_loop(move |ui: AppWindow| {
-                            ui.set_output_text(result.into());
-                        })
-                        .unwrap();
+                    (ui.set_output_text)(result);
                 } else {
                     println!("no translator, idk");
                 }
@@ -157,7 +135,7 @@ pub fn run_eventloop(bus_rx: Receiver<IoEvent>, ui_handle: slint::Weak<AppWindow
     println!("all senders done, closing");
 }
 
-fn download(lang: &IndexLanguage, ui_handle: slint::Weak<AppWindow>, data_path: &str) {
+fn download(lang: &IndexLanguage, ui: UiCallbacks, data_path: &str) {
     let code = lang.code.clone();
     println!("Download language: {} ", code);
 
@@ -172,13 +150,10 @@ fn download(lang: &IndexLanguage, ui_handle: slint::Weak<AppWindow>, data_path: 
 
     let progress_total_downloaded = total_downloaded.clone();
     let progress_download_complete = download_complete.clone();
-    let progress_ui_handle = ui_handle.clone();
+    let progress_ui = ui.clone();
     let progress_code = code.clone();
 
-    let startup_code = progress_code.clone();
-    let _ = progress_ui_handle.upgrade_in_event_loop(move |ui: AppWindow| {
-        ui.invoke_download_progress(startup_code.into(), 0.00001);
-    });
+    (ui.set_download_progress)(progress_code.clone(), 0.00001);
 
     let progress_thread = thread::spawn(move || {
         const UPDATE_THRESHOLD: usize = 512 * 1024;
@@ -188,12 +163,9 @@ fn download(lang: &IndexLanguage, ui_handle: slint::Weak<AppWindow>, data_path: 
             thread::sleep(Duration::from_millis(33));
 
             let current = progress_total_downloaded.load(Ordering::Relaxed);
-            if current - last_update >= UPDATE_THRESHOLD {
+            if current.saturating_sub(last_update) >= UPDATE_THRESHOLD {
                 let percent = current as f32 / total_size as f32;
-                let code = progress_code.clone();
-                let _ = progress_ui_handle.upgrade_in_event_loop(move |ui: AppWindow| {
-                    ui.invoke_download_progress(code.into(), percent);
-                });
+                (progress_ui.set_download_progress)(progress_code.clone(), percent);
                 last_update = current;
             }
         }
@@ -224,26 +196,16 @@ fn download(lang: &IndexLanguage, ui_handle: slint::Weak<AppWindow>, data_path: 
     }
 
     if success {
-        let lang_code = lang.code.clone();
-        ui_handle
-            .upgrade_in_event_loop(|ui: AppWindow| {
-                ui.invoke_language_downloaded(lang_code.into());
-            })
-            .expect("Failed to update UI");
+        (ui.mark_language_downloaded)(lang.code.clone());
     }
 }
 
-fn send_detection_to_ui(text: &str, ui_handle: &slint::Weak<AppWindow>) {
-    // TODO detect in another thread?
-    let (detected, reliable) = detect_language(&text, Format::Text);
+fn send_detection_to_ui(text: &str, ui: &UiCallbacks) {
+    let (detected, reliable) = detect_language(text, Format::Text);
 
     let code = match (detected, reliable) {
         (Some(c), cld2::Reliable) => c.0,
         _ => "",
     };
-    ui_handle
-        .upgrade_in_event_loop(move |ui: AppWindow| {
-            ui.invoke_set_detected_language_code(code.to_string().into());
-        })
-        .unwrap();
+    (ui.set_detected_language_code)(code.to_string());
 }

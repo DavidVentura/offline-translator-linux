@@ -2,20 +2,20 @@ mod data;
 mod download;
 mod eventloop;
 mod index;
+mod model;
 mod translate;
+mod ui;
 
 use flate2::read::GzDecoder;
-use slint::{self, ComponentHandle, FilterModel, MapModel, Model, VecModel};
+use qmetaobject::*;
 use std::error::Error;
 use std::io::Read;
 use std::path::PathBuf;
-use std::rc::Rc;
-use std::sync::mpsc::{self, Sender};
+use std::sync::mpsc;
 
 use crate::data::INDEX_JSON;
 use crate::index::{Index, IndexLanguage};
-
-slint::include_modules!();
+use crate::ui::{AppBridge, LanguageListItem, create_ui_callbacks};
 
 const APP_NAME: &str = "dev.davidv.translator";
 
@@ -55,27 +55,93 @@ fn get_app_paths() -> AppPaths {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let ui = AppWindow::new()?;
+    qmetaobject::log::init_qt_to_rust();
 
     let (bus_tx, bus_rx) = mpsc::channel::<IoEvent>();
     let default_index = read_default_index();
     let app_paths = get_app_paths();
+    let main_qml = find_main_qml()?;
+    let asset_dir = find_asset_dir(&main_qml)?;
+    let mut engine = QmlEngine::new();
+    let app = QObjectBox::new(AppBridge::new(&default_index, bus_tx.clone(), asset_dir));
+    let installed_languages_model = QObjectBox::new(SimpleListModel::<LanguageListItem>::default());
+    let available_languages_model = QObjectBox::new(SimpleListModel::<LanguageListItem>::default());
 
-    setup_language_models(&ui, &default_index, bus_tx.clone());
+    app.pinned().borrow_mut().attach_models(
+        QPointer::from(installed_languages_model.pinned().borrow()),
+        QPointer::from(available_languages_model.pinned().borrow()),
+    );
 
-    let ui_handle = ui.as_weak();
-    let jh = std::thread::spawn(move || eventloop::run_eventloop(bus_rx, ui_handle, default_index));
+    engine.set_object_property("app".into(), app.pinned());
+    engine.set_object_property(
+        "installedLanguagesModel".into(),
+        installed_languages_model.pinned(),
+    );
+    engine.set_object_property(
+        "availableLanguagesModel".into(),
+        available_languages_model.pinned(),
+    );
 
-    ui.set_current_screen(Screen::NoLanguages);
+    let ui_callbacks = create_ui_callbacks(QPointer::from(app.pinned().borrow()));
+    let jh =
+        std::thread::spawn(move || eventloop::run_eventloop(bus_rx, ui_callbacks, default_index));
 
     bus_tx.send(IoEvent::SetAppPaths(app_paths)).unwrap();
-    ui.run()?;
+    engine.load_file(main_qml.into());
+    engine.exec();
+
     bus_tx.send(IoEvent::Shutdown).unwrap();
     drop(bus_tx);
-    drop(ui);
     jh.join().unwrap();
 
     Ok(())
+}
+
+fn find_main_qml() -> Result<String, Box<dyn Error>> {
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let dev_path = manifest_dir.join("qml/Main.qml");
+    if std::env::var_os("CLICKABLE_DESKTOP_MODE").is_some() && dev_path.exists() {
+        return Ok(dev_path.canonicalize()?.display().to_string());
+    }
+
+    let exe = std::env::current_exe()?;
+    if let Some(qml_path) = exe
+        .parent()
+        .and_then(|bin_dir| bin_dir.parent())
+        .map(|qml_dir| qml_dir.join("Main.qml"))
+        .filter(|path| path.exists())
+    {
+        return Ok(qml_path.display().to_string());
+    }
+
+    if dev_path.exists() {
+        return Ok(dev_path.display().to_string());
+    }
+
+    Err("Could not locate Main.qml".into())
+}
+
+fn find_asset_dir(main_qml: &str) -> Result<String, Box<dyn Error>> {
+    let main_qml = PathBuf::from(main_qml);
+    let candidates = [
+        main_qml.parent().map(|dir| dir.join("../assets")),
+        main_qml.parent().map(|dir| dir.join("../../assets")),
+    ];
+
+    for candidate in candidates.into_iter().flatten() {
+        let candidate = candidate.canonicalize().unwrap_or(candidate);
+        if candidate.exists() {
+            return Ok(candidate.display().to_string());
+        }
+    }
+
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let dev_path = manifest_dir.join("assets");
+    if dev_path.exists() {
+        return Ok(dev_path.canonicalize()?.display().to_string());
+    }
+
+    Err("Could not locate assets directory".into())
 }
 
 fn read_default_index() -> Index {
@@ -97,258 +163,4 @@ fn read_default_index() -> Index {
         extra_files: vec![],
     });
     default_index
-}
-
-fn setup_language_models(ui: &AppWindow, default_index: &Index, bus_tx: Sender<IoEvent>) {
-    let all_languages: Vec<IndexLanguage> = default_index.languages.iter().cloned().collect();
-
-    let from_languages = all_languages
-        .iter()
-        .filter(|il| il.from.is_some() || il.code == "en")
-        .map(|il| Language::from(il))
-        .collect::<Vec<Language>>();
-
-    let to_languages = all_languages
-        .iter()
-        .filter(|il| il.to.is_some() || il.code == "en")
-        .map(|il| Language::from(il))
-        .collect::<Vec<Language>>();
-
-    let mut all_languages_m: Vec<Language> =
-        all_languages.iter().map(|il| Language::from(il)).collect();
-    all_languages_m.sort_by(|a, b| a.name.cmp(&b.name));
-
-    let ui_from_languages = Rc::new(VecModel::from(from_languages));
-    let ui_to_languages = Rc::new(VecModel::from(to_languages));
-    let ui_all_languages = Rc::new(VecModel::from(all_languages_m));
-
-    let all_installed_languages = Rc::new(FilterModel::new(
-        ui_all_languages.clone(),
-        |l: &Language| l.installed || l.code == "en",
-    ));
-    let not_installed_languages = Rc::new(FilterModel::new(
-        ui_all_languages.clone(),
-        |l: &Language| !l.installed,
-    ));
-
-    let installed_from_languages = Rc::new(FilterModel::new(
-        all_installed_languages.clone(),
-        |l: &Language| match l.direction {
-            Direction::ToOnly => false,
-            Direction::FromOnly | Direction::Both => true,
-        },
-    ));
-    let installed_to_languages = Rc::new(FilterModel::new(
-        all_installed_languages.clone(),
-        |l: &Language| match l.direction {
-            Direction::FromOnly => false,
-            Direction::ToOnly | Direction::Both => true,
-        },
-    ));
-
-    let installed_from_language_names = Rc::new(MapModel::new(
-        installed_from_languages.clone(),
-        |lang: Language| lang.name,
-    ));
-    let installed_to_language_names = Rc::new(MapModel::new(
-        installed_to_languages.clone(),
-        |lang: Language| lang.name,
-    ));
-
-    ui.set_all_languages(ui_all_languages.clone().into());
-    ui.set_installed_from_languages(ui_from_languages.clone().into());
-    ui.set_installed_to_languages(ui_to_languages.clone().into());
-
-    ui.set_all_installed_languages(all_installed_languages.clone().into());
-    ui.set_not_installed_languages(not_installed_languages.clone().into());
-
-    ui.set_installed_from_languages(installed_from_languages.clone().into());
-    ui.set_installed_from_language_names(installed_from_language_names.clone().into());
-
-    ui.set_installed_to_languages(installed_to_languages.clone().into());
-    ui.set_installed_to_language_names(installed_to_language_names.clone().into());
-
-    // setup callbacks
-    setup_eventloop_callbacks(&ui, ui_all_languages.clone());
-    setup_ui_callbacks(&ui, bus_tx, ui_all_languages.clone());
-}
-
-fn setup_eventloop_callbacks(ui: &AppWindow, all_languages: Rc<VecModel<Language>>) {
-    // event loop -> UI
-    let clear = all_languages.clone();
-    ui.on_languages_cleared({
-        move || {
-            for i in 0..clear.row_count() {
-                let mut lang = clear.row_data(i).unwrap();
-                lang.installed = false;
-                clear.set_row_data(i, lang);
-            }
-            println!("cleared");
-        }
-    });
-
-    let downloaded = all_languages.clone();
-    ui.on_language_downloaded({
-        move |code| {
-            println!("lang downloaded ui {code:?}");
-            for i in 0..downloaded.row_count() {
-                let mut lang = downloaded.row_data(i).unwrap();
-                if lang.code == code {
-                    lang.installed = true;
-                    lang.download_progress = 0f32;
-                    downloaded.set_row_data(i, lang);
-                    break;
-                }
-            }
-        }
-    });
-
-    let progress = all_languages.clone();
-    ui.on_download_progress({
-        move |code, percent| {
-            println!("Download progress for {}: {:.1}%", code, percent * 100.0);
-            for i in 0..progress.row_count() {
-                let mut lang = progress.row_data(i).unwrap();
-                if lang.code == code {
-                    lang.download_progress = percent;
-                    progress.set_row_data(i, lang);
-                    break;
-                }
-            }
-        }
-    });
-
-    let detected = all_languages.clone();
-    let ui_detected = ui.as_weak();
-    ui.on_set_detected_language_code({
-        move |det_code| {
-            let mut det = DetectedLanguage {
-                language: Language::default(),
-                reliable: false,
-            };
-            for i in 0..detected.row_count() {
-                let lang = detected.row_data(i).unwrap();
-                if lang.code == det_code {
-                    det.language = lang;
-                    det.reliable = true;
-                    break;
-                }
-            }
-            println!("{det:?}");
-            ui_detected
-                .upgrade_in_event_loop(move |ui: AppWindow| {
-                    ui.set_detected_language(det);
-                })
-                .unwrap();
-        }
-    });
-}
-
-fn setup_ui_callbacks(
-    ui: &AppWindow,
-    bus_tx: Sender<IoEvent>,
-    all_languages: Rc<VecModel<Language>>,
-) {
-    // UI -> backend
-    ui.on_swap_languages({
-        let ui_handle = ui.as_weak();
-        move || {
-            let ui = ui_handle.unwrap();
-            let source = ui.get_source_language();
-            let target = ui.get_target_language();
-
-            println!("flip {source:?} {target:?}");
-            ui.set_source_language(target);
-            ui.set_target_language(source);
-            let source = ui.get_source_language();
-            let target = ui.get_target_language();
-            println!("got {source:?} {target:?}");
-        }
-    });
-
-    ui.on_camera_clicked({
-        move || {
-            println!("Camera clicked");
-        }
-    });
-
-    let translate_tx = bus_tx.clone();
-    ui.on_process_text({
-        let ui_handle = ui.as_weak();
-        move |input| {
-            let ui = ui_handle.unwrap();
-            let source = ui.get_source_language();
-            let target = ui.get_target_language();
-
-            translate_tx
-                .send(IoEvent::TranslationRequest {
-                    text: input.to_string(),
-                    from: source.code.to_string(),
-                    to: target.code.to_string(),
-                })
-                .unwrap();
-        }
-    });
-
-    let dl_tx = bus_tx.clone();
-    ui.on_download_language({
-        move |lang| {
-            dl_tx
-                .send(IoEvent::DownloadRequest(lang.code.to_string()))
-                .unwrap();
-        }
-    });
-
-    let del_tx = bus_tx.clone();
-    ui.on_delete_language({
-        let all_languages = all_languages.clone();
-        move |lang| {
-            println!("Delete language: {} ({})", lang.name, lang.code);
-            del_tx
-                .send(IoEvent::DeleteLanguage(lang.code.to_string()))
-                .unwrap();
-            for i in 0..all_languages.row_count() {
-                let mut row_lang = all_languages.row_data(i).unwrap();
-                if row_lang.code == lang.code {
-                    row_lang.installed = false;
-                    all_languages.set_row_data(i, row_lang);
-                    break;
-                }
-            }
-        }
-    });
-
-    ui.on_set_from({
-        let ui_handle = ui.as_weak();
-        let all_languages = all_languages.clone();
-        move |name| {
-            let ui = ui_handle.unwrap();
-            for i in 0..all_languages.row_count() {
-                if let Some(lang) = all_languages.row_data(i) {
-                    if lang.name == name {
-                        println!("set from {lang:?}");
-                        ui.set_source_language(lang);
-                        break;
-                    }
-                }
-            }
-        }
-    });
-
-    ui.on_set_to({
-        let ui_handle = ui.as_weak();
-        let all_languages = all_languages.clone();
-        move |name| {
-            let ui = ui_handle.unwrap();
-            for i in 0..all_languages.row_count() {
-                if let Some(lang) = all_languages.row_data(i) {
-                    if lang.name == name {
-                        println!("set to {lang:?}");
-                        ui.set_target_language(lang);
-                        break;
-                    }
-                }
-            }
-        }
-    });
 }

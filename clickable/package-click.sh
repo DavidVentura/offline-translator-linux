@@ -12,4 +12,4 @@ if [ -z "$clickable_bin" ]; then
   fi
 fi
 
-exec "$clickable_bin" build "$@"
+exec "$clickable_bin" build -c ../clickable.yaml "$@"
