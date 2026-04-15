@@ -1,4 +1,4 @@
 {
-    "policy_groups": ["networking", "content_exchange", "audio"],
+    "policy_groups": ["networking", "content_exchange", "content_exchange_source", "audio"],
     "policy_version": "@APPARMOR_POLICY@"
 }

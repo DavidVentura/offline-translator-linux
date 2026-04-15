@@ -34,12 +34,32 @@ Item {
         contentType: ContentType.Pictures
         handler: ContentHandler.Share
         onPeerSelected: {
+            visible = false
+            if (!pendingUrl.length) {
+                cleanupTransfer()
+                return
+            }
+
+            if (sharedItem) {
+                sharedItem.destroy()
+                sharedItem = null
+            }
+
+            sharedItem = shareItemComponent.createObject(root, { "url": pendingUrl })
+            if (!sharedItem) {
+                cleanupTransfer()
+                return
+            }
+
             peer.selectionType = ContentTransfer.Single
             activeTransfer = peer.request()
-            visible = false
             if (!activeTransfer) {
                 cleanupTransfer()
+                return
             }
+
+            activeTransfer.items = [sharedItem]
+            activeTransfer.state = ContentTransfer.Charged
         }
         onCancelPressed: {
             visible = false
@@ -51,34 +71,6 @@ Item {
         id: shareItemComponent
 
         ContentItem {}
-    }
-
-    Connections {
-        target: ContentHub
-        ignoreUnknownSignals: true
-
-        function onShareRequested(transfer) {
-            if (!pendingUrl.length) {
-                transfer.state = ContentTransfer.Aborted
-                return
-            }
-
-            if (sharedItem) {
-                sharedItem.destroy()
-                sharedItem = null
-            }
-
-            sharedItem = shareItemComponent.createObject(root, { "url": pendingUrl })
-            if (!sharedItem) {
-                transfer.state = ContentTransfer.Aborted
-                cleanupTransfer()
-                return
-            }
-
-            activeTransfer = transfer
-            transfer.items = [sharedItem]
-            transfer.state = ContentTransfer.Charged
-        }
     }
 
     Connections {
