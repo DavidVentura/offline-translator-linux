@@ -23,3 +23,4 @@ debug = "line-tables-only"
 
 [profile.release]
 lto = "thin"
+strip = "symbols"

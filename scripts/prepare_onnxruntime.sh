@@ -38,6 +38,20 @@ machine_name_for_arch() {
   esac
 }
 
+strip_tool_for_arch() {
+  case "$1" in
+    x86_64)
+      command -v x86_64-linux-gnu-strip >/dev/null 2>&1 && echo "x86_64-linux-gnu-strip" || echo "strip"
+      ;;
+    aarch64)
+      echo "aarch64-linux-gnu-strip"
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
 lib_matches_arch() {
   local lib_path="$1"
   local arch="$2"
@@ -91,12 +105,16 @@ if [ "${cross_build_dir_reset}" = "1" ] && [ -f "${build_dir}/Release/CMakeCache
 fi
 
 if [ "${FORCE_REBUILD_ORT:-0}" != "1" ] && lib_matches_arch "${output_lib}" "${target_arch}"; then
+  strip_tool="$(strip_tool_for_arch "${target_arch}")"
+  "${strip_tool}" --strip-unneeded "${output_lib}"
   exit 0
 fi
 
 if [ "${FORCE_REBUILD_ORT:-0}" != "1" ] && lib_matches_arch "${built_lib}" "${target_arch}"; then
   mkdir -p "${output_dir}"
   cp "${built_lib}" "${output_lib}"
+  strip_tool="$(strip_tool_for_arch "${target_arch}")"
+  "${strip_tool}" --strip-unneeded "${output_lib}"
   exit 0
 fi
 
@@ -154,3 +172,5 @@ fi
 
 mkdir -p "${output_dir}"
 cp "${built_lib}" "${output_lib}"
+strip_tool="$(strip_tool_for_arch "${target_arch}")"
+"${strip_tool}" --strip-unneeded "${output_lib}"
