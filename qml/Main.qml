@@ -1,6 +1,5 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
-import QtQuick.Layouts 1.15
 import QtQuick.Window 2.15
 
 ApplicationWindow {
@@ -13,10 +12,7 @@ ApplicationWindow {
     minimumHeight: app.desktop_mode ? 1024 : 640
     title: "Offline Translator"
 
-    AppTheme {
-        id: theme
-    }
-
+    AppTheme { id: theme }
     color: theme.backgroundColor
 
     header: TopBar {
@@ -25,28 +21,31 @@ ApplicationWindow {
         theme: theme
     }
 
-    StackLayout {
+    SetupScreen {
         anchors.fill: parent
-        currentIndex: app.current_screen
+        visible: app.current_screen === 0
+        appBridge: app
+        theme: theme
+    }
 
-        SetupScreen {
-            appBridge: app
-            theme: theme
-        }
+    TranslationScreen {
+        anchors.fill: parent
+        visible: app.current_screen === 1
+        appBridge: app
+        theme: theme
+    }
 
-        TranslationScreen {
-            appBridge: app
-            theme: theme
-        }
+    SettingsScreen {
+        anchors.fill: parent
+        visible: app.current_screen === 2
+        appBridge: app
+        theme: theme
+    }
 
-        SettingsScreen {
-            appBridge: app
-            theme: theme
-        }
-
-        ManageLanguagesScreen {
-            appBridge: app
-            theme: theme
-        }
+    ManageLanguagesScreen {
+        anchors.fill: parent
+        visible: app.current_screen === 3
+        appBridge: app
+        theme: theme
     }
 }

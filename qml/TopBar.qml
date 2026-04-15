@@ -5,8 +5,6 @@ import QtQuick.Layouts 1.15
 ToolBar {
     property var appBridge
     property var theme
-    implicitHeight: 56
-    padding: 0
 
     function syncComboBox(comboBox, value) {
         const index = comboBox.find(value)
@@ -14,7 +12,7 @@ ToolBar {
     }
 
     background: Rectangle {
-        color: theme.backgroundColor
+        color: theme.backgroundElevated
     }
 
     Component.onCompleted: {
@@ -52,21 +50,13 @@ ToolBar {
             Layout.fillWidth: true
             model: appBridge.installed_from_language_names
             onActivated: appBridge.set_from(currentText)
-            Layout.preferredHeight: 40
+
             palette.buttonText: theme.textPrimary
             palette.text: theme.textPrimary
             palette.windowText: theme.textPrimary
             palette.button: theme.backgroundElevated
             palette.base: theme.surfaceColor
-            palette.highlight: theme.surfaceAltColor
-
-            indicator: Image {
-                source: appBridge.asset_url("expand_more.svg")
-                width: 16
-                height: 16
-                x: fromCombo.width - width - 10
-                y: (fromCombo.height - height) / 2
-            }
+            palette.highlight: theme.accentColor
 
             background: Rectangle {
                 radius: 4
@@ -74,12 +64,16 @@ ToolBar {
                 border.width: 1
                 border.color: theme.borderColor
             }
+
+            indicator: Image {
+                source: appBridge.asset_url("expand_more.svg")
+                width: 16; height: 16
+                x: fromCombo.width - width - 10
+                y: (fromCombo.height - height) / 2
+            }
         }
 
         ToolButton {
-            Layout.preferredWidth: 32
-            Layout.preferredHeight: 32
-            Layout.alignment: Qt.AlignVCenter
             display: AbstractButton.IconOnly
             icon.source: appBridge.asset_url("swap.svg")
             icon.width: 20
@@ -94,21 +88,13 @@ ToolBar {
             Layout.fillWidth: true
             model: appBridge.installed_to_language_names
             onActivated: appBridge.set_to(currentText)
-            Layout.preferredHeight: 40
+
             palette.buttonText: theme.textPrimary
             palette.text: theme.textPrimary
             palette.windowText: theme.textPrimary
             palette.button: theme.backgroundElevated
             palette.base: theme.surfaceColor
-            palette.highlight: theme.surfaceAltColor
-
-            indicator: Image {
-                source: appBridge.asset_url("expand_more.svg")
-                width: 16
-                height: 16
-                x: toCombo.width - width - 10
-                y: (toCombo.height - height) / 2
-            }
+            palette.highlight: theme.accentColor
 
             background: Rectangle {
                 radius: 4
@@ -116,12 +102,16 @@ ToolBar {
                 border.width: 1
                 border.color: theme.borderColor
             }
+
+            indicator: Image {
+                source: appBridge.asset_url("expand_more.svg")
+                width: 16; height: 16
+                x: toCombo.width - width - 10
+                y: (toCombo.height - height) / 2
+            }
         }
 
         ToolButton {
-            Layout.preferredWidth: 32
-            Layout.preferredHeight: 32
-            Layout.alignment: Qt.AlignVCenter
             display: AbstractButton.IconOnly
             icon.source: appBridge.asset_url("settings.svg")
             icon.width: 20
