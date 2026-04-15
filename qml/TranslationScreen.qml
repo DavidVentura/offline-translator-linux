@@ -114,11 +114,18 @@ Item {
         anchors.right: parent.right
         anchors.bottom: parent.bottom
         anchors.margins: 24
+        width: 64
+        height: 64
         display: AbstractButton.IconOnly
         icon.source: appBridge.asset_url("camera.svg")
-        icon.width: 24
-        icon.height: 24
+        icon.width: 28
+        icon.height: 28
         text: "Camera"
+        background: Rectangle {
+            radius: width / 2
+            color: parent.down ? Qt.darker(theme.accentColor, 1.15) : theme.accentColor
+            border.width: 0
+        }
         onClicked: appBridge.camera_clicked()
     }
 }
