@@ -5,7 +5,7 @@ import QtQuick.Window 2.15
 ApplicationWindow {
     id: root
     visible: true
-    visibility: app.desktop_mode ? Window.Windowed : Window.FullScreen
+    visibility: app.desktop_mode ? Window.Windowed : Window.Maximized
     width: app.desktop_mode ? 600 : 720
     height: app.desktop_mode ? 1024 : 1280
     minimumWidth: app.desktop_mode ? 600 : 360

@@ -8,7 +8,6 @@ Item {
     property bool desktopMode: false
 
     UiScale { id: ui; desktopMode: desktopMode }
-
     function actionIcon(installed) {
         return installed ? appBridge.asset_url("delete.svg") : appBridge.asset_url("download.svg")
     }
@@ -309,7 +308,7 @@ Item {
                                 text: name
                                 width: parent.width
                                 color: theme.textPrimary
-                                font.pointSize: ui.pt(16)
+                                font.pointSize: ui.listPrimaryPt
                                 font.bold: true
                                 elide: Text.ElideRight
                             }
@@ -318,7 +317,7 @@ Item {
                                 text: total_size
                                 width: parent.width
                                 color: theme.textSecondary
-                                font.pointSize: ui.pt(12)
+                                font.pointSize: ui.listSecondaryPt
                                 horizontalAlignment: Text.AlignLeft
                             }
                         }
@@ -417,7 +416,7 @@ Item {
                     ColumnLayout {
                         visible: expanded
                         Layout.fillWidth: true
-                        Layout.leftMargin: ui.dp(40)
+                        Layout.leftMargin: ui.dp(20)
                         Layout.rightMargin: ui.dp(8)
                         Layout.bottomMargin: ui.dp(8)
                         spacing: ui.dp(2)
@@ -434,7 +433,7 @@ Item {
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: "Translation"
                                 color: theme.textPrimary
-                                font.pointSize: ui.pt(14)
+                                font.pointSize: ui.sectionTitlePt
                             }
 
                             Label {
@@ -443,7 +442,7 @@ Item {
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: core_size
                                 color: theme.textSecondary
-                                font.pointSize: ui.pt(12)
+                                font.pointSize: ui.listSecondaryPt
                                 horizontalAlignment: Text.AlignLeft
                             }
 
@@ -489,7 +488,7 @@ Item {
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: "Dictionary"
                                 color: theme.textPrimary
-                                font.pointSize: ui.pt(14)
+                                font.pointSize: ui.sectionTitlePt
                             }
 
                             Label {
@@ -498,7 +497,7 @@ Item {
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: dictionary_size
                                 color: theme.textSecondary
-                                font.pointSize: ui.pt(12)
+                                font.pointSize: ui.listSecondaryPt
                                 horizontalAlignment: Text.AlignLeft
                             }
 
@@ -542,7 +541,7 @@ Item {
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: "Text-to-speech"
                                 color: theme.textPrimary
-                                font.pointSize: ui.pt(14)
+                                font.pointSize: ui.sectionTitlePt
                             }
 
                             Label {
@@ -551,7 +550,7 @@ Item {
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: tts_size
                                 color: theme.textSecondary
-                                font.pointSize: ui.pt(12)
+                                font.pointSize: ui.listSecondaryPt
                                 horizontalAlignment: Text.AlignLeft
                             }
 

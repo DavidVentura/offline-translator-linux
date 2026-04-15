@@ -10,6 +10,10 @@ Item {
 
     readonly property real dpiScale: Math.max(1.0, Screen.pixelDensity / (160 / 25.4))
     readonly property real textScale: desktopMode ? 1.0 : 1.6
+    readonly property real pageTitlePt: desktopMode ? 20 : pt(24)
+    readonly property real listPrimaryPt: desktopMode ? 14 : pt(16)
+    readonly property real listSecondaryPt: desktopMode ? 11 : pt(12)
+    readonly property real sectionTitlePt: desktopMode ? 13 : pt(14)
 
     function dp(value) {
         return value * dpiScale

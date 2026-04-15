@@ -22,38 +22,12 @@ Item {
             width: parent.width
             spacing: 0
 
-            // Header
-            Item {
+            PageHeader {
                 Layout.fillWidth: true
-                Layout.preferredHeight: ui.dp(56)
-                Layout.leftMargin: ui.dp(16); Layout.rightMargin: ui.dp(16)
-
-                Item {
-                    anchors.left: parent.left
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: ui.dp(32); height: ui.dp(32)
-
-                    Image {
-                        anchors.centerIn: parent
-                        width: ui.dp(24); height: ui.dp(24)
-                        source: appBridge.asset_url("back.svg")
-                        sourceSize.width: ui.dp(24); sourceSize.height: ui.dp(24)
-                    }
-                    MouseArea {
-                        anchors.fill: parent
-                        onClicked: appBridge.back_from_settings()
-                    }
-                }
-
-                Label {
-                    anchors.left: parent.left
-                    anchors.leftMargin: ui.dp(40)
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: "Settings"
-                    color: theme.textPrimary
-                    font.pointSize: ui.pt(24)
-                    font.bold: true
-                }
+                appBridge: root.appBridge
+                theme: root.theme
+                title: "Settings"
+                onBackRequested: appBridge.back_from_settings()
             }
 
             Item { Layout.preferredHeight: ui.dp(12) }

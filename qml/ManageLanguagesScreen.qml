@@ -10,34 +10,22 @@ Item {
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: ui.dp(12)
+        anchors.bottomMargin: ui.dp(12)
         spacing: ui.dp(10)
 
-        RowLayout {
+        PageHeader {
             Layout.fillWidth: true
-            spacing: ui.dp(12)
-
-            ToolButton {
-                display: AbstractButton.IconOnly
-                icon.source: appBridge.asset_url("back.svg")
-                icon.color: theme.textPrimary
-                icon.width: ui.dp(22)
-                icon.height: ui.dp(22)
-                onClicked: appBridge.back_from_manage_languages()
-            }
-
-            Label {
-                Layout.fillWidth: true
-                text: "Manage languages"
-                color: theme.textPrimary
-                font.pointSize: ui.pt(24)
-                font.bold: true
-            }
+            appBridge: root.appBridge
+            theme: root.theme
+            title: "Manage languages"
+            onBackRequested: appBridge.back_from_manage_languages()
         }
 
         LanguageCatalogBrowser {
             Layout.fillWidth: true
             Layout.fillHeight: true
+            Layout.leftMargin: ui.dp(12)
+            Layout.rightMargin: ui.dp(12)
             appBridge: root.appBridge
             desktopMode: root.appBridge.desktop_mode
             theme: root.theme
