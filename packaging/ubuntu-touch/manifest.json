@@ -11,6 +11,6 @@
         }
     },
     "version": "1.0.0",
-    "maintainer": "David <david@davidv.dev>",
+    "maintainer": "David <david+ut@davidv.dev>",
     "framework" : "@CLICK_FRAMEWORK@"
 }

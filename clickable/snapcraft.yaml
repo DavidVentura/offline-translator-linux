@@ -1,4 +1,4 @@
-name: translator
+name: Offline translator
 version: 0.1
 base: core24
 summary: Offline translator
