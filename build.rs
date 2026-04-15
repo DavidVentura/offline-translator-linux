@@ -13,13 +13,17 @@ fn main() {
     let target_arch = std::env::var("CARGO_CFG_TARGET_ARCH").expect("target arch");
 
     let mut command = Command::new("bash");
-    command.arg("scripts/prepare_onnxruntime.sh").current_dir(&manifest_dir);
+    command
+        .arg("scripts/prepare_onnxruntime.sh")
+        .current_dir(&manifest_dir);
     command.env("ORT_BUILD_ARCH", target_arch);
     if let Ok(triplet) = std::env::var("ARCH_TRIPLET") {
         command.env("ORT_BUILD_TRIPLET", triplet);
     }
 
-    let status = command.status().expect("failed to launch ONNX Runtime build helper");
+    let status = command
+        .status()
+        .expect("failed to launch ONNX Runtime build helper");
 
     if !status.success() {
         panic!("ONNX Runtime build helper failed with status {status}");

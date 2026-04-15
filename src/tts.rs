@@ -1,7 +1,7 @@
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::Path;
-use std::sync::mpsc::{RecvTimeoutError, SyncSender, sync_channel};
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::mpsc::{RecvTimeoutError, SyncSender, sync_channel};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -294,8 +294,7 @@ fn play_text_streaming(
 
     eprintln!(
         "tts.stream: playback starting sample_rate={} first_chunk={}",
-        first_chunk.audio.sample_rate,
-        first_chunk.chunk_index
+        first_chunk.audio.sample_rate, first_chunk.chunk_index
     );
     let playback = PulsePlaybackStream::new(first_chunk.audio.sample_rate)?;
     (ui.set_tts_state)(false, true);
@@ -364,7 +363,10 @@ fn produce_audio_chunks(
         }) {
             Ok(pcm) => pcm,
             Err(err) => {
-                eprintln!("tts.stream.synth.error: chunk={} error={}", chunk_index, err);
+                eprintln!(
+                    "tts.stream.synth.error: chunk={} error={}",
+                    chunk_index, err
+                );
                 let _ = tx.send(Err(err));
                 return;
             }

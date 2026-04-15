@@ -976,7 +976,11 @@ impl AppBridge {
             self.target_language_code,
             text.chars().count(),
             self.tts_playback_speed.clamp(0.5, 2.0),
-            if voice_name.is_empty() { "Default" } else { &voice_name }
+            if voice_name.is_empty() {
+                "Default"
+            } else {
+                &voice_name
+            }
         );
 
         self.send_io(IoEvent::SpeakRequest {
@@ -1123,7 +1127,9 @@ impl AppBridge {
     }
 
     fn reset_tts_voice_selection_state(&mut self) {
-        self.tts_voice_options_model.borrow_mut().reset_data(Vec::new());
+        self.tts_voice_options_model
+            .borrow_mut()
+            .reset_data(Vec::new());
         if self.tts_voice_option_count != 0 {
             self.tts_voice_option_count = 0;
             self.tts_voice_option_count_changed();
