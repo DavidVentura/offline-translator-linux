@@ -83,6 +83,8 @@ Item {
                 readonly property bool allInstalled: availableCount > 0 && installedCount === availableCount
                 readonly property bool noneInstalled: installedCount === 0
                 readonly property bool someInstalled: !allInstalled && !noneInstalled
+                readonly property bool anyBusy:
+                    isBusy(core_progress) || isBusy(dictionary_progress) || isBusy(tts_progress)
 
                 width: ListView.view.width
                 height: delegateLayout.implicitHeight
@@ -145,8 +147,9 @@ Item {
                             anchors.verticalCenter: parent.verticalCenter
                             spacing: 4
 
+                            // T D S icons: when expanded (always) or collapsed with partial install, and not busy
                             Row {
-                                visible: expanded || someInstalled
+                                visible: (expanded || someInstalled) && !anyBusy
                                 spacing: 2
                                 anchors.verticalCenter: parent.verticalCenter
 
@@ -172,8 +175,9 @@ Item {
                                 }
                             }
 
+                            // Download button: collapsed + nothing installed + not busy
                             Item {
-                                visible: !expanded && noneInstalled
+                                visible: !expanded && noneInstalled && !anyBusy
                                 width: 24; height: 24
                                 anchors.verticalCenter: parent.verticalCenter
 
@@ -187,12 +191,13 @@ Item {
                                 MouseArea {
                                     anchors.fill: parent
                                     z: 1
-                                    onClicked: featureAction(code, 0, false)
+                                    onClicked: appBridge.download_all_features(code)
                                 }
                             }
 
+                            // Delete button: collapsed + everything installed + not busy
                             Item {
-                                visible: !expanded && allInstalled
+                                visible: !expanded && allInstalled && !anyBusy
                                 width: 24; height: 24
                                 anchors.verticalCenter: parent.verticalCenter
 
@@ -206,8 +211,16 @@ Item {
                                 MouseArea {
                                     anchors.fill: parent
                                     z: 1
-                                    onClicked: featureAction(code, 0, true)
+                                    onClicked: appBridge.delete_all_features(code)
                                 }
+                            }
+
+                            // Indeterminate spinner: collapsed + any download active
+                            CircularProgress {
+                                visible: !expanded && anyBusy
+                                indeterminate: true
+                                progressColor: theme.accentColor
+                                anchors.verticalCenter: parent.verticalCenter
                             }
                         }
                     }
@@ -226,197 +239,157 @@ Item {
                         Layout.bottomMargin: 8
                         spacing: 2
 
+                        // Translation feature
                         Item {
                             visible: core_available
                             Layout.fillWidth: true
-                            implicitHeight: coreProgress.visible ? 40 : 28
+                            implicitHeight: 28
 
-                            ColumnLayout {
-                                anchors.fill: parent
-                                spacing: 2
+                            Label {
+                                anchors.left: parent.left
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: "Translation"
+                                color: theme.textPrimary
+                                font.pixelSize: 14
+                            }
 
-                                Item {
-                                    Layout.fillWidth: true
-                                    implicitHeight: 24
+                            Label {
+                                anchors.left: parent.left
+                                anchors.leftMargin: 90
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: core_size
+                                color: theme.textSecondary
+                                font.pixelSize: 12
+                            }
 
-                                    Label {
-                                        anchors.left: parent.left
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        text: "Translation"
-                                        color: theme.textPrimary
-                                        font.pixelSize: 14
-                                    }
+                            // Circular progress when downloading
+                            CircularProgress {
+                                visible: isBusy(core_progress)
+                                anchors.right: parent.right
+                                anchors.verticalCenter: parent.verticalCenter
+                                progress: core_progress
+                                progressColor: theme.accentColor
+                            }
 
-                                    Label {
-                                        anchors.left: parent.left
-                                        anchors.leftMargin: 90
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        text: core_size
-                                        color: theme.textSecondary
-                                        font.pixelSize: 12
-                                    }
+                            // Action icon when not downloading
+                            Item {
+                                visible: !isBusy(core_progress)
+                                anchors.right: parent.right
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: 24; height: 24
 
-                                    Item {
-                                        anchors.right: parent.right
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        width: 24; height: 24
-                                        opacity: isBusy(core_progress) ? 0.3 : 1.0
-
-                                        Image {
-                                            anchors.centerIn: parent
-                                            width: 18; height: 18
-                                            source: actionIcon(core_installed)
-                                            sourceSize.width: 18; sourceSize.height: 18
-                                        }
-
-                                        MouseArea {
-                                            anchors.fill: parent
-                                            enabled: !isBusy(core_progress)
-                                            onClicked: featureAction(code, 0, core_installed)
-                                        }
-                                    }
+                                Image {
+                                    anchors.centerIn: parent
+                                    width: 18; height: 18
+                                    source: actionIcon(core_installed)
+                                    sourceSize.width: 18; sourceSize.height: 18
                                 }
 
-                                ProgressBar {
-                                    id: coreProgress
-                                    visible: isBusy(core_progress)
-                                    Layout.fillWidth: true
-                                    from: 0; to: 1; value: core_progress
-
-                                    background: Rectangle { implicitHeight: 3; radius: 2; color: "#303240" }
-                                    contentItem: Item {
-                                        Rectangle { width: coreProgress.visualPosition * parent.width; height: parent.height; radius: 2; color: theme.accentColor }
-                                    }
+                                MouseArea {
+                                    anchors.fill: parent
+                                    onClicked: featureAction(code, 0, core_installed)
                                 }
                             }
                         }
 
+                        // Dictionary feature
                         Item {
                             visible: dictionary_available
                             Layout.fillWidth: true
-                            implicitHeight: dictionaryProgress.visible ? 40 : 28
+                            implicitHeight: 28
 
-                            ColumnLayout {
-                                anchors.fill: parent
-                                spacing: 2
+                            Label {
+                                anchors.left: parent.left
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: "Dictionary"
+                                color: theme.textPrimary
+                                font.pixelSize: 14
+                            }
 
-                                Item {
-                                    Layout.fillWidth: true
-                                    implicitHeight: 24
+                            Label {
+                                anchors.left: parent.left
+                                anchors.leftMargin: 90
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: dictionary_size
+                                color: theme.textSecondary
+                                font.pixelSize: 12
+                            }
 
-                                    Label {
-                                        anchors.left: parent.left
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        text: "Dictionary"
-                                        color: theme.textPrimary
-                                        font.pixelSize: 14
-                                    }
+                            CircularProgress {
+                                visible: isBusy(dictionary_progress)
+                                anchors.right: parent.right
+                                anchors.verticalCenter: parent.verticalCenter
+                                progress: dictionary_progress
+                                progressColor: theme.accentColor
+                            }
 
-                                    Label {
-                                        anchors.left: parent.left
-                                        anchors.leftMargin: 90
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        text: dictionary_size
-                                        color: theme.textSecondary
-                                        font.pixelSize: 12
-                                    }
+                            Item {
+                                visible: !isBusy(dictionary_progress)
+                                anchors.right: parent.right
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: 24; height: 24
 
-                                    Item {
-                                        anchors.right: parent.right
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        width: 24; height: 24
-                                        opacity: isBusy(dictionary_progress) ? 0.3 : 1.0
-
-                                        Image {
-                                            anchors.centerIn: parent
-                                            width: 18; height: 18
-                                            source: actionIcon(dictionary_installed)
-                                            sourceSize.width: 18; sourceSize.height: 18
-                                        }
-
-                                        MouseArea {
-                                            anchors.fill: parent
-                                            enabled: !isBusy(dictionary_progress)
-                                            onClicked: featureAction(code, 1, dictionary_installed)
-                                        }
-                                    }
+                                Image {
+                                    anchors.centerIn: parent
+                                    width: 18; height: 18
+                                    source: actionIcon(dictionary_installed)
+                                    sourceSize.width: 18; sourceSize.height: 18
                                 }
 
-                                ProgressBar {
-                                    id: dictionaryProgress
-                                    visible: isBusy(dictionary_progress)
-                                    Layout.fillWidth: true
-                                    from: 0; to: 1; value: dictionary_progress
-
-                                    background: Rectangle { implicitHeight: 3; radius: 2; color: "#303240" }
-                                    contentItem: Item {
-                                        Rectangle { width: dictionaryProgress.visualPosition * parent.width; height: parent.height; radius: 2; color: theme.accentColor }
-                                    }
+                                MouseArea {
+                                    anchors.fill: parent
+                                    onClicked: featureAction(code, 1, dictionary_installed)
                                 }
                             }
                         }
 
+                        // TTS feature
                         Item {
                             visible: tts_available
                             Layout.fillWidth: true
-                            implicitHeight: ttsProgress.visible ? 40 : 28
+                            implicitHeight: 28
 
-                            ColumnLayout {
-                                anchors.fill: parent
-                                spacing: 2
+                            Label {
+                                anchors.left: parent.left
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: "Text-to-speech"
+                                color: theme.textPrimary
+                                font.pixelSize: 14
+                            }
 
-                                Item {
-                                    Layout.fillWidth: true
-                                    implicitHeight: 24
+                            Label {
+                                anchors.left: parent.left
+                                anchors.leftMargin: 115
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: tts_size
+                                color: theme.textSecondary
+                                font.pixelSize: 12
+                            }
 
-                                    Label {
-                                        anchors.left: parent.left
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        text: "Text-to-speech"
-                                        color: theme.textPrimary
-                                        font.pixelSize: 14
-                                    }
+                            CircularProgress {
+                                visible: isBusy(tts_progress)
+                                anchors.right: parent.right
+                                anchors.verticalCenter: parent.verticalCenter
+                                progress: tts_progress
+                                progressColor: theme.accentColor
+                            }
 
-                                    Label {
-                                        anchors.left: parent.left
-                                        anchors.leftMargin: 115
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        text: tts_size
-                                        color: theme.textSecondary
-                                        font.pixelSize: 12
-                                    }
+                            Item {
+                                visible: !isBusy(tts_progress)
+                                anchors.right: parent.right
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: 24; height: 24
 
-                                    Item {
-                                        anchors.right: parent.right
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        width: 24; height: 24
-                                        opacity: isBusy(tts_progress) ? 0.3 : 1.0
-
-                                        Image {
-                                            anchors.centerIn: parent
-                                            width: 18; height: 18
-                                            source: actionIcon(tts_installed)
-                                            sourceSize.width: 18; sourceSize.height: 18
-                                        }
-
-                                        MouseArea {
-                                            anchors.fill: parent
-                                            enabled: !isBusy(tts_progress)
-                                            onClicked: featureAction(code, 2, tts_installed)
-                                        }
-                                    }
+                                Image {
+                                    anchors.centerIn: parent
+                                    width: 18; height: 18
+                                    source: actionIcon(tts_installed)
+                                    sourceSize.width: 18; sourceSize.height: 18
                                 }
 
-                                ProgressBar {
-                                    id: ttsProgress
-                                    visible: isBusy(tts_progress)
-                                    Layout.fillWidth: true
-                                    from: 0; to: 1; value: tts_progress
-
-                                    background: Rectangle { implicitHeight: 3; radius: 2; color: "#303240" }
-                                    contentItem: Item {
-                                        Rectangle { width: ttsProgress.visualPosition * parent.width; height: parent.height; radius: 2; color: theme.accentColor }
-                                    }
+                                MouseArea {
+                                    anchors.fill: parent
+                                    onClicked: featureAction(code, 2, tts_installed)
                                 }
                             }
                         }

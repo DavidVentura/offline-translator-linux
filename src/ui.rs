@@ -147,6 +147,38 @@ pub struct AppBridge {
             }
         }
     ),
+    pub download_all_features: qt_method!(
+        fn download_all_features(&mut self, code: QString) {
+            let code = code.to_string();
+            if let Some(language) = self.find_language_by_code(&code).cloned() {
+                if language.core_size_bytes > 0 && !language.core_installed {
+                    self.send_feature_request(code.clone(), FeatureKind::Core, true);
+                }
+                if language.dictionary_size_bytes > 0 && !language.dictionary_installed {
+                    self.send_feature_request(code.clone(), FeatureKind::Dictionary, true);
+                }
+                if language.tts_size_bytes > 0 && !language.tts_installed {
+                    self.send_feature_request(code, FeatureKind::Tts, true);
+                }
+            }
+        }
+    ),
+    pub delete_all_features: qt_method!(
+        fn delete_all_features(&mut self, code: QString) {
+            let code = code.to_string();
+            if let Some(language) = self.find_language_by_code(&code).cloned() {
+                if language.tts_size_bytes > 0 && language.tts_installed {
+                    self.send_feature_request(code.clone(), FeatureKind::Tts, false);
+                }
+                if language.dictionary_size_bytes > 0 && language.dictionary_installed {
+                    self.send_feature_request(code.clone(), FeatureKind::Dictionary, false);
+                }
+                if language.core_size_bytes > 0 && language.core_installed {
+                    self.send_feature_request(code, FeatureKind::Core, false);
+                }
+            }
+        }
+    ),
     pub toggle_manage_language: qt_method!(
         fn toggle_manage_language(&mut self, code: QString) {
             let code = code.to_string();
@@ -183,12 +215,13 @@ pub struct AppBridge {
         fn set_manage_filter(&mut self, text: QString) {
             let text = text.to_string();
             let qtext = QString::from(text.clone());
-            if self.manage_filter_text != qtext {
-                self.manage_filter_text = qtext;
-                self.manage_filter_text_changed();
+            if self.manage_filter_text == qtext {
+                return;
             }
+            self.manage_filter_text = qtext;
+            self.manage_filter_text_changed();
             self.manage_filter = text.to_lowercase();
-            self.refresh_language_views();
+            self.refresh_manage_model();
         }
     ),
     pub show_settings: qt_method!(
@@ -452,6 +485,31 @@ impl AppBridge {
                 self.send_feature_request(language.code, FeatureKind::Core, true);
             }
         }
+    }
+
+    fn refresh_manage_model(&mut self) {
+        let manage_items = self
+            .all_languages
+            .iter()
+            .filter(|language| {
+                self.manage_filter.is_empty()
+                    || language
+                        .name
+                        .to_lowercase()
+                        .contains(self.manage_filter.as_str())
+            })
+            .cloned()
+            .map(|language| {
+                manage_language_to_list_item(
+                    &language,
+                    self.expanded_languages.contains(&language.code),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        self.manage_languages_model
+            .borrow_mut()
+            .reset_data(manage_items);
     }
 
     fn refresh_language_views(&mut self) {
