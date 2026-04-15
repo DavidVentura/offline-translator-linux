@@ -1,22 +1,18 @@
 use std::path::Path;
-use std::{collections::HashMap, time::Instant};
+use std::time::Instant;
 
-use bergamot_sys::{BlockingService, TranslationModel};
+use translator::BergamotEngine;
 
 pub struct Translator {
     data_path: String,
-    service: BlockingService,
-    languages: HashMap<String, TranslationModel>,
+    engine: BergamotEngine,
 }
 
 impl Translator {
     pub fn new(data_path: String) -> Translator {
-        let service = BlockingService::new(256);
-
         Translator {
             data_path,
-            service,
-            languages: HashMap::new(),
+            engine: BergamotEngine::new(),
         }
     }
 
@@ -30,10 +26,6 @@ impl Translator {
 
     fn _load_language_pair(&mut self, from_lang: &str, to_lang: &str) -> Result<(), String> {
         let key = from_lang.to_string() + to_lang;
-        if self.languages.contains_key(&key) {
-            return Ok(());
-        }
-
         let start = Instant::now();
         let data_path = &self.data_path;
         let model_fname = format!("model.{from_lang}{to_lang}.intgemm.alphas.bin");
@@ -97,10 +89,8 @@ quiet-translation: true
 gemm-precision: int8shiftAlphaAll
 alignment: soft"#
         );
-        let model = TranslationModel::from_config(&config)?;
         println!("load {key} took {:?}", start.elapsed());
-        self.languages.insert(key, model);
-        Ok(())
+        self.engine.load_model_into_cache(&config, &key)
     }
 
     pub fn translate(
@@ -109,26 +99,21 @@ alignment: soft"#
         to_lang: &str,
         texts: &[&str],
     ) -> Result<Vec<String>, String> {
-        let models: Vec<Option<&TranslationModel>> = self
+        let inputs = texts
+            .iter()
+            .map(|text| (*text).to_string())
+            .collect::<Vec<_>>();
+        let keys = self
             .get_pairs(from_lang, to_lang)
             .iter()
-            .map(|(f, t)| {
-                let key = f.to_string() + t;
-                self.languages.get(&key)
-            })
-            .collect();
+            .map(|(from, to)| format!("{from}{to}"))
+            .collect::<Vec<_>>();
 
-        if !models.iter().all(|m| m.is_some()) {
-            return Err(format!("Language not loaded"));
-        }
-
-        let models: Vec<&TranslationModel> = models.iter().map(|o| o.unwrap()).collect();
-
-        if models.len() == 2 {
-            Ok(self.service.pivot(models[0], models[1], texts))
+        if keys.len() == 2 {
+            self.engine.pivot_multiple(&keys[0], &keys[1], &inputs)
         } else {
-            assert_eq!(models.len(), 1);
-            Ok(self.service.translate(models[0], texts))
+            assert_eq!(keys.len(), 1);
+            self.engine.translate_multiple(&inputs, &keys[0])
         }
     }
 

@@ -19,7 +19,7 @@ Item {
             TextArea {
                 text: appBridge.input_text
                 color: theme.textPrimary
-                placeholderText: "xEnter text"
+                placeholderText: "Enter text"
                 wrapMode: TextEdit.Wrap
                 selectByMouse: true
                 background: Rectangle {
