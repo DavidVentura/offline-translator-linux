@@ -82,12 +82,6 @@ Item {
                 return
             }
 
-            if (activeTransfer.state === ContentTransfer.Collected) {
-                activeTransfer.finalize()
-                cleanupTransfer()
-                return
-            }
-
             if (activeTransfer.state === ContentTransfer.Aborted ||
                     activeTransfer.state === ContentTransfer.Finalized) {
                 cleanupTransfer()

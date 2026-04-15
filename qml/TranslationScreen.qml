@@ -15,7 +15,7 @@ Item {
 
     function shareCurrentImage() {
         if (imageShareLoader.item) {
-            imageShareLoader.item.share(appBridge.selected_image_url)
+            imageShareLoader.item.share(appBridge.share_image_url || appBridge.selected_image_url)
         }
     }
 
