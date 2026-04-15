@@ -92,6 +92,7 @@ Item {
                     height: 36
                     display: AbstractButton.IconOnly
                     icon.source: appBridge.asset_url("share.svg")
+                    icon.color: theme.textPrimary
                     icon.width: 18
                     icon.height: 18
                     text: "Share"
@@ -232,51 +233,48 @@ Item {
 
         TranslatedImageView {
             anchors.fill: parent
-            anchors.topMargin: 56
             appBridge: root.appBridge
             imageMargin: 0
             interactive: false
         }
 
-        Item {
+        RoundButton {
             anchors.top: parent.top
             anchors.left: parent.left
+            anchors.margins: 16
+            width: 44
+            height: 44
+            display: AbstractButton.IconOnly
+            icon.source: appBridge.asset_url("back.svg")
+            icon.color: "#FFFFFF"
+            icon.width: 22
+            icon.height: 22
+            text: "Back"
+            onClicked: appBridge.close_image_viewer()
+            background: Rectangle {
+                radius: width / 2
+                color: parent.down ? "#99000000" : "#80000000"
+                border.width: 0
+            }
+        }
+
+        RoundButton {
+            anchors.top: parent.top
             anchors.right: parent.right
             anchors.margins: 16
-            height: 40
-
-            RoundButton {
-                anchors.left: parent.left
-                anchors.verticalCenter: parent.verticalCenter
-                width: 40
-                height: 40
-                display: AbstractButton.IconOnly
-                icon.source: appBridge.asset_url("back.svg")
-                icon.width: 20
-                icon.height: 20
-                text: "Back"
-                onClicked: appBridge.close_image_viewer()
-                background: Rectangle {
-                    radius: width / 2
-                    color: "transparent"
-                }
-            }
-
-            RoundButton {
-                anchors.right: parent.right
-                anchors.verticalCenter: parent.verticalCenter
-                width: 40
-                height: 40
-                display: AbstractButton.IconOnly
-                icon.source: appBridge.asset_url("share.svg")
-                icon.width: 20
-                icon.height: 20
-                text: "Share"
-                onClicked: root.shareCurrentImage()
-                background: Rectangle {
-                    radius: width / 2
-                    color: "transparent"
-                }
+            width: 44
+            height: 44
+            display: AbstractButton.IconOnly
+            icon.source: appBridge.asset_url("share.svg")
+            icon.color: "#FFFFFF"
+            icon.width: 22
+            icon.height: 22
+            text: "Share"
+            onClicked: root.shareCurrentImage()
+            background: Rectangle {
+                radius: width / 2
+                color: parent.down ? "#99000000" : "#80000000"
+                border.width: 0
             }
         }
     }
