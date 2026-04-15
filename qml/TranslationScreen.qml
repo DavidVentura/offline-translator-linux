@@ -49,13 +49,14 @@ Item {
             visible: appBridge.image_mode
             Layout.fillWidth: true
             Layout.preferredHeight: Math.min(380, Math.max(220, root.height * 0.42))
-            radius: 16
+            radius: 0
             color: theme.backgroundElevated
             border.color: theme.borderColor
             border.width: 1
             clip: true
 
             Image {
+                id: selectedImage
                 anchors.fill: parent
                 anchors.margins: 12
                 source: appBridge.selected_image_url
@@ -63,6 +64,40 @@ Item {
                 asynchronous: true
                 cache: false
                 smooth: true
+
+                Item {
+                    anchors.fill: parent
+                    visible: appBridge.processed_image_width > 0 && appBridge.processed_image_height > 0
+
+                    Item {
+                        x: (parent.width - selectedImage.paintedWidth) / 2
+                        y: (parent.height - selectedImage.paintedHeight) / 2
+                        width: selectedImage.paintedWidth
+                        height: selectedImage.paintedHeight
+
+                        Repeater {
+                            model: appBridge.image_overlay_model
+
+                            Item {
+                                x: block_x * parent.width / appBridge.processed_image_width
+                                y: block_y * parent.height / appBridge.processed_image_height
+                                width: block_width * parent.width / appBridge.processed_image_width
+                                height: block_height * parent.height / appBridge.processed_image_height
+
+                                Text {
+                                    anchors.fill: parent
+                                    anchors.margins: 2
+                                    text: translated_text
+                                    color: foreground_color
+                                    wrapMode: Text.Wrap
+                                    font.pixelSize: Math.max(10, parent.height * 0.55)
+                                    elide: Text.ElideRight
+                                    clip: true
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
             RoundButton {

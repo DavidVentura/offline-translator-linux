@@ -40,6 +40,17 @@ pub struct ManageLanguageListItem {
     pub tts_progress: f32,
 }
 
+#[derive(Clone, Default, SimpleListItem)]
+pub struct ImageOverlayListItem {
+    pub block_x: f32,
+    pub block_y: f32,
+    pub block_width: f32,
+    pub block_height: f32,
+    pub translated_text: QString,
+    pub background_color: QString,
+    pub foreground_color: QString,
+}
+
 #[derive(QObject, Default)]
 pub struct AppBridge {
     base: qt_base_class!(trait QObject),
@@ -64,6 +75,12 @@ pub struct AppBridge {
 
     pub selected_image_url: qt_property!(QString; NOTIFY selected_image_url_changed),
     pub selected_image_url_changed: qt_signal!(),
+
+    pub processed_image_width: qt_property!(f32; NOTIFY processed_image_width_changed),
+    pub processed_image_width_changed: qt_signal!(),
+
+    pub processed_image_height: qt_property!(f32; NOTIFY processed_image_height_changed),
+    pub processed_image_height_changed: qt_signal!(),
 
     pub source_language_name: qt_property!(QString; NOTIFY source_language_name_changed),
     pub source_language_name_changed: qt_signal!(),
@@ -101,6 +118,7 @@ pub struct AppBridge {
     pub installed_languages_model: qt_property!(RefCell<SimpleListModel<LanguageListItem>>; CONST),
     pub available_languages_model: qt_property!(RefCell<SimpleListModel<LanguageListItem>>; CONST),
     pub manage_languages_model: qt_property!(RefCell<SimpleListModel<ManageLanguageListItem>>; CONST),
+    pub image_overlay_model: qt_property!(RefCell<SimpleListModel<ImageOverlayListItem>>; CONST),
 
     pub desktop_mode: qt_property!(bool; CONST),
 
@@ -320,8 +338,10 @@ pub struct AppBridge {
     ),
     pub clear_selected_image: qt_method!(
         fn clear_selected_image(&mut self) {
+            self.original_image_path.clear();
             self.set_image_mode_value(false);
             self.set_selected_image_url_value(String::new());
+            self.set_image_overlay_value(Vec::new(), 0.0, 0.0);
         }
     ),
 
@@ -407,6 +427,7 @@ pub struct AppBridge {
     bus_tx: Option<Sender<IoEvent>>,
     asset_dir: String,
     config_dir: String,
+    original_image_path: String,
     manage_filter: String,
     expanded_languages: HashSet<String>,
 }
@@ -417,6 +438,8 @@ pub struct UiCallbacks {
     pub set_feature_progress: Arc<dyn Fn(String, FeatureKind, f32) + Send + Sync>,
     pub set_input_text: Arc<dyn Fn(String) + Send + Sync>,
     pub set_output_text: Arc<dyn Fn(String) + Send + Sync>,
+    pub set_selected_image_url: Arc<dyn Fn(String) + Send + Sync>,
+    pub set_image_overlay: Arc<dyn Fn(Vec<ImageOverlayListItem>, f32, f32) + Send + Sync>,
     pub set_detected_language_code: Arc<dyn Fn(String) + Send + Sync>,
     pub set_current_screen: Arc<dyn Fn(Screen) + Send + Sync>,
 }
@@ -560,6 +583,24 @@ impl AppBridge {
         }
     }
 
+    pub fn set_image_overlay_value(
+        &mut self,
+        items: Vec<ImageOverlayListItem>,
+        width: f32,
+        height: f32,
+    ) {
+        self.image_overlay_model.borrow_mut().reset_data(items);
+
+        if (self.processed_image_width - width).abs() > f32::EPSILON {
+            self.processed_image_width = width;
+            self.processed_image_width_changed();
+        }
+        if (self.processed_image_height - height).abs() > f32::EPSILON {
+            self.processed_image_height = height;
+            self.processed_image_height_changed();
+        }
+    }
+
     pub fn set_detected_language_code_value(&mut self, code: &str) {
         if self.detected_language_code != code {
             self.detected_language_code = code.to_string();
@@ -590,7 +631,7 @@ impl AppBridge {
             }
             self.refresh_swap_enabled();
             self.refresh_detected_language();
-            self.retranslate();
+            self.refresh_translation_content();
         }
     }
 
@@ -608,7 +649,7 @@ impl AppBridge {
                 self.target_language_name_changed();
             }
             self.refresh_swap_enabled();
-            self.retranslate();
+            self.refresh_translation_content();
         }
     }
 
@@ -648,18 +689,48 @@ impl AppBridge {
             return;
         };
 
+        self.original_image_path = path.display().to_string();
         self.set_image_mode_value(true);
         self.set_selected_image_url_value(url);
+        self.set_image_overlay_value(Vec::new(), 0.0, 0.0);
         self.set_input_text_value(String::new());
         self.set_output_text_value("Running OCR...".to_string());
         self.set_detected_language_code_value("");
 
         self.send_io(IoEvent::ImageTranslationRequest {
-            image_path: path.display().to_string(),
+            image_path: self.original_image_path.clone(),
             from: self.source_language_code.clone(),
             to: self.target_language_code.clone(),
             min_confidence: self.ocr_min_confidence.max(0) as u32,
             max_image_size: self.ocr_max_image_size.max(0) as u32,
+            background_mode: self.ocr_background_mode.to_string(),
+        });
+    }
+
+    fn refresh_translation_content(&mut self) {
+        if self.image_mode {
+            self.rerun_current_image();
+        } else {
+            self.retranslate();
+        }
+    }
+
+    fn rerun_current_image(&mut self) {
+        if self.original_image_path.is_empty() {
+            return;
+        }
+
+        self.set_image_overlay_value(Vec::new(), 0.0, 0.0);
+        self.set_output_text_value("Running OCR...".to_string());
+        self.set_detected_language_code_value("");
+
+        self.send_io(IoEvent::ImageTranslationRequest {
+            image_path: self.original_image_path.clone(),
+            from: self.source_language_code.clone(),
+            to: self.target_language_code.clone(),
+            min_confidence: self.ocr_min_confidence.max(0) as u32,
+            max_image_size: self.ocr_max_image_size.max(0) as u32,
+            background_mode: self.ocr_background_mode.to_string(),
         });
     }
 
@@ -1003,6 +1074,16 @@ fn update_manage_progress_item(
     }
 }
 
+pub fn argb_to_qml_color(color: u32) -> QString {
+    QString::from(format!(
+        "#{:02X}{:02X}{:02X}{:02X}",
+        (color >> 24) & 0xFF,
+        (color >> 16) & 0xFF,
+        (color >> 8) & 0xFF,
+        color & 0xFF
+    ))
+}
+
 pub fn create_ui_callbacks(app: QPointer<AppBridge>) -> UiCallbacks {
     let language_app = app.clone();
     let set_languages = queued_callback(move |languages: Vec<Language>| {
@@ -1035,6 +1116,22 @@ pub fn create_ui_callbacks(app: QPointer<AppBridge>) -> UiCallbacks {
         }
     });
 
+    let selected_image_app = app.clone();
+    let set_selected_image_url = queued_callback(move |url: String| {
+        if let Some(app) = selected_image_app.as_pinned() {
+            app.borrow_mut().set_selected_image_url_value(url);
+        }
+    });
+
+    let image_overlay_app = app.clone();
+    let set_image_overlay =
+        queued_callback(move |args: (Vec<ImageOverlayListItem>, f32, f32)| {
+            if let Some(app) = image_overlay_app.as_pinned() {
+                app.borrow_mut()
+                    .set_image_overlay_value(args.0, args.1, args.2);
+            }
+        });
+
     let detected_app = app.clone();
     let set_detected_language_code = queued_callback(move |code: String| {
         if let Some(app) = detected_app.as_pinned() {
@@ -1056,6 +1153,10 @@ pub fn create_ui_callbacks(app: QPointer<AppBridge>) -> UiCallbacks {
         }),
         set_input_text: Arc::new(move |text| set_input_text(text)),
         set_output_text: Arc::new(move |text| set_output_text(text)),
+        set_selected_image_url: Arc::new(move |url| set_selected_image_url(url)),
+        set_image_overlay: Arc::new(move |items, width, height| {
+            set_image_overlay((items, width, height))
+        }),
         set_detected_language_code: Arc::new(move |code| set_detected_language_code(code)),
         set_current_screen: Arc::new(move |screen| set_current_screen(screen)),
     }

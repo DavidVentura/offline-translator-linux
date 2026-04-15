@@ -3,13 +3,29 @@ use std::sync::{Mutex, OnceLock};
 
 use qmetaobject::{QImage, QString};
 use translator::{
-    BergamotEngine, CatalogSnapshot, DetectedWord, PageSegMode, ReadingOrder, Rect, TextBlock,
-    TesseractWrapper, build_text_blocks, translate_texts_in_snapshot,
+    BackgroundMode, BergamotEngine, CatalogSnapshot, DetectedWord, PageSegMode, ReadingOrder,
+    Rect, TextBlock, TesseractWrapper, build_text_blocks, prepare_overlay_image,
+    translate_texts_in_snapshot,
 };
+
+#[derive(Debug, Clone)]
+pub struct ImageOverlayBlock {
+    pub x: u32,
+    pub y: u32,
+    pub width: u32,
+    pub height: u32,
+    pub translated_text: String,
+    pub background_argb: u32,
+    pub foreground_argb: u32,
+}
 
 pub struct ImageTranslation {
     pub extracted_text: String,
     pub translated_text: String,
+    pub image_width: u32,
+    pub image_height: u32,
+    pub cleaned_rgba_bytes: Vec<u8>,
+    pub overlay_blocks: Vec<ImageOverlayBlock>,
 }
 
 struct LoadedImage {
@@ -55,11 +71,13 @@ pub fn translate_image_in_snapshot(
     target_code: &str,
     min_confidence: u32,
     max_image_size: u32,
+    background_mode_label: &str,
 ) -> Result<ImageTranslation, String> {
     let loaded = load_image_rgba(image_path, max_image_size)?;
     let reading_order = ReadingOrder::LeftToRight;
     let join_without_spaces = source_code == "ja";
     let relax_single_char_confidence = false;
+    let background_mode = map_background_mode(background_mode_label);
 
     let blocks = with_ocr_engine(snapshot, source_code, reading_order, |ocr| {
         let bytes_per_pixel = 4i32;
@@ -133,9 +151,37 @@ pub fn translate_image_in_snapshot(
         }
     };
 
+    let prepared = prepare_overlay_image(
+        &loaded.rgba_bytes,
+        loaded.width,
+        loaded.height,
+        &blocks,
+        &translated_texts,
+        background_mode,
+        reading_order,
+    )?;
+
+    let overlay_blocks = prepared
+        .blocks
+        .into_iter()
+        .map(|block| ImageOverlayBlock {
+            x: block.bounding_box.left,
+            y: block.bounding_box.top,
+            width: block.bounding_box.width(),
+            height: block.bounding_box.height(),
+            translated_text: block.translated_text,
+            background_argb: block.background_argb,
+            foreground_argb: block.foreground_argb,
+        })
+        .collect::<Vec<_>>();
+
     Ok(ImageTranslation {
         extracted_text: source_texts.join("\n\n"),
         translated_text: translated_texts.join("\n\n"),
+        image_width: loaded.width,
+        image_height: loaded.height,
+        cleaned_rgba_bytes: prepared.rgba_bytes,
+        overlay_blocks,
     })
 }
 
@@ -265,5 +311,13 @@ fn scaled_dimensions(width: u32, height: u32, max_image_size: u32) -> (u32, u32)
     } else {
         let scaled_width = ((width as u64 * max_image_size as u64) / height as u64).max(1);
         (scaled_width as u32, max_image_size)
+    }
+}
+
+fn map_background_mode(label: &str) -> BackgroundMode {
+    match label {
+        "Light Background" => BackgroundMode::BlackOnWhite,
+        "Dark Background" => BackgroundMode::WhiteOnBlack,
+        _ => BackgroundMode::AutoDetect,
     }
 }

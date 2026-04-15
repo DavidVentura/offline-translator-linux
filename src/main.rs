@@ -45,6 +45,7 @@ enum IoEvent {
         to: String,
         min_confidence: u32,
         max_image_size: u32,
+        background_mode: String,
     },
     Shutdown,
 }

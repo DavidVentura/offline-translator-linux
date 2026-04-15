@@ -45,68 +45,14 @@ ToolBar {
         anchors.margins: 8
         spacing: 8
 
-        ComboBox {
+        DarkComboBox {
             id: fromCombo
             Layout.fillWidth: true
             Layout.preferredWidth: 1
+            theme: parent.parent.theme
+            iconSource: appBridge.asset_url("expand_more.svg")
             model: appBridge.installed_from_language_names
             onActivated: appBridge.set_from(currentText)
-
-            contentItem: Label {
-                leftPadding: 10
-                rightPadding: fromCombo.indicator.width + 10
-                text: fromCombo.displayText
-                color: theme.textPrimary
-                verticalAlignment: Text.AlignVCenter
-                elide: Text.ElideRight
-            }
-
-            background: Rectangle {
-                radius: 4
-                color: theme.backgroundElevated
-                border.width: 1
-                border.color: theme.borderColor
-            }
-
-            indicator: Image {
-                source: appBridge.asset_url("expand_more.svg")
-                width: 16; height: 16
-                x: fromCombo.width - width - 10
-                y: (fromCombo.height - height) / 2
-            }
-
-            delegate: ItemDelegate {
-                width: fromCombo.width
-                contentItem: Label {
-                    text: modelData
-                    color: theme.textPrimary
-                    verticalAlignment: Text.AlignVCenter
-                }
-                background: Rectangle {
-                    color: highlighted ? theme.surfaceAltColor : theme.surfaceColor
-                }
-                highlighted: fromCombo.highlightedIndex === index
-            }
-
-            popup: Popup {
-                y: fromCombo.height
-                width: fromCombo.width
-                implicitHeight: contentItem.implicitHeight
-                padding: 1
-
-                contentItem: ListView {
-                    clip: true
-                    implicitHeight: contentHeight
-                    model: fromCombo.popup.visible ? fromCombo.delegateModel : null
-                    currentIndex: fromCombo.highlightedIndex
-                }
-
-                background: Rectangle {
-                    color: theme.surfaceColor
-                    border.color: theme.borderColor
-                    radius: 4
-                }
-            }
         }
 
         ToolButton {
@@ -119,68 +65,14 @@ ToolBar {
             onClicked: appBridge.swap_languages()
         }
 
-        ComboBox {
+        DarkComboBox {
             id: toCombo
             Layout.fillWidth: true
             Layout.preferredWidth: 1
+            theme: parent.parent.theme
+            iconSource: appBridge.asset_url("expand_more.svg")
             model: appBridge.installed_to_language_names
             onActivated: appBridge.set_to(currentText)
-
-            contentItem: Label {
-                leftPadding: 10
-                rightPadding: toCombo.indicator.width + 10
-                text: toCombo.displayText
-                color: theme.textPrimary
-                verticalAlignment: Text.AlignVCenter
-                elide: Text.ElideRight
-            }
-
-            background: Rectangle {
-                radius: 4
-                color: theme.backgroundElevated
-                border.width: 1
-                border.color: theme.borderColor
-            }
-
-            indicator: Image {
-                source: appBridge.asset_url("expand_more.svg")
-                width: 16; height: 16
-                x: toCombo.width - width - 10
-                y: (toCombo.height - height) / 2
-            }
-
-            delegate: ItemDelegate {
-                width: toCombo.width
-                contentItem: Label {
-                    text: modelData
-                    color: theme.textPrimary
-                    verticalAlignment: Text.AlignVCenter
-                }
-                background: Rectangle {
-                    color: highlighted ? theme.surfaceAltColor : theme.surfaceColor
-                }
-                highlighted: toCombo.highlightedIndex === index
-            }
-
-            popup: Popup {
-                y: toCombo.height
-                width: toCombo.width
-                implicitHeight: contentItem.implicitHeight
-                padding: 1
-
-                contentItem: ListView {
-                    clip: true
-                    implicitHeight: contentHeight
-                    model: toCombo.popup.visible ? toCombo.delegateModel : null
-                    currentIndex: toCombo.highlightedIndex
-                }
-
-                background: Rectangle {
-                    color: theme.surfaceColor
-                    border.color: theme.borderColor
-                    radius: 4
-                }
-            }
         }
 
         ToolButton {
