@@ -1,7 +1,9 @@
 mod catalog_state;
 mod download;
 mod eventloop;
+mod image_ocr;
 mod model;
+mod settings;
 mod ui;
 
 use qmetaobject::*;
@@ -11,6 +13,7 @@ use std::sync::mpsc;
 
 use crate::catalog_state::{build_snapshot, bundled_catalog, languages_from_snapshot};
 use crate::model::FeatureKind;
+use crate::settings::load_settings;
 use crate::ui::{AppBridge, create_ui_callbacks};
 
 const APP_NAME: &str = "dev.davidv.translator";
@@ -35,6 +38,13 @@ enum IoEvent {
         text: String,
         from: String,
         to: String,
+    },
+    ImageTranslationRequest {
+        image_path: String,
+        from: String,
+        to: String,
+        min_confidence: u32,
+        max_image_size: u32,
     },
     Shutdown,
 }
@@ -66,8 +76,15 @@ fn main() -> Result<(), Box<dyn Error>> {
     let initial_languages = languages_from_snapshot(&initial_snapshot);
     let main_qml = find_main_qml()?;
     let asset_dir = find_asset_dir(&main_qml)?;
+    let settings = load_settings(&app_paths.config);
     let mut engine = QmlEngine::new();
-    let app = QObjectBox::new(AppBridge::new(initial_languages, bus_tx.clone(), asset_dir));
+    let app = QObjectBox::new(AppBridge::new(
+        initial_languages,
+        bus_tx.clone(),
+        asset_dir,
+        app_paths.config.clone(),
+        settings,
+    ));
 
     engine.set_object_property("app".into(), app.pinned());
 

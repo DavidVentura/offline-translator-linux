@@ -1,4 +1,4 @@
 {
-    "policy_groups": ["networking"],
+    "policy_groups": ["networking", "content_exchange"],
     "policy_version": "@APPARMOR_POLICY@"
 }

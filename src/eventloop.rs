@@ -12,6 +12,7 @@ use crate::catalog_state::{
     remove_delete_plan,
 };
 use crate::download;
+use crate::image_ocr;
 use crate::model::FeatureKind;
 use crate::ui::UiCallbacks;
 use crate::{AppPaths, IoEvent};
@@ -110,6 +111,41 @@ pub fn run_eventloop(bus_rx: Receiver<IoEvent>, ui: UiCallbacks, catalog: Langua
                 };
                 println!("translation took {:?} = '{}'", start.elapsed(), text);
                 (ui.set_output_text)(text);
+            }
+            IoEvent::ImageTranslationRequest {
+                image_path,
+                from,
+                to,
+                min_confidence,
+                max_image_size,
+            } => {
+                let Some(current_snapshot) = snapshot.as_ref() else {
+                    continue;
+                };
+
+                let start = Instant::now();
+                let result = image_ocr::translate_image_in_snapshot(
+                    &mut engine,
+                    current_snapshot,
+                    std::path::Path::new(&image_path),
+                    &from,
+                    &to,
+                    min_confidence,
+                    max_image_size,
+                );
+
+                match result {
+                    Ok(image_translation) => {
+                        send_detection_to_ui(&image_translation.extracted_text, &ui);
+                        (ui.set_input_text)(image_translation.extracted_text);
+                        (ui.set_output_text)(image_translation.translated_text);
+                    }
+                    Err(message) => {
+                        (ui.set_input_text)(String::new());
+                        (ui.set_output_text)(message);
+                    }
+                }
+                println!("image translation took {:?}", start.elapsed());
             }
             IoEvent::Shutdown => {
                 println!("shutdown signal, exiting");

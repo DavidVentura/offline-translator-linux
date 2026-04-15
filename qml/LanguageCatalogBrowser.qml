@@ -73,11 +73,11 @@ Item {
                 required property real tts_progress
 
                 readonly property int installedCount:
-                    (core_available && core_installed ? 1 : 0) +
+                    (core_available && !built_in && core_installed ? 1 : 0) +
                     (dictionary_available && dictionary_installed ? 1 : 0) +
                     (tts_available && tts_installed ? 1 : 0)
                 readonly property int availableCount:
-                    (core_available ? 1 : 0) +
+                    (core_available && !built_in ? 1 : 0) +
                     (dictionary_available ? 1 : 0) +
                     (tts_available ? 1 : 0)
                 readonly property bool allInstalled: availableCount > 0 && installedCount === availableCount
@@ -157,7 +157,7 @@ Item {
                                     width: 20; height: 20
                                     source: appBridge.asset_url("translate.svg")
                                     sourceSize.width: 20; sourceSize.height: 20
-                                    opacity: core_available ? (core_installed ? 1.0 : 0.3) : 0
+                                    opacity: (core_available && !built_in) ? (core_installed ? 1.0 : 0.3) : 0
                                 }
 
                                 Image {
@@ -239,9 +239,9 @@ Item {
                         Layout.bottomMargin: 8
                         spacing: 2
 
-                        // Translation feature
+                        // Translation feature (hidden for built-in languages like English)
                         Item {
-                            visible: core_available
+                            visible: core_available && !built_in
                             Layout.fillWidth: true
                             implicitHeight: 28
 

@@ -7,6 +7,7 @@ use std::sync::mpsc::Sender;
 use crate::IoEvent;
 use crate::catalog_state::{format_size, total_size};
 use crate::model::{Direction, FeatureKind, Language, Screen};
+use crate::settings::{Settings, save_settings};
 
 #[derive(Clone, Default, SimpleListItem)]
 pub struct LanguageListItem {
@@ -58,6 +59,12 @@ pub struct AppBridge {
     pub output_text: qt_property!(QString; NOTIFY output_text_changed),
     pub output_text_changed: qt_signal!(),
 
+    pub image_mode: qt_property!(bool; NOTIFY image_mode_changed),
+    pub image_mode_changed: qt_signal!(),
+
+    pub selected_image_url: qt_property!(QString; NOTIFY selected_image_url_changed),
+    pub selected_image_url_changed: qt_signal!(),
+
     pub source_language_name: qt_property!(QString; NOTIFY source_language_name_changed),
     pub source_language_name_changed: qt_signal!(),
 
@@ -96,6 +103,31 @@ pub struct AppBridge {
     pub manage_languages_model: qt_property!(RefCell<SimpleListModel<ManageLanguageListItem>>; CONST),
 
     pub desktop_mode: qt_property!(bool; CONST),
+
+    // Settings properties
+    pub font_size: qt_property!(i32; NOTIFY font_size_changed),
+    pub font_size_changed: qt_signal!(),
+
+    pub ocr_background_mode: qt_property!(QString; NOTIFY ocr_background_mode_changed),
+    pub ocr_background_mode_changed: qt_signal!(),
+
+    pub ocr_min_confidence: qt_property!(i32; NOTIFY ocr_min_confidence_changed),
+    pub ocr_min_confidence_changed: qt_signal!(),
+
+    pub ocr_max_image_size: qt_property!(i32; NOTIFY ocr_max_image_size_changed),
+    pub ocr_max_image_size_changed: qt_signal!(),
+
+    pub catalog_index_url: qt_property!(QString; NOTIFY catalog_index_url_changed),
+    pub catalog_index_url_changed: qt_signal!(),
+
+    pub disable_ocr: qt_property!(bool; NOTIFY disable_ocr_changed),
+    pub disable_ocr_changed: qt_signal!(),
+
+    pub show_transliteration_output: qt_property!(bool; NOTIFY show_transliteration_output_changed),
+    pub show_transliteration_output_changed: qt_signal!(),
+
+    pub show_transliteration_input: qt_property!(bool; NOTIFY show_transliteration_input_changed),
+    pub show_transliteration_input_changed: qt_signal!(),
 
     pub asset_url: qt_method!(
         fn asset_url(&self, name: QString) -> QString {
@@ -281,6 +313,91 @@ pub struct AppBridge {
             println!("Camera clicked");
         }
     ),
+    pub process_image_selection: qt_method!(
+        fn process_image_selection(&mut self, url: QString) {
+            self.process_image_selection_impl(url.to_string());
+        }
+    ),
+    pub clear_selected_image: qt_method!(
+        fn clear_selected_image(&mut self) {
+            self.set_image_mode_value(false);
+            self.set_selected_image_url_value(String::new());
+        }
+    ),
+
+    // Settings setters
+    pub set_font_size_value: qt_method!(
+        fn set_font_size_value(&mut self, value: i32) {
+            if self.font_size != value {
+                self.font_size = value;
+                self.font_size_changed();
+                self.persist_settings();
+            }
+        }
+    ),
+    pub set_ocr_background_mode_value: qt_method!(
+        fn set_ocr_background_mode_value(&mut self, value: QString) {
+            if self.ocr_background_mode != value {
+                self.ocr_background_mode = value;
+                self.ocr_background_mode_changed();
+                self.persist_settings();
+            }
+        }
+    ),
+    pub set_ocr_min_confidence_value: qt_method!(
+        fn set_ocr_min_confidence_value(&mut self, value: i32) {
+            if self.ocr_min_confidence != value {
+                self.ocr_min_confidence = value;
+                self.ocr_min_confidence_changed();
+                self.persist_settings();
+            }
+        }
+    ),
+    pub set_ocr_max_image_size_value: qt_method!(
+        fn set_ocr_max_image_size_value(&mut self, value: i32) {
+            if self.ocr_max_image_size != value {
+                self.ocr_max_image_size = value;
+                self.ocr_max_image_size_changed();
+                self.persist_settings();
+            }
+        }
+    ),
+    pub set_catalog_index_url_value: qt_method!(
+        fn set_catalog_index_url_value(&mut self, value: QString) {
+            if self.catalog_index_url != value {
+                self.catalog_index_url = value;
+                self.catalog_index_url_changed();
+                self.persist_settings();
+            }
+        }
+    ),
+    pub set_disable_ocr_value: qt_method!(
+        fn set_disable_ocr_value(&mut self, value: bool) {
+            if self.disable_ocr != value {
+                self.disable_ocr = value;
+                self.disable_ocr_changed();
+                self.persist_settings();
+            }
+        }
+    ),
+    pub set_show_transliteration_output_value: qt_method!(
+        fn set_show_transliteration_output_value(&mut self, value: bool) {
+            if self.show_transliteration_output != value {
+                self.show_transliteration_output = value;
+                self.show_transliteration_output_changed();
+                self.persist_settings();
+            }
+        }
+    ),
+    pub set_show_transliteration_input_value: qt_method!(
+        fn set_show_transliteration_input_value(&mut self, value: bool) {
+            if self.show_transliteration_input != value {
+                self.show_transliteration_input = value;
+                self.show_transliteration_input_changed();
+                self.persist_settings();
+            }
+        }
+    ),
 
     all_languages: Vec<Language>,
     source_language_code: String,
@@ -289,6 +406,7 @@ pub struct AppBridge {
     previous_screen: Screen,
     bus_tx: Option<Sender<IoEvent>>,
     asset_dir: String,
+    config_dir: String,
     manage_filter: String,
     expanded_languages: HashSet<String>,
 }
@@ -297,32 +415,66 @@ pub struct AppBridge {
 pub struct UiCallbacks {
     pub set_languages: Arc<dyn Fn(Vec<Language>) + Send + Sync>,
     pub set_feature_progress: Arc<dyn Fn(String, FeatureKind, f32) + Send + Sync>,
+    pub set_input_text: Arc<dyn Fn(String) + Send + Sync>,
     pub set_output_text: Arc<dyn Fn(String) + Send + Sync>,
     pub set_detected_language_code: Arc<dyn Fn(String) + Send + Sync>,
     pub set_current_screen: Arc<dyn Fn(Screen) + Send + Sync>,
 }
 
 impl AppBridge {
-    pub fn new(languages: Vec<Language>, bus_tx: Sender<IoEvent>, asset_dir: String) -> Self {
+    pub fn new(
+        languages: Vec<Language>,
+        bus_tx: Sender<IoEvent>,
+        asset_dir: String,
+        config_dir: String,
+        settings: Settings,
+    ) -> Self {
         let mut app = Self::default();
         app.bus_tx = Some(bus_tx);
-        app.current_screen = if std::env::var_os("START_SCREEN").is_some() {
-            std::env::var("START_SCREEN")
-                .ok()
-                .and_then(|s| s.parse::<i32>().ok())
-                .unwrap_or(Screen::NoLanguages.as_i32())
-        } else {
-            Screen::NoLanguages.as_i32()
-        };
+        app.current_screen = std::env::var("START_SCREEN")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .and_then(|s| s.parse::<i32>().ok())
+            .unwrap_or(Screen::NoLanguages.as_i32());
         app.previous_screen = Screen::Translation;
         app.desktop_mode = std::env::var_os("CLICKABLE_DESKTOP_MODE").is_some();
         app.asset_dir = asset_dir;
+        app.config_dir = config_dir;
         app.source_language_code = "en".to_string();
         app.target_language_code = "en".to_string();
         app.source_language_name = QString::from("English");
         app.target_language_name = QString::from("English");
+
+        // Apply loaded settings
+        app.disable_auto_detect = settings.disable_auto_detect;
+        app.font_size = settings.font_size;
+        app.ocr_background_mode = QString::from(settings.ocr_background_mode);
+        app.ocr_min_confidence = settings.ocr_min_confidence;
+        app.ocr_max_image_size = settings.ocr_max_image_size;
+        app.catalog_index_url = QString::from(settings.catalog_index_url);
+        app.disable_ocr = settings.disable_ocr;
+        app.show_transliteration_output = settings.show_transliteration_output;
+        app.show_transliteration_input = settings.show_transliteration_input;
+
         app.set_languages_value(languages);
         app
+    }
+
+    fn persist_settings(&self) {
+        let settings = Settings {
+            default_from: self.source_language_name.to_string(),
+            default_to: self.target_language_name.to_string(),
+            font_size: self.font_size,
+            ocr_background_mode: self.ocr_background_mode.to_string(),
+            ocr_min_confidence: self.ocr_min_confidence,
+            ocr_max_image_size: self.ocr_max_image_size,
+            catalog_index_url: self.catalog_index_url.to_string(),
+            disable_ocr: self.disable_ocr,
+            disable_auto_detect: self.disable_auto_detect,
+            show_transliteration_output: self.show_transliteration_output,
+            show_transliteration_input: self.show_transliteration_input,
+        };
+        save_settings(&self.config_dir, &settings);
     }
 
     pub fn set_languages_value(&mut self, mut languages: Vec<Language>) {
@@ -333,6 +485,14 @@ impl AppBridge {
 
         if self.current_screen == Screen::NoLanguages.as_i32() && self.has_languages {
             self.set_current_screen(Screen::Translation);
+        }
+    }
+
+    pub fn set_input_text_value(&mut self, text: String) {
+        let text = QString::from(text);
+        if self.input_text != text {
+            self.input_text = text;
+            self.input_text_changed();
         }
     }
 
@@ -382,6 +542,21 @@ impl AppBridge {
         if self.output_text != text {
             self.output_text = text;
             self.output_text_changed();
+        }
+    }
+
+    pub fn set_image_mode_value(&mut self, value: bool) {
+        if self.image_mode != value {
+            self.image_mode = value;
+            self.image_mode_changed();
+        }
+    }
+
+    pub fn set_selected_image_url_value(&mut self, url: String) {
+        let url = QString::from(url);
+        if self.selected_image_url != url {
+            self.selected_image_url = url;
+            self.selected_image_url_changed();
         }
     }
 
@@ -458,6 +633,36 @@ impl AppBridge {
         });
     }
 
+    fn process_image_selection_impl(&mut self, url: String) {
+        if self.disable_ocr {
+            self.set_output_text_value("OCR is disabled in settings".to_string());
+            return;
+        }
+
+        if url.is_empty() {
+            return;
+        }
+
+        let Some(path) = crate::image_ocr::resolve_local_path(&url) else {
+            self.set_output_text_value("Couldn't open the selected image".to_string());
+            return;
+        };
+
+        self.set_image_mode_value(true);
+        self.set_selected_image_url_value(url);
+        self.set_input_text_value(String::new());
+        self.set_output_text_value("Running OCR...".to_string());
+        self.set_detected_language_code_value("");
+
+        self.send_io(IoEvent::ImageTranslationRequest {
+            image_path: path.display().to_string(),
+            from: self.source_language_code.clone(),
+            to: self.target_language_code.clone(),
+            min_confidence: self.ocr_min_confidence.max(0) as u32,
+            max_image_size: self.ocr_max_image_size.max(0) as u32,
+        });
+    }
+
     fn retranslate(&mut self) {
         self.send_io(IoEvent::TranslationRequest {
             text: self.input_text.to_string(),
@@ -471,6 +676,7 @@ impl AppBridge {
             self.disable_auto_detect = value;
             self.disable_auto_detect_changed();
             self.refresh_detected_language();
+            self.persist_settings();
         }
     }
 
@@ -815,6 +1021,13 @@ pub fn create_ui_callbacks(app: QPointer<AppBridge>) -> UiCallbacks {
         }
     });
 
+    let input_app = app.clone();
+    let set_input_text = queued_callback(move |text: String| {
+        if let Some(app) = input_app.as_pinned() {
+            app.borrow_mut().set_input_text_value(text);
+        }
+    });
+
     let output_app = app.clone();
     let set_output_text = queued_callback(move |text: String| {
         if let Some(app) = output_app.as_pinned() {
@@ -841,6 +1054,7 @@ pub fn create_ui_callbacks(app: QPointer<AppBridge>) -> UiCallbacks {
         set_feature_progress: Arc::new(move |code, feature, progress| {
             set_feature_progress((code, feature.as_i32(), progress))
         }),
+        set_input_text: Arc::new(move |text| set_input_text(text)),
         set_output_text: Arc::new(move |text| set_output_text(text)),
         set_detected_language_code: Arc::new(move |code| set_detected_language_code(code)),
         set_current_screen: Arc::new(move |screen| set_current_screen(screen)),

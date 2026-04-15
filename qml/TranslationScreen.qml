@@ -3,8 +3,21 @@ import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 
 Item {
+    id: root
     property var appBridge
     property var theme
+
+    Loader {
+        id: imagePickerLoader
+        active: true
+        source: appBridge.desktop_mode ? "DesktopImagePicker.qml" : "UbportsImagePicker.qml"
+
+        onLoaded: {
+            if (item) {
+                item.appBridge = appBridge
+            }
+        }
+    }
 
     ColumnLayout {
         anchors.fill: parent
@@ -12,6 +25,7 @@ Item {
         spacing: 12
 
         ScrollView {
+            visible: !appBridge.image_mode
             Layout.fillWidth: true
             Layout.fillHeight: true
             clip: true
@@ -28,6 +42,50 @@ Item {
                     border.width: 1
                 }
                 onTextChanged: if (text !== appBridge.input_text) appBridge.process_text(text)
+            }
+        }
+
+        Rectangle {
+            visible: appBridge.image_mode
+            Layout.fillWidth: true
+            Layout.preferredHeight: Math.min(380, Math.max(220, root.height * 0.42))
+            radius: 16
+            color: theme.backgroundElevated
+            border.color: theme.borderColor
+            border.width: 1
+            clip: true
+
+            Image {
+                anchors.fill: parent
+                anchors.margins: 12
+                source: appBridge.selected_image_url
+                fillMode: Image.PreserveAspectFit
+                asynchronous: true
+                cache: false
+                smooth: true
+            }
+
+            RoundButton {
+                anchors.top: parent.top
+                anchors.right: parent.right
+                anchors.margins: 12
+                width: 36
+                height: 36
+                text: "X"
+                font.pixelSize: 14
+                onClicked: appBridge.clear_selected_image()
+                background: Rectangle {
+                    radius: width / 2
+                    color: parent.down ? Qt.darker(theme.surfaceColor, 1.1) : theme.surfaceColor
+                    border.color: theme.borderColor
+                    border.width: 1
+                }
+                contentItem: Label {
+                    text: parent.text
+                    color: theme.textPrimary
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                }
             }
         }
 
@@ -126,6 +184,6 @@ Item {
             color: parent.down ? Qt.darker(theme.accentColor, 1.15) : theme.accentColor
             border.width: 0
         }
-        onClicked: appBridge.camera_clicked()
+        onClicked: if (imagePickerLoader.item) imagePickerLoader.item.open()
     }
 }
