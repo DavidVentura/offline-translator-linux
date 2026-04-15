@@ -12,4 +12,5 @@ if [ -z "$clickable_bin" ]; then
   fi
 fi
 
+../scripts/prepare_onnxruntime.sh
 exec "$clickable_bin" build -c ../clickable.yaml "$@"

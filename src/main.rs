@@ -4,6 +4,7 @@ mod eventloop;
 mod image_ocr;
 mod model;
 mod settings;
+mod tts;
 mod ui;
 
 use qmetaobject::*;
@@ -47,6 +48,17 @@ enum IoEvent {
         max_image_size: u32,
         background_mode: String,
     },
+    RefreshTtsVoices {
+        language_code: String,
+        selected_voice_name: String,
+    },
+    SpeakRequest {
+        language_code: String,
+        text: String,
+        speech_speed: f32,
+        voice_name: String,
+    },
+    StopTts,
     Shutdown,
 }
 
@@ -68,6 +80,7 @@ fn get_app_paths() -> AppPaths {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
+    configure_onnxruntime_dylib_path()?;
     qmetaobject::log::init_qt_to_rust();
 
     let (bus_tx, bus_rx) = mpsc::channel::<IoEvent>();
@@ -99,6 +112,31 @@ fn main() -> Result<(), Box<dyn Error>> {
     bus_tx.send(IoEvent::Shutdown).unwrap();
     drop(bus_tx);
     jh.join().unwrap();
+
+    Ok(())
+}
+
+fn configure_onnxruntime_dylib_path() -> Result<(), Box<dyn Error>> {
+    if std::env::var_os("ORT_DYLIB_PATH").is_some() {
+        return Ok(());
+    }
+
+    let exe_dir = std::env::current_exe()?
+        .parent()
+        .map(PathBuf::from)
+        .ok_or("current executable has no parent directory")?;
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+
+    let candidates = [
+        exe_dir.join("libonnxruntime.so"),
+        exe_dir.join("runtime-lib/libonnxruntime.so"),
+        manifest_dir.join("runtime-lib/libonnxruntime.so"),
+    ];
+
+    if let Some(path) = candidates.into_iter().find(|path| path.is_file()) {
+        // Set once during process startup before worker threads are spawned.
+        unsafe { std::env::set_var("ORT_DYLIB_PATH", path) };
+    }
 
     Ok(())
 }

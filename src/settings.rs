@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
 
@@ -24,6 +25,10 @@ pub struct Settings {
     pub show_transliteration_output: bool,
     #[serde(default)]
     pub show_transliteration_input: bool,
+    #[serde(default = "default_tts_playback_speed")]
+    pub tts_playback_speed: f32,
+    #[serde(default)]
+    pub tts_voice_overrides: BTreeMap<String, String>,
 }
 
 fn default_lang_code() -> String { "en".to_string() }
@@ -31,6 +36,7 @@ fn default_ocr_background_mode() -> String { "Auto-detect Colors".to_string() }
 fn default_ocr_min_confidence() -> i32 { 75 }
 fn default_ocr_max_image_size() -> i32 { 1500 }
 fn default_catalog_index_url() -> String { "https://offline-translator.davidv.dev/index".to_string() }
+fn default_tts_playback_speed() -> f32 { 1.0 }
 
 impl Default for Settings {
     fn default() -> Self {
@@ -45,6 +51,8 @@ impl Default for Settings {
             disable_auto_detect: false,
             show_transliteration_output: false,
             show_transliteration_input: false,
+            tts_playback_speed: default_tts_playback_speed(),
+            tts_voice_overrides: BTreeMap::new(),
         }
     }
 }

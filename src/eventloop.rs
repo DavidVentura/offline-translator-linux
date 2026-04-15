@@ -15,7 +15,8 @@ use crate::catalog_state::{
 use crate::download;
 use crate::image_ocr;
 use crate::model::FeatureKind;
-use crate::ui::{ImageOverlayListItem, UiCallbacks, argb_to_qml_color};
+use crate::tts;
+use crate::ui::{ImageOverlayListItem, TtsVoiceListItem, UiCallbacks, argb_to_qml_color};
 use crate::{AppPaths, IoEvent};
 
 pub fn run_eventloop(bus_rx: Receiver<IoEvent>, ui: UiCallbacks, catalog: LanguageCatalog) {
@@ -113,6 +114,63 @@ pub fn run_eventloop(bus_rx: Receiver<IoEvent>, ui: UiCallbacks, catalog: Langua
                 println!("translation took {:?} = '{}'", start.elapsed(), text);
                 (ui.set_output_text)(text);
             }
+            IoEvent::RefreshTtsVoices {
+                language_code,
+                selected_voice_name,
+            } => {
+                let Some(current_snapshot) = snapshot.as_ref() else {
+                    continue;
+                };
+
+                match tts::load_tts_voices(
+                    current_snapshot,
+                    &language_code,
+                    (!selected_voice_name.is_empty()).then_some(selected_voice_name.as_str()),
+                ) {
+                    Ok(result) => {
+                        let items = result
+                            .voices
+                            .into_iter()
+                            .map(|voice| TtsVoiceListItem {
+                                name: voice.name.into(),
+                                display_name: voice.display_name.into(),
+                            })
+                            .collect::<Vec<_>>();
+                        (ui.set_tts_voices)(
+                            result.available,
+                            items,
+                            result.selected_voice_name,
+                            result.selected_voice_display_name,
+                        );
+                    }
+                    Err(err) => {
+                        eprintln!("Failed to load TTS voices: {err}");
+                        (ui.set_tts_voices)(false, Vec::new(), String::new(), "Default".to_string());
+                    }
+                }
+            }
+            IoEvent::SpeakRequest {
+                language_code,
+                text,
+                speech_speed,
+                voice_name,
+            } => {
+                let Some(current_snapshot) = snapshot.as_ref() else {
+                    continue;
+                };
+                tts::play_text_async(
+                    current_snapshot.clone(),
+                    language_code,
+                    text,
+                    speech_speed,
+                    (!voice_name.is_empty()).then_some(voice_name),
+                    ui.clone(),
+                );
+            }
+            IoEvent::StopTts => {
+                tts::stop_playback();
+                (ui.set_tts_state)(false, false);
+            }
             IoEvent::ImageTranslationRequest {
                 image_path,
                 from,
@@ -175,6 +233,7 @@ pub fn run_eventloop(bus_rx: Receiver<IoEvent>, ui: UiCallbacks, catalog: Langua
                 println!("image translation took {:?}", start.elapsed());
             }
             IoEvent::Shutdown => {
+                tts::stop_playback();
                 println!("shutdown signal, exiting");
                 break;
             }

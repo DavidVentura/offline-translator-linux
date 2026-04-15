@@ -5,3 +5,4 @@ packaging/postmarketos/tmp/
 packaging/postmarketos/src/
 packaging/postmarketos/**/*.gz
 build/
+runtime-lib/libonnxruntime.so

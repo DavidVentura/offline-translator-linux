@@ -10,3 +10,4 @@ install_root_data:
 - packaging/ubuntu-touch/translator.apparmor
 - packaging/ubuntu-touch/translator.desktop
 - assets
+- runtime-lib

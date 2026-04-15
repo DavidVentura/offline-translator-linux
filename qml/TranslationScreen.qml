@@ -6,6 +6,7 @@ Item {
     id: root
     property var appBridge
     property var theme
+    property bool speechLongPressTriggered: false
 
     function shareCurrentImage() {
         if (imageShareLoader.item) {
@@ -46,6 +47,8 @@ Item {
             visible: !appBridge.image_mode
             Layout.fillWidth: true
             Layout.fillHeight: true
+            Layout.preferredHeight: Math.max(180, root.height * 0.38)
+            Layout.minimumHeight: 120
             clip: true
 
             TextArea {
@@ -200,20 +203,246 @@ Item {
             }
         }
 
-        ScrollView {
+        Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            clip: true
+            Layout.preferredHeight: Math.max(180, root.height * 0.3)
+            Layout.minimumHeight: 140
 
-            TextArea {
-                text: appBridge.output_text
-                readOnly: true
-                wrapMode: TextEdit.Wrap
-                color: theme.textPrimary
+            ScrollView {
+                anchors.fill: parent
+                anchors.rightMargin: (speechButton.visible ? 32 : 0)
+                clip: true
+
+                TextArea {
+                    text: appBridge.output_text
+                    readOnly: true
+                    wrapMode: TextEdit.Wrap
+                    color: theme.textPrimary
+                    background: Rectangle {
+                        color: theme.backgroundColor
+                        border.color: theme.borderColor
+                        border.width: 1
+                    }
+                }
+            }
+
+            Item {
+                id: speechButton
+                visible: (appBridge.tts_available || appBridge.tts_loading || appBridge.tts_playing)
+                         && appBridge.output_text.length > 0
+                anchors.top: parent.top
+                anchors.right: parent.right
+                width: 24
+                height: 24
+
+                Image {
+                    anchors.centerIn: parent
+                    width: 22
+                    height: 22
+                    source: appBridge.asset_url((appBridge.tts_loading || appBridge.tts_playing) ? "close.svg" : "tts.svg")
+                    sourceSize.width: 22
+                    sourceSize.height: 22
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    pressAndHoldInterval: 450
+                    onPressed: root.speechLongPressTriggered = false
+                    onPressAndHold: {
+                        root.speechLongPressTriggered = true
+                        speechOptionsPopup.open()
+                    }
+                    onClicked: {
+                        if (root.speechLongPressTriggered) {
+                            root.speechLongPressTriggered = false
+                            return
+                        }
+                        appBridge.toggle_speak_output()
+                    }
+                }
+            }
+
+            Popup {
+                id: speechOptionsPopup
+                x: Math.max(0, speechButton.x - width + speechButton.width)
+                y: speechButton.y + speechButton.height + 8
+                width: Math.min(220, parent.width - 24)
+                modal: false
+                padding: 0
+
                 background: Rectangle {
-                    color: theme.backgroundColor
+                    radius: 8
+                    color: theme.surfaceColor
                     border.color: theme.borderColor
                     border.width: 1
+                }
+
+                contentItem: Item {
+                    implicitWidth: speechOptionsPopup.width
+                    implicitHeight: popupColumn.implicitHeight + 24
+
+                    Column {
+                        id: popupColumn
+                        anchors.fill: parent
+                        anchors.margins: 12
+                        spacing: 12
+
+                        Label {
+                            text: "Playback speed"
+                            color: theme.textPrimary
+                            font.pixelSize: 16
+                            font.bold: true
+                        }
+
+                        Row {
+                            width: parent.width
+                            spacing: 10
+
+                            Rectangle {
+                                width: 28
+                                height: 28
+                                radius: 8
+                                color: theme.backgroundElevated
+
+                                Label {
+                                    anchors.centerIn: parent
+                                    text: "-"
+                                    color: theme.textPrimary
+                                    font.pixelSize: 18
+                                }
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    onClicked: appBridge.set_tts_playback_speed_value(appBridge.tts_playback_speed - 0.1)
+                                }
+                            }
+
+                            Label {
+                                width: parent.width - 76
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                                text: appBridge.tts_playback_speed.toFixed(2) + "x"
+                                color: theme.textPrimary
+                                font.pixelSize: 16
+                            }
+
+                            Rectangle {
+                                width: 28
+                                height: 28
+                                radius: 8
+                                color: theme.backgroundElevated
+
+                                Label {
+                                    anchors.centerIn: parent
+                                    text: "+"
+                                    color: theme.textPrimary
+                                    font.pixelSize: 18
+                                }
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    onClicked: appBridge.set_tts_playback_speed_value(appBridge.tts_playback_speed + 0.1)
+                                }
+                            }
+                        }
+
+                        Rectangle {
+                            width: parent.width
+                            height: 1
+                            color: theme.borderColor
+                            opacity: 0.7
+                        }
+
+                        Label {
+                            text: appBridge.tts_voice_options_model.count <= 1 ? "Voice: Default" : "Voice"
+                            color: theme.textPrimary
+                            font.pixelSize: 16
+                            font.bold: true
+                        }
+
+                        Column {
+                            width: parent.width
+                            spacing: 6
+
+                            Rectangle {
+                                visible: appBridge.tts_voice_options_model.count > 1
+                                width: parent.width
+                                height: 40
+                                radius: 8
+                                color: theme.backgroundElevated
+                                border.color: theme.borderColor
+                                border.width: 1
+
+                                ComboBox {
+                                    id: voiceComboBox
+                                    anchors.fill: parent
+                                    anchors.leftMargin: 1
+                                    anchors.rightMargin: 1
+                                    anchors.topMargin: 1
+                                    anchors.bottomMargin: 1
+                                    model: appBridge.tts_voice_options_model
+                                    textRole: "display_name"
+                                    valueRole: "name"
+                                    currentIndex: indexOfValue(appBridge.tts_selected_voice_name)
+
+                                    delegate: ItemDelegate {
+                                        width: voiceComboBox.width
+                                        text: display_name
+                                        highlighted: voiceComboBox.highlightedIndex === index
+                                    }
+
+                                    contentItem: Label {
+                                        leftPadding: 12
+                                        rightPadding: 32
+                                        text: voiceComboBox.displayText
+                                        color: theme.textPrimary
+                                        verticalAlignment: Text.AlignVCenter
+                                        elide: Text.ElideRight
+                                    }
+
+                                    indicator: Image {
+                                        source: appBridge.asset_url("expand_more.svg")
+                                        width: 18
+                                        height: 18
+                                        x: voiceComboBox.width - width - 10
+                                        y: (voiceComboBox.height - height) / 2
+                                        sourceSize.width: 18
+                                        sourceSize.height: 18
+                                    }
+
+                                    background: Rectangle {
+                                        color: "transparent"
+                                    }
+
+                                    popup: Popup {
+                                        y: voiceComboBox.height + 4
+                                        width: voiceComboBox.width
+                                        padding: 1
+
+                                        contentItem: ListView {
+                                            clip: true
+                                            implicitHeight: contentHeight
+                                            model: parent.visible ? voiceComboBox.delegateModel : null
+                                        }
+
+                                        background: Rectangle {
+                                            radius: 8
+                                            color: theme.surfaceColor
+                                            border.color: theme.borderColor
+                                            border.width: 1
+                                        }
+                                    }
+
+                                    onActivated: {
+                                        if (currentIndex >= 0) {
+                                            appBridge.set_tts_voice_name(currentValue)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }

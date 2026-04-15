@@ -1,6 +1,6 @@
 use qmetaobject::*;
 use std::cell::RefCell;
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 use std::sync::Arc;
 use std::sync::mpsc::Sender;
 
@@ -51,6 +51,12 @@ pub struct ImageOverlayListItem {
     pub foreground_color: QString,
 }
 
+#[derive(Clone, Default, SimpleListItem)]
+pub struct TtsVoiceListItem {
+    pub name: QString,
+    pub display_name: QString,
+}
+
 #[derive(QObject, Default)]
 pub struct AppBridge {
     base: qt_base_class!(trait QObject),
@@ -75,6 +81,15 @@ pub struct AppBridge {
 
     pub image_viewer_open: qt_property!(bool; NOTIFY image_viewer_open_changed),
     pub image_viewer_open_changed: qt_signal!(),
+
+    pub tts_available: qt_property!(bool; NOTIFY tts_available_changed),
+    pub tts_available_changed: qt_signal!(),
+
+    pub tts_loading: qt_property!(bool; NOTIFY tts_loading_changed),
+    pub tts_loading_changed: qt_signal!(),
+
+    pub tts_playing: qt_property!(bool; NOTIFY tts_playing_changed),
+    pub tts_playing_changed: qt_signal!(),
 
     pub selected_image_url: qt_property!(QString; NOTIFY selected_image_url_changed),
     pub selected_image_url_changed: qt_signal!(),
@@ -122,6 +137,7 @@ pub struct AppBridge {
     pub available_languages_model: qt_property!(RefCell<SimpleListModel<LanguageListItem>>; CONST),
     pub manage_languages_model: qt_property!(RefCell<SimpleListModel<ManageLanguageListItem>>; CONST),
     pub image_overlay_model: qt_property!(RefCell<SimpleListModel<ImageOverlayListItem>>; CONST),
+    pub tts_voice_options_model: qt_property!(RefCell<SimpleListModel<TtsVoiceListItem>>; CONST),
 
     pub desktop_mode: qt_property!(bool; CONST),
 
@@ -146,6 +162,15 @@ pub struct AppBridge {
 
     pub show_transliteration_input: qt_property!(bool; NOTIFY show_transliteration_input_changed),
     pub show_transliteration_input_changed: qt_signal!(),
+
+    pub tts_playback_speed: qt_property!(f32; NOTIFY tts_playback_speed_changed),
+    pub tts_playback_speed_changed: qt_signal!(),
+
+    pub tts_selected_voice_name: qt_property!(QString; NOTIFY tts_selected_voice_name_changed),
+    pub tts_selected_voice_name_changed: qt_signal!(),
+
+    pub tts_selected_voice_display_name: qt_property!(QString; NOTIFY tts_selected_voice_display_name_changed),
+    pub tts_selected_voice_display_name_changed: qt_signal!(),
 
     pub asset_url: qt_method!(
         fn asset_url(&self, name: QString) -> QString {
@@ -339,6 +364,7 @@ pub struct AppBridge {
     pub clear_selected_image: qt_method!(
         fn clear_selected_image(&mut self) {
             self.original_image_path.clear();
+            self.stop_tts();
             self.set_image_mode_value(false);
             self.set_image_viewer_open_value(false);
             self.set_selected_image_url_value(String::new());
@@ -355,6 +381,21 @@ pub struct AppBridge {
     pub close_image_viewer: qt_method!(
         fn close_image_viewer(&mut self) {
             self.set_image_viewer_open_value(false);
+        }
+    ),
+    pub toggle_speak_output: qt_method!(
+        fn toggle_speak_output(&mut self) {
+            self.toggle_speak_output_impl();
+        }
+    ),
+    pub set_tts_playback_speed_value: qt_method!(
+        fn set_tts_playback_speed_value(&mut self, value: f32) {
+            self.set_tts_playback_speed_impl(value);
+        }
+    ),
+    pub set_tts_voice_name: qt_method!(
+        fn set_tts_voice_name(&mut self, value: QString) {
+            self.set_tts_voice_name_impl(value.to_string());
         }
     ),
 
@@ -431,6 +472,7 @@ pub struct AppBridge {
     bus_tx: Option<Sender<IoEvent>>,
     asset_dir: String,
     config_dir: String,
+    tts_voice_overrides: BTreeMap<String, String>,
     original_image_path: String,
     manage_filter: String,
     expanded_languages: HashSet<String>,
@@ -442,10 +484,11 @@ pub struct UiCallbacks {
     pub set_feature_progress: Arc<dyn Fn(String, FeatureKind, f32) + Send + Sync>,
     pub set_input_text: Arc<dyn Fn(String) + Send + Sync>,
     pub set_output_text: Arc<dyn Fn(String) + Send + Sync>,
+    pub set_tts_state: Arc<dyn Fn(bool, bool) + Send + Sync>,
+    pub set_tts_voices: Arc<dyn Fn(bool, Vec<TtsVoiceListItem>, String, String) + Send + Sync>,
     pub set_selected_image_url: Arc<dyn Fn(String) + Send + Sync>,
     pub set_image_overlay: Arc<dyn Fn(Vec<ImageOverlayListItem>, f32, f32) + Send + Sync>,
     pub set_detected_language_code: Arc<dyn Fn(String) + Send + Sync>,
-    pub set_current_screen: Arc<dyn Fn(Screen) + Send + Sync>,
 }
 
 impl AppBridge {
@@ -481,6 +524,8 @@ impl AppBridge {
         app.disable_ocr = settings.disable_ocr;
         app.show_transliteration_output = settings.show_transliteration_output;
         app.show_transliteration_input = settings.show_transliteration_input;
+        app.tts_playback_speed = settings.tts_playback_speed.clamp(0.5, 2.0);
+        app.tts_voice_overrides = settings.tts_voice_overrides.clone();
 
         app.set_languages_value(languages);
 
@@ -507,6 +552,8 @@ impl AppBridge {
             disable_auto_detect: self.disable_auto_detect,
             show_transliteration_output: self.show_transliteration_output,
             show_transliteration_input: self.show_transliteration_input,
+            tts_playback_speed: self.tts_playback_speed,
+            tts_voice_overrides: self.tts_voice_overrides.clone(),
         };
         save_settings(&self.config_dir, &settings);
     }
@@ -579,6 +626,44 @@ impl AppBridge {
         }
     }
 
+    pub fn set_tts_state_value(&mut self, loading: bool, playing: bool) {
+        if self.tts_loading != loading {
+            self.tts_loading = loading;
+            self.tts_loading_changed();
+        }
+        if self.tts_playing != playing {
+            self.tts_playing = playing;
+            self.tts_playing_changed();
+        }
+    }
+
+    pub fn set_tts_voices_value(
+        &mut self,
+        available: bool,
+        items: Vec<TtsVoiceListItem>,
+        selected_name: String,
+        selected_display_name: String,
+    ) {
+        self.tts_voice_options_model.borrow_mut().reset_data(items);
+
+        if self.tts_available != available {
+            self.tts_available = available;
+            self.tts_available_changed();
+        }
+
+        let selected_name = QString::from(selected_name);
+        if self.tts_selected_voice_name != selected_name {
+            self.tts_selected_voice_name = selected_name;
+            self.tts_selected_voice_name_changed();
+        }
+
+        let selected_display_name = QString::from(selected_display_name);
+        if self.tts_selected_voice_display_name != selected_display_name {
+            self.tts_selected_voice_display_name = selected_display_name;
+            self.tts_selected_voice_display_name_changed();
+        }
+    }
+
     pub fn set_image_mode_value(&mut self, value: bool) {
         if self.image_mode != value {
             self.image_mode = value;
@@ -647,6 +732,7 @@ impl AppBridge {
                 self.source_language_name = qname;
                 self.source_language_name_changed();
             }
+            self.stop_tts();
             self.refresh_swap_enabled();
             self.refresh_detected_language();
             self.refresh_translation_content();
@@ -667,8 +753,10 @@ impl AppBridge {
                 self.target_language_name = qname;
                 self.target_language_name_changed();
             }
+            self.stop_tts();
             self.refresh_swap_enabled();
             self.refresh_translation_content();
+            self.refresh_tts_voices();
             self.persist_settings();
         }
     }
@@ -686,6 +774,8 @@ impl AppBridge {
             self.input_text = qtext;
             self.input_text_changed();
         }
+
+        self.stop_tts();
 
         self.send_io(IoEvent::TranslationRequest {
             text,
@@ -710,6 +800,7 @@ impl AppBridge {
         };
 
         self.original_image_path = path.display().to_string();
+        self.stop_tts();
         self.set_image_mode_value(true);
         self.set_image_viewer_open_value(false);
         self.set_selected_image_url_value(url);
@@ -741,6 +832,7 @@ impl AppBridge {
             return;
         }
 
+        self.stop_tts();
         self.set_image_overlay_value(Vec::new(), 0.0, 0.0);
         self.set_image_viewer_open_value(false);
         self.set_output_text_value("Running OCR...".to_string());
@@ -757,11 +849,69 @@ impl AppBridge {
     }
 
     fn retranslate(&mut self) {
+        self.stop_tts();
         self.send_io(IoEvent::TranslationRequest {
             text: self.input_text.to_string(),
             from: self.source_language_code.clone(),
             to: self.target_language_code.clone(),
         });
+    }
+
+    fn toggle_speak_output_impl(&mut self) {
+        if self.tts_loading || self.tts_playing {
+            self.stop_tts();
+            return;
+        }
+
+        let text = self.output_text.to_string();
+        if text.trim().is_empty() || !self.tts_available {
+            return;
+        }
+
+        self.send_io(IoEvent::SpeakRequest {
+            language_code: self.target_language_code.clone(),
+            text,
+            speech_speed: self.tts_playback_speed.clamp(0.5, 2.0),
+            voice_name: self.tts_selected_voice_name.to_string(),
+        });
+    }
+
+    fn set_tts_playback_speed_impl(&mut self, value: f32) {
+        let quantized = ((value.clamp(0.5, 2.0) * 10.0).round() / 10.0).clamp(0.5, 2.0);
+        if (self.tts_playback_speed - quantized).abs() > f32::EPSILON {
+            self.tts_playback_speed = quantized;
+            self.tts_playback_speed_changed();
+            self.persist_settings();
+        }
+    }
+
+    fn set_tts_voice_name_impl(&mut self, value: String) {
+        if value.is_empty() {
+            return;
+        }
+
+        self.tts_voice_overrides
+            .insert(self.target_language_code.clone(), value.clone());
+        self.persist_settings();
+        self.refresh_tts_voices();
+    }
+
+    fn refresh_tts_voices(&mut self) {
+        let selected_voice_name = self
+            .tts_voice_overrides
+            .get(&self.target_language_code)
+            .cloned()
+            .unwrap_or_default();
+
+        self.send_io(IoEvent::RefreshTtsVoices {
+            language_code: self.target_language_code.clone(),
+            selected_voice_name,
+        });
+    }
+
+    fn stop_tts(&mut self) {
+        self.send_io(IoEvent::StopTts);
+        self.set_tts_state_value(false, false);
     }
 
     fn set_disable_auto_detect_impl(&mut self, value: bool) {
@@ -906,6 +1056,7 @@ impl AppBridge {
         self.ensure_selected_languages_are_valid();
         self.refresh_swap_enabled();
         self.refresh_detected_language();
+        self.refresh_tts_voices();
     }
 
     fn ensure_selected_languages_are_valid(&mut self) {
@@ -1138,6 +1289,22 @@ pub fn create_ui_callbacks(app: QPointer<AppBridge>) -> UiCallbacks {
         }
     });
 
+    let tts_state_app = app.clone();
+    let set_tts_state = queued_callback(move |args: (bool, bool)| {
+        if let Some(app) = tts_state_app.as_pinned() {
+            app.borrow_mut().set_tts_state_value(args.0, args.1);
+        }
+    });
+
+    let tts_voices_app = app.clone();
+    let set_tts_voices =
+        queued_callback(move |args: (bool, Vec<TtsVoiceListItem>, String, String)| {
+            if let Some(app) = tts_voices_app.as_pinned() {
+                app.borrow_mut()
+                    .set_tts_voices_value(args.0, args.1, args.2, args.3);
+            }
+        });
+
     let selected_image_app = app.clone();
     let set_selected_image_url = queued_callback(move |url: String| {
         if let Some(app) = selected_image_app.as_pinned() {
@@ -1161,13 +1328,6 @@ pub fn create_ui_callbacks(app: QPointer<AppBridge>) -> UiCallbacks {
         }
     });
 
-    let screen_app = app.clone();
-    let set_current_screen = queued_callback(move |screen: Screen| {
-        if let Some(app) = screen_app.as_pinned() {
-            app.borrow_mut().set_current_screen(screen);
-        }
-    });
-
     UiCallbacks {
         set_languages: Arc::new(move |languages| set_languages(languages)),
         set_feature_progress: Arc::new(move |code, feature, progress| {
@@ -1175,11 +1335,14 @@ pub fn create_ui_callbacks(app: QPointer<AppBridge>) -> UiCallbacks {
         }),
         set_input_text: Arc::new(move |text| set_input_text(text)),
         set_output_text: Arc::new(move |text| set_output_text(text)),
+        set_tts_state: Arc::new(move |loading, playing| set_tts_state((loading, playing))),
+        set_tts_voices: Arc::new(move |available, items, selected_name, selected_display_name| {
+            set_tts_voices((available, items, selected_name, selected_display_name))
+        }),
         set_selected_image_url: Arc::new(move |url| set_selected_image_url(url)),
         set_image_overlay: Arc::new(move |items, width, height| {
             set_image_overlay((items, width, height))
         }),
         set_detected_language_code: Arc::new(move |code| set_detected_language_code(code)),
-        set_current_screen: Arc::new(move |screen| set_current_screen(screen)),
     }
 }

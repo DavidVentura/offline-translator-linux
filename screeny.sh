@@ -5,6 +5,7 @@ set -eu
 export QMAKE=/usr/bin/qmake
 export CLICKABLE_DESKTOP_MODE=1
 export START_SCREEN=${START_SCREEN:-}
+./scripts/prepare_onnxruntime.sh
 cargo build
 export DISPLAY=:99
 cargo run &
