@@ -771,6 +771,8 @@ dependencies = [
  "image",
  "qmetaobject",
  "rayon",
+ "serde",
+ "serde_json",
  "translator",
  "ureq",
  "whoami",

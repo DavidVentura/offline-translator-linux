@@ -13,6 +13,8 @@ rayon = "1.10"
 translator = { path = "/home/david/AndroidStudioProjects/Translator/translator", features = ["tesseract"] }
 whoami = { version = "1.6.1", default-features = false }
 zip = "2.4.2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 
 [profile.dev]

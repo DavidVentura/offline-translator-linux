@@ -7,10 +7,28 @@ Item {
     property var appBridge
     property var theme
 
+    function shareCurrentImage() {
+        if (imageShareLoader.item) {
+            imageShareLoader.item.share(appBridge.selected_image_url)
+        }
+    }
+
     Loader {
         id: imagePickerLoader
         active: true
         source: appBridge.desktop_mode ? "DesktopImagePicker.qml" : "UbportsImagePicker.qml"
+
+        onLoaded: {
+            if (item) {
+                item.appBridge = appBridge
+            }
+        }
+    }
+
+    Loader {
+        id: imageShareLoader
+        active: true
+        source: appBridge.desktop_mode ? "DesktopImageShare.qml" : "UbportsImageShare.qml"
 
         onLoaded: {
             if (item) {
@@ -55,71 +73,55 @@ Item {
             border.width: 1
             clip: true
 
-            Image {
-                id: selectedImage
+            TranslatedImageView {
                 anchors.fill: parent
-                anchors.margins: 12
-                source: appBridge.selected_image_url
-                fillMode: Image.PreserveAspectFit
-                asynchronous: true
-                cache: false
-                smooth: true
-
-                Item {
-                    anchors.fill: parent
-                    visible: appBridge.processed_image_width > 0 && appBridge.processed_image_height > 0
-
-                    Item {
-                        x: (parent.width - selectedImage.paintedWidth) / 2
-                        y: (parent.height - selectedImage.paintedHeight) / 2
-                        width: selectedImage.paintedWidth
-                        height: selectedImage.paintedHeight
-
-                        Repeater {
-                            model: appBridge.image_overlay_model
-
-                            Item {
-                                x: block_x * parent.width / appBridge.processed_image_width
-                                y: block_y * parent.height / appBridge.processed_image_height
-                                width: block_width * parent.width / appBridge.processed_image_width
-                                height: block_height * parent.height / appBridge.processed_image_height
-
-                                Text {
-                                    anchors.fill: parent
-                                    anchors.margins: 2
-                                    text: translated_text
-                                    color: foreground_color
-                                    wrapMode: Text.Wrap
-                                    font.pixelSize: Math.max(10, parent.height * 0.55)
-                                    elide: Text.ElideRight
-                                    clip: true
-                                }
-                            }
-                        }
-                    }
-                }
+                appBridge: root.appBridge
+                imageMargin: 12
+                interactive: true
+                onImageClicked: appBridge.open_image_viewer()
             }
 
-            RoundButton {
+            Row {
                 anchors.top: parent.top
                 anchors.right: parent.right
                 anchors.margins: 12
-                width: 36
-                height: 36
-                text: "X"
-                font.pixelSize: 14
-                onClicked: appBridge.clear_selected_image()
-                background: Rectangle {
-                    radius: width / 2
-                    color: parent.down ? Qt.darker(theme.surfaceColor, 1.1) : theme.surfaceColor
-                    border.color: theme.borderColor
-                    border.width: 1
+                spacing: 8
+
+                RoundButton {
+                    width: 36
+                    height: 36
+                    display: AbstractButton.IconOnly
+                    icon.source: appBridge.asset_url("share.svg")
+                    icon.width: 18
+                    icon.height: 18
+                    text: "Share"
+                    onClicked: root.shareCurrentImage()
+                    background: Rectangle {
+                        radius: width / 2
+                        color: parent.down ? Qt.darker(theme.surfaceColor, 1.1) : theme.surfaceColor
+                        border.color: theme.borderColor
+                        border.width: 1
+                    }
                 }
-                contentItem: Label {
-                    text: parent.text
-                    color: theme.textPrimary
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
+
+                RoundButton {
+                    width: 36
+                    height: 36
+                    text: "X"
+                    font.pixelSize: 14
+                    onClicked: appBridge.clear_selected_image()
+                    background: Rectangle {
+                        radius: width / 2
+                        color: parent.down ? Qt.darker(theme.surfaceColor, 1.1) : theme.surfaceColor
+                        border.color: theme.borderColor
+                        border.width: 1
+                    }
+                    contentItem: Label {
+                        text: parent.text
+                        color: theme.textPrimary
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
                 }
             }
         }
@@ -220,5 +222,62 @@ Item {
             border.width: 0
         }
         onClicked: if (imagePickerLoader.item) imagePickerLoader.item.open()
+    }
+
+    Rectangle {
+        anchors.fill: parent
+        visible: appBridge.image_viewer_open
+        color: "#000000"
+        z: 20
+
+        TranslatedImageView {
+            anchors.fill: parent
+            anchors.topMargin: 56
+            appBridge: root.appBridge
+            imageMargin: 0
+            interactive: false
+        }
+
+        Item {
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.margins: 16
+            height: 40
+
+            RoundButton {
+                anchors.left: parent.left
+                anchors.verticalCenter: parent.verticalCenter
+                width: 40
+                height: 40
+                display: AbstractButton.IconOnly
+                icon.source: appBridge.asset_url("back.svg")
+                icon.width: 20
+                icon.height: 20
+                text: "Back"
+                onClicked: appBridge.close_image_viewer()
+                background: Rectangle {
+                    radius: width / 2
+                    color: "transparent"
+                }
+            }
+
+            RoundButton {
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                width: 40
+                height: 40
+                display: AbstractButton.IconOnly
+                icon.source: appBridge.asset_url("share.svg")
+                icon.width: 20
+                icon.height: 20
+                text: "Share"
+                onClicked: root.shareCurrentImage()
+                background: Rectangle {
+                    radius: width / 2
+                    color: "transparent"
+                }
+            }
+        }
     }
 }

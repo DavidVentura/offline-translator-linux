@@ -73,6 +73,9 @@ pub struct AppBridge {
     pub image_mode: qt_property!(bool; NOTIFY image_mode_changed),
     pub image_mode_changed: qt_signal!(),
 
+    pub image_viewer_open: qt_property!(bool; NOTIFY image_viewer_open_changed),
+    pub image_viewer_open_changed: qt_signal!(),
+
     pub selected_image_url: qt_property!(QString; NOTIFY selected_image_url_changed),
     pub selected_image_url_changed: qt_signal!(),
 
@@ -340,8 +343,21 @@ pub struct AppBridge {
         fn clear_selected_image(&mut self) {
             self.original_image_path.clear();
             self.set_image_mode_value(false);
+            self.set_image_viewer_open_value(false);
             self.set_selected_image_url_value(String::new());
             self.set_image_overlay_value(Vec::new(), 0.0, 0.0);
+        }
+    ),
+    pub open_image_viewer: qt_method!(
+        fn open_image_viewer(&mut self) {
+            if self.image_mode && !self.selected_image_url.to_string().is_empty() {
+                self.set_image_viewer_open_value(true);
+            }
+        }
+    ),
+    pub close_image_viewer: qt_method!(
+        fn close_image_viewer(&mut self) {
+            self.set_image_viewer_open_value(false);
         }
     ),
 
@@ -480,13 +496,22 @@ impl AppBridge {
         app.show_transliteration_input = settings.show_transliteration_input;
 
         app.set_languages_value(languages);
+
+        // Apply saved default languages by code (after languages are loaded)
+        if let Some(lang) = app.find_language_by_code(&settings.default_from_code).cloned() {
+            app.set_source_language_by_name(lang.name);
+        }
+        if let Some(lang) = app.find_language_by_code(&settings.default_to_code).cloned() {
+            app.set_target_language_by_name(lang.name);
+        }
+
         app
     }
 
     fn persist_settings(&self) {
         let settings = Settings {
-            default_from: self.source_language_name.to_string(),
-            default_to: self.target_language_name.to_string(),
+            default_from_code: self.source_language_code.clone(),
+            default_to_code: self.target_language_code.clone(),
             font_size: self.font_size,
             ocr_background_mode: self.ocr_background_mode.to_string(),
             ocr_min_confidence: self.ocr_min_confidence,
@@ -583,6 +608,13 @@ impl AppBridge {
         }
     }
 
+    pub fn set_image_viewer_open_value(&mut self, value: bool) {
+        if self.image_viewer_open != value {
+            self.image_viewer_open = value;
+            self.image_viewer_open_changed();
+        }
+    }
+
     pub fn set_image_overlay_value(
         &mut self,
         items: Vec<ImageOverlayListItem>,
@@ -632,6 +664,7 @@ impl AppBridge {
             self.refresh_swap_enabled();
             self.refresh_detected_language();
             self.refresh_translation_content();
+            self.persist_settings();
         }
     }
 
@@ -650,6 +683,7 @@ impl AppBridge {
             }
             self.refresh_swap_enabled();
             self.refresh_translation_content();
+            self.persist_settings();
         }
     }
 
@@ -691,6 +725,7 @@ impl AppBridge {
 
         self.original_image_path = path.display().to_string();
         self.set_image_mode_value(true);
+        self.set_image_viewer_open_value(false);
         self.set_selected_image_url_value(url);
         self.set_image_overlay_value(Vec::new(), 0.0, 0.0);
         self.set_input_text_value(String::new());
@@ -721,6 +756,7 @@ impl AppBridge {
         }
 
         self.set_image_overlay_value(Vec::new(), 0.0, 0.0);
+        self.set_image_viewer_open_value(false);
         self.set_output_text_value("Running OCR...".to_string());
         self.set_detected_language_code_value("");
 

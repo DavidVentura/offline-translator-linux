@@ -16,7 +16,7 @@ ApplicationWindow {
     color: theme.backgroundColor
 
     header: TopBar {
-        visible: app.current_screen === 1
+        visible: app.current_screen === 1 && !app.image_viewer_open
         appBridge: app
         theme: theme
     }
