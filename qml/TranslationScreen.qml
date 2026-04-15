@@ -108,20 +108,18 @@ Item {
                 RoundButton {
                     width: 36
                     height: 36
-                    text: "X"
-                    font.pixelSize: 14
+                    display: AbstractButton.IconOnly
+                    icon.source: appBridge.asset_url("close.svg")
+                    icon.color: theme.textPrimary
+                    icon.width: 18
+                    icon.height: 18
+                    text: "Close"
                     onClicked: appBridge.clear_selected_image()
                     background: Rectangle {
                         radius: width / 2
                         color: parent.down ? Qt.darker(theme.surfaceColor, 1.1) : theme.surfaceColor
                         border.color: theme.borderColor
                         border.width: 1
-                    }
-                    contentItem: Label {
-                        text: parent.text
-                        color: theme.textPrimary
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
                     }
                 }
             }
@@ -130,42 +128,57 @@ Item {
         Rectangle {
             visible: appBridge.show_missing_card
             Layout.fillWidth: true
+            Layout.topMargin: 4
+            Layout.bottomMargin: 4
             color: theme.surfaceColor
-            radius: 12
-            border.color: theme.borderColor
-            implicitHeight: 88
+            radius: 8
+            implicitHeight: 52
 
-            RowLayout {
-                anchors.fill: parent
-                anchors.margins: 16
-                spacing: 12
+            Column {
+                anchors.left: parent.left
+                anchors.leftMargin: 16
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: 2
 
-                ColumnLayout {
-                    Layout.fillWidth: true
-
-                    Label {
-                        text: appBridge.detected_language_installed ? "Translate from" : "Missing language"
-                        color: theme.textSecondary
-                    }
-
-                    Label {
-                        text: appBridge.detected_language_name
-                        color: theme.textPrimary
-                        font.pixelSize: 18
-                    }
+                Label {
+                    text: "Translate from"
+                    color: theme.textSecondary
+                    font.pixelSize: 13
                 }
 
-                ProgressBar {
-                    visible: appBridge.detected_language_progress > 0
-                    value: appBridge.detected_language_progress
-                    from: 0
-                    to: 1
-                    Layout.preferredWidth: 96
+                Label {
+                    text: appBridge.detected_language_name
+                    color: theme.textPrimary
+                    font.pixelSize: 16
+                    font.bold: true
+                }
+            }
+
+            CircularProgress {
+                visible: appBridge.detected_language_progress > 0 && appBridge.detected_language_progress < 1
+                anchors.right: parent.right
+                anchors.rightMargin: 16
+                anchors.verticalCenter: parent.verticalCenter
+                progress: appBridge.detected_language_progress
+                progressColor: theme.accentColor
+            }
+
+            Item {
+                visible: appBridge.detected_language_progress <= 0 || appBridge.detected_language_progress >= 1
+                anchors.right: parent.right
+                anchors.rightMargin: 8
+                anchors.verticalCenter: parent.verticalCenter
+                width: 40; height: 40
+
+                Image {
+                    anchors.centerIn: parent
+                    width: 24; height: 24
+                    source: appBridge.asset_url("forward.svg")
+                    sourceSize.width: 24; sourceSize.height: 24
                 }
 
-                Button {
-                    visible: appBridge.detected_language_progress <= 0
-                    text: appBridge.detected_language_installed ? "Use" : "Download"
+                MouseArea {
+                    anchors.fill: parent
                     onClicked: appBridge.missing_language_action()
                 }
             }

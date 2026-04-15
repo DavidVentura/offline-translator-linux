@@ -127,17 +127,6 @@ Item {
                         }
                     }
 
-                    ColumnLayout {
-                        Layout.fillWidth: true; spacing: 6
-                        Label { text: "Font Size"; color: theme.textSecondary; font.pixelSize: 13 }
-                        DarkSlider {
-                            Layout.fillWidth: true; Layout.preferredHeight: 28
-                            theme: root.theme
-                            from: 12; to: 28; stepSize: 1
-                            value: appBridge.font_size
-                            onMoved: appBridge.set_font_size_value(value)
-                        }
-                    }
                 }
             }
 

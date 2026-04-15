@@ -8,8 +8,6 @@ pub struct Settings {
     pub default_from_code: String,
     #[serde(default = "default_lang_code")]
     pub default_to_code: String,
-    #[serde(default = "default_font_size")]
-    pub font_size: i32,
     #[serde(default = "default_ocr_background_mode")]
     pub ocr_background_mode: String,
     #[serde(default = "default_ocr_min_confidence")]
@@ -29,7 +27,6 @@ pub struct Settings {
 }
 
 fn default_lang_code() -> String { "en".to_string() }
-fn default_font_size() -> i32 { 16 }
 fn default_ocr_background_mode() -> String { "Auto-detect Colors".to_string() }
 fn default_ocr_min_confidence() -> i32 { 75 }
 fn default_ocr_max_image_size() -> i32 { 1500 }
@@ -40,7 +37,6 @@ impl Default for Settings {
         Self {
             default_from_code: default_lang_code(),
             default_to_code: default_lang_code(),
-            font_size: default_font_size(),
             ocr_background_mode: default_ocr_background_mode(),
             ocr_min_confidence: default_ocr_min_confidence(),
             ocr_max_image_size: default_ocr_max_image_size(),
@@ -62,8 +58,8 @@ pub fn load_settings(config_dir: &str) -> Settings {
     eprintln!("settings: loading from {}", path.display());
     let settings: Settings = serde_json::from_str(&contents).unwrap_or_default();
     eprintln!(
-        "settings: loaded from_code={} to_code={} font_size={} ocr_bg={}",
-        settings.default_from_code, settings.default_to_code, settings.font_size, settings.ocr_background_mode
+        "settings: loaded from_code={} to_code={} ocr_bg={}",
+        settings.default_from_code, settings.default_to_code, settings.ocr_background_mode
     );
     settings
 }

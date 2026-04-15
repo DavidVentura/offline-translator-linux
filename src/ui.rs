@@ -126,9 +126,6 @@ pub struct AppBridge {
     pub desktop_mode: qt_property!(bool; CONST),
 
     // Settings properties
-    pub font_size: qt_property!(i32; NOTIFY font_size_changed),
-    pub font_size_changed: qt_signal!(),
-
     pub ocr_background_mode: qt_property!(QString; NOTIFY ocr_background_mode_changed),
     pub ocr_background_mode_changed: qt_signal!(),
 
@@ -362,15 +359,6 @@ pub struct AppBridge {
     ),
 
     // Settings setters
-    pub set_font_size_value: qt_method!(
-        fn set_font_size_value(&mut self, value: i32) {
-            if self.font_size != value {
-                self.font_size = value;
-                self.font_size_changed();
-                self.persist_settings();
-            }
-        }
-    ),
     pub set_ocr_background_mode_value: qt_method!(
         fn set_ocr_background_mode_value(&mut self, value: QString) {
             if self.ocr_background_mode != value {
@@ -486,7 +474,6 @@ impl AppBridge {
 
         // Apply loaded settings
         app.disable_auto_detect = settings.disable_auto_detect;
-        app.font_size = settings.font_size;
         app.ocr_background_mode = QString::from(settings.ocr_background_mode);
         app.ocr_min_confidence = settings.ocr_min_confidence;
         app.ocr_max_image_size = settings.ocr_max_image_size;
@@ -512,7 +499,6 @@ impl AppBridge {
         let settings = Settings {
             default_from_code: self.source_language_code.clone(),
             default_to_code: self.target_language_code.clone(),
-            font_size: self.font_size,
             ocr_background_mode: self.ocr_background_mode.to_string(),
             ocr_min_confidence: self.ocr_min_confidence,
             ocr_max_image_size: self.ocr_max_image_size,
