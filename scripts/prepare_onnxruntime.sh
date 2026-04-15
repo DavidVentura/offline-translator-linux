@@ -80,7 +80,7 @@ case "${target_arch}" in
 esac
 
 build_dir="${repo_root}/build/onnxruntime/${target_arch}"
-output_dir="${repo_root}/runtime-lib"
+output_dir="${repo_root}/runtime-lib/${target_arch}"
 output_lib="${output_dir}/libonnxruntime.so"
 built_lib="${build_dir}/Release/libonnxruntime.so"
 

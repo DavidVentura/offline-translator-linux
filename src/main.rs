@@ -123,28 +123,26 @@ fn configure_onnxruntime_dylib_path() -> Result<(), Box<dyn Error>> {
         return Ok(());
     }
 
-    let exe_dir = std::env::current_exe()?
+    let current_exe = std::env::current_exe()?;
+    let exe_dir = current_exe
         .parent()
         .map(PathBuf::from)
         .ok_or("current executable has no parent directory")?;
-    let app_dir = exe_dir.parent().map(PathBuf::from);
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let target_arch = std::env::consts::ARCH;
+    let arch_relative = format!("runtime-lib/{target_arch}/libonnxruntime.so");
+    let mut candidates = Vec::new();
+    candidates.push(exe_dir.join("libonnxruntime.so"));
+    candidates.push(exe_dir.join(&arch_relative));
 
-    let candidates = [
-        exe_dir.join("libonnxruntime.so"),
-        exe_dir.join("runtime-lib/libonnxruntime.so"),
-        app_dir
-            .as_ref()
-            .map(|dir| dir.join("libonnxruntime.so"))
-            .unwrap_or_default(),
-        app_dir
-            .as_ref()
-            .map(|dir| dir.join("runtime-lib/libonnxruntime.so"))
-            .unwrap_or_default(),
-        manifest_dir.join("runtime-lib/libonnxruntime.so"),
-    ];
+    for ancestor in current_exe.ancestors().skip(1).take(5) {
+        candidates.push(ancestor.join("libonnxruntime.so"));
+        candidates.push(ancestor.join(&arch_relative));
+    }
 
-    if let Some(path) = candidates.into_iter().find(|path| path.is_file()) {
+    candidates.push(manifest_dir.join(&arch_relative));
+
+    if let Some(path) = candidates.iter().find(|path| path.is_file()) {
         // Set once during process startup before worker threads are spawned.
         unsafe { std::env::set_var("ORT_DYLIB_PATH", path) };
     }
