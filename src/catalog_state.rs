@@ -11,7 +11,7 @@ use translator::{
     plan_tts_download_in_snapshot,
 };
 
-use crate::model::{Direction, FeatureKind, Language};
+use crate::model::{Direction, FeatureKind, Language, TtsVoicePackOption, TtsVoicePickerRegion};
 
 const BUNDLED_CATALOG_JSON: &str = include_str!("../data/catalog.json");
 
@@ -144,6 +144,31 @@ pub fn languages_from_snapshot(snapshot: &CatalogSnapshot) -> Vec<Language> {
                 tts_size_bytes,
                 tts_installed: row.availability.tts_files,
                 tts_progress: 0.0,
+                tts_voice_picker_regions: snapshot
+                    .catalog
+                    .tts_voice_picker_regions(&language.code)
+                    .into_iter()
+                    .map(|region| TtsVoicePickerRegion {
+                        code: region.code,
+                        display_name: region.display_name,
+                        voices: region
+                            .voices
+                            .into_iter()
+                            .map(|voice| TtsVoicePackOption {
+                                installed: plan_tts_download_in_snapshot(
+                                    snapshot,
+                                    &language.code,
+                                    Some(voice.pack_id.as_str()),
+                                )
+                                .is_some_and(|plan| plan.tasks.is_empty()),
+                                pack_id: voice.pack_id,
+                                display_name: voice.display_name,
+                                quality: voice.quality,
+                                size_bytes: voice.size_bytes,
+                            })
+                            .collect(),
+                    })
+                    .collect(),
             }
         })
         .collect::<Vec<_>>();
@@ -157,11 +182,14 @@ pub fn download_plan_for_feature(
     snapshot: &CatalogSnapshot,
     language_code: &str,
     feature: FeatureKind,
+    selected_tts_pack_id: Option<&str>,
 ) -> Option<DownloadPlan> {
     match feature {
         FeatureKind::Core => Some(plan_language_download_in_snapshot(snapshot, language_code)),
         FeatureKind::Dictionary => plan_dictionary_download_in_snapshot(snapshot, language_code),
-        FeatureKind::Tts => plan_tts_download_in_snapshot(snapshot, language_code, None),
+        FeatureKind::Tts => {
+            plan_tts_download_in_snapshot(snapshot, language_code, selected_tts_pack_id)
+        }
     }
 }
 

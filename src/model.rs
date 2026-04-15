@@ -13,6 +13,22 @@ pub enum FeatureKind {
 }
 
 #[derive(Clone, Debug, Default)]
+pub struct TtsVoicePackOption {
+    pub pack_id: String,
+    pub display_name: String,
+    pub quality: Option<String>,
+    pub size_bytes: u64,
+    pub installed: bool,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct TtsVoicePickerRegion {
+    pub code: String,
+    pub display_name: String,
+    pub voices: Vec<TtsVoicePackOption>,
+}
+
+#[derive(Clone, Debug, Default)]
 pub struct Language {
     pub code: String,
     pub name: String,
@@ -27,6 +43,7 @@ pub struct Language {
     pub tts_size_bytes: u64,
     pub tts_installed: bool,
     pub tts_progress: f32,
+    pub tts_voice_picker_regions: Vec<TtsVoicePickerRegion>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

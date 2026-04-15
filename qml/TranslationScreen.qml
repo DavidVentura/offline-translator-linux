@@ -355,7 +355,7 @@ Item {
                         }
 
                         Label {
-                            text: appBridge.tts_voice_options_model.count <= 1 ? "Voice: Default" : "Voice"
+                            text: "Voice"
                             color: theme.textPrimary
                             font.pixelSize: 16
                             font.bold: true
@@ -366,7 +366,7 @@ Item {
                             spacing: 6
 
                             Rectangle {
-                                visible: appBridge.tts_voice_options_model.count > 1
+                                visible: true
                                 width: parent.width
                                 height: 40
                                 radius: 8
@@ -374,70 +374,66 @@ Item {
                                 border.color: theme.borderColor
                                 border.width: 1
 
-                                ComboBox {
-                                    id: voiceComboBox
+                                Label {
+                                    anchors.left: parent.left
+                                    anchors.leftMargin: 12
+                                    anchors.right: voicePickerIndicator.left
+                                    anchors.rightMargin: 8
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: appBridge.tts_selected_voice_display_name
+                                    color: theme.textPrimary
+                                    verticalAlignment: Text.AlignVCenter
+                                    elide: Text.ElideRight
+                                }
+
+                                Image {
+                                    id: voicePickerIndicator
+                                    anchors.right: parent.right
+                                    anchors.rightMargin: 10
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    visible: appBridge.tts_voice_options_model.count > 1
+                                    source: appBridge.asset_url("expand_more.svg")
+                                    width: 18
+                                    height: 18
+                                    sourceSize.width: 18
+                                    sourceSize.height: 18
+                                }
+
+                                MouseArea {
                                     anchors.fill: parent
-                                    anchors.leftMargin: 1
-                                    anchors.rightMargin: 1
-                                    anchors.topMargin: 1
-                                    anchors.bottomMargin: 1
-                                    model: appBridge.tts_voice_options_model
-                                    textRole: "display_name"
-                                    valueRole: "name"
-                                    currentIndex: indexOfValue(appBridge.tts_selected_voice_name)
+                                    enabled: appBridge.tts_voice_options_model.count > 1
+                                    onClicked: voicePickerPopup.open()
+                                }
 
-                                    delegate: ItemDelegate {
-                                        width: voiceComboBox.width
-                                        text: display_name
-                                        highlighted: voiceComboBox.highlightedIndex === index
-                                    }
+                                Popup {
+                                    id: voicePickerPopup
+                                    y: parent.height + 4
+                                    width: parent.width
+                                    padding: 1
 
-                                    contentItem: Label {
-                                        leftPadding: 12
-                                        rightPadding: 32
-                                        text: voiceComboBox.displayText
-                                        color: theme.textPrimary
-                                        verticalAlignment: Text.AlignVCenter
-                                        elide: Text.ElideRight
-                                    }
+                                    contentItem: ListView {
+                                        clip: true
+                                        implicitHeight: Math.min(contentHeight, 220)
+                                        model: voicePickerPopup.visible ? appBridge.tts_voice_options_model : null
+                                        delegate: ItemDelegate {
+                                            required property string name
+                                            required property string display_name
 
-                                    indicator: Image {
-                                        source: appBridge.asset_url("expand_more.svg")
-                                        width: 18
-                                        height: 18
-                                        x: voiceComboBox.width - width - 10
-                                        y: (voiceComboBox.height - height) / 2
-                                        sourceSize.width: 18
-                                        sourceSize.height: 18
+                                            width: voicePickerPopup.width - 2
+                                            text: display_name
+                                            highlighted: appBridge.tts_selected_voice_name === name
+                                            onClicked: {
+                                                appBridge.set_tts_voice_name(name)
+                                                voicePickerPopup.close()
+                                            }
+                                        }
                                     }
 
                                     background: Rectangle {
-                                        color: "transparent"
-                                    }
-
-                                    popup: Popup {
-                                        y: voiceComboBox.height + 4
-                                        width: voiceComboBox.width
-                                        padding: 1
-
-                                        contentItem: ListView {
-                                            clip: true
-                                            implicitHeight: contentHeight
-                                            model: parent.visible ? voiceComboBox.delegateModel : null
-                                        }
-
-                                        background: Rectangle {
-                                            radius: 8
-                                            color: theme.surfaceColor
-                                            border.color: theme.borderColor
-                                            border.width: 1
-                                        }
-                                    }
-
-                                    onActivated: {
-                                        if (currentIndex >= 0) {
-                                            appBridge.set_tts_voice_name(currentValue)
-                                        }
+                                        radius: 8
+                                        color: theme.surfaceColor
+                                        border.color: theme.borderColor
+                                        border.width: 1
                                     }
                                 }
                             }

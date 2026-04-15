@@ -18,12 +18,189 @@ Item {
         }
     }
 
+    function handleTtsFeatureAction(code, installed) {
+        if (installed) {
+            appBridge.delete_feature(code, 2)
+        } else {
+            appBridge.open_tts_download_picker(code)
+        }
+    }
+
     function toggleLanguage(code) {
         appBridge.toggle_manage_language(code)
     }
 
     function isBusy(progress) {
         return progress > 0 && progress < 1
+    }
+
+    Connections {
+        target: appBridge
+
+        function onManage_tts_picker_openChanged() {
+            if (appBridge.manage_tts_picker_open) {
+                ttsPickerPopup.open()
+            } else {
+                ttsPickerPopup.close()
+            }
+        }
+    }
+
+    Popup {
+        id: ttsPickerPopup
+        parent: Overlay.overlay
+        modal: true
+        focus: true
+        dim: true
+        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+        x: Math.round((parent.width - width) / 2)
+        y: Math.round((parent.height - height) / 2)
+        width: Math.min(parent.width - 24, 420)
+        height: Math.min(parent.height - 80, 520)
+        padding: 0
+
+        background: Rectangle {
+            radius: 28
+            color: "#2B2D36"
+        }
+
+        onClosed: {
+            if (appBridge.manage_tts_picker_open) {
+                appBridge.close_tts_download_picker()
+            }
+        }
+
+        contentItem: ColumnLayout {
+            spacing: 0
+
+            Label {
+                Layout.fillWidth: true
+                Layout.topMargin: 18
+                Layout.leftMargin: 20
+                Layout.rightMargin: 20
+                text: "Pick a voice"
+                color: "white"
+                font.pixelSize: 22
+                font.bold: true
+            }
+
+            ListView {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                Layout.topMargin: 14
+                Layout.leftMargin: 14
+                Layout.rightMargin: 14
+                clip: true
+                spacing: 2
+                model: appBridge.manage_tts_picker_model
+                section.property: "region_display_name"
+                section.criteria: ViewSection.FullString
+
+                section.delegate: Label {
+                    width: ListView.view.width
+                    text: section
+                    color: "#E4E6F2"
+                    font.pixelSize: 14
+                    font.bold: true
+                    leftPadding: 4
+                    topPadding: 8
+                    bottomPadding: 4
+                }
+
+                delegate: Item {
+                    required property string pack_id
+                    required property string voice_display_name
+                    required property string quality_text
+                    required property string size_text
+                    required property bool installed
+
+                    width: ListView.view.width
+                    height: 46
+
+                    Column {
+                        anchors.left: parent.left
+                        anchors.leftMargin: 12
+                        anchors.right: actionItem.left
+                        anchors.rightMargin: 10
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: 1
+
+                        Label {
+                            width: parent.width
+                            text: voice_display_name
+                            color: installed ? "#8A8E9F" : "#F1F3FB"
+                            font.pixelSize: 16
+                            elide: Text.ElideRight
+                        }
+
+                        Label {
+                            width: parent.width
+                            text: size_text
+                            color: "#A9ADBC"
+                            font.pixelSize: 13
+                            elide: Text.ElideRight
+                        }
+                    }
+
+                    Item {
+                        id: actionItem
+                        anchors.right: parent.right
+                        anchors.rightMargin: 10
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: installed ? 62 : 28
+                        height: 28
+
+                        Label {
+                            anchors.centerIn: parent
+                            visible: installed
+                            text: "Installed"
+                            color: "#8A8E9F"
+                            font.pixelSize: 12
+                        }
+
+                        Image {
+                            anchors.centerIn: parent
+                            visible: !installed
+                            width: 18
+                            height: 18
+                            source: appBridge.asset_url("download.svg")
+                            sourceSize.width: 18
+                            sourceSize.height: 18
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            enabled: !installed
+                            onClicked: appBridge.download_tts_pack(pack_id)
+                        }
+                    }
+                }
+            }
+
+            Item {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 64
+
+                Button {
+                    anchors.right: parent.right
+                    anchors.rightMargin: 18
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: "Cancel"
+                    flat: true
+                    onClicked: appBridge.close_tts_download_picker()
+
+                    contentItem: Text {
+                        text: parent.text
+                        color: theme.accentColor
+                        font.pixelSize: 16
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+
+                    background: Item {}
+                }
+            }
+        }
     }
 
     ColumnLayout {
@@ -389,7 +566,7 @@ Item {
 
                                 MouseArea {
                                     anchors.fill: parent
-                                    onClicked: featureAction(code, 2, tts_installed)
+                                    onClicked: handleTtsFeatureAction(code, tts_installed)
                                 }
                             }
                         }

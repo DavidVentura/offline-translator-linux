@@ -31,12 +31,24 @@ pub struct Settings {
     pub tts_voice_overrides: BTreeMap<String, String>,
 }
 
-fn default_lang_code() -> String { "en".to_string() }
-fn default_ocr_background_mode() -> String { "Auto-detect Colors".to_string() }
-fn default_ocr_min_confidence() -> i32 { 75 }
-fn default_ocr_max_image_size() -> i32 { 1500 }
-fn default_catalog_index_url() -> String { "https://offline-translator.davidv.dev/index".to_string() }
-fn default_tts_playback_speed() -> f32 { 1.0 }
+fn default_lang_code() -> String {
+    "en".to_string()
+}
+fn default_ocr_background_mode() -> String {
+    "Auto-detect Colors".to_string()
+}
+fn default_ocr_min_confidence() -> i32 {
+    75
+}
+fn default_ocr_max_image_size() -> i32 {
+    1500
+}
+fn default_catalog_index_url() -> String {
+    "https://offline-translator.davidv.dev/index".to_string()
+}
+fn default_tts_playback_speed() -> f32 {
+    1.0
+}
 
 impl Default for Settings {
     fn default() -> Self {

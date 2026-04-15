@@ -1,16 +1,14 @@
-use std::path::{Path, PathBuf};
 use std::panic::{AssertUnwindSafe, catch_unwind};
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread;
-use std::time::Duration;
 
-use rodio::buffer::SamplesBuffer;
-use rodio::{OutputStream, Sink};
 use translator::{
     CatalogSnapshot, PcmAudio, ResolvedTtsVoiceFiles, TtsVoiceOption, list_voices,
     plan_speech_chunks_for_text, resolve_tts_voice_files_in_snapshot, synthesize_pcm,
 };
 
+use crate::pulse::play_pcm_buffer;
 use crate::ui::UiCallbacks;
 
 pub struct TtsVoiceRefresh {
@@ -18,11 +16,6 @@ pub struct TtsVoiceRefresh {
     pub voices: Vec<TtsVoiceOption>,
     pub selected_voice_name: String,
     pub selected_voice_display_name: String,
-}
-
-struct ActivePlayback {
-    _stream: OutputStream,
-    sink: Sink,
 }
 
 static PLAYBACK_GENERATION: AtomicU64 = AtomicU64::new(0);
@@ -58,10 +51,9 @@ pub fn load_tts_voices(
     let selected_voice_name = selected_voice_name
         .filter(|value| voices.iter().any(|voice| voice.name == **value))
         .map(ToOwned::to_owned)
-        .or_else(|| voices.first().map(|voice| voice.name.clone()))
         .unwrap_or_default();
 
-    let selected_voice_display_name = if voices.len() <= 1 {
+    let selected_voice_display_name = if selected_voice_name.is_empty() || voices.len() <= 1 {
         "Default".to_string()
     } else {
         voices
@@ -106,17 +98,13 @@ pub fn play_text_async(
 
         match result {
             Ok(audio) => {
-                let playback = start_playback(audio, generation);
-                match playback {
-                    Ok(playback) => {
-                        (ui.set_tts_state)(false, true);
-                        while !playback.sink.empty() {
-                            if PLAYBACK_GENERATION.load(Ordering::SeqCst) != generation {
-                                playback.sink.stop();
-                                break;
-                            }
-                            thread::sleep(Duration::from_millis(50));
-                        }
+                if PLAYBACK_GENERATION.load(Ordering::SeqCst) != generation {
+                    return;
+                }
+
+                (ui.set_tts_state)(false, true);
+                match start_playback(audio, generation) {
+                    Ok(()) => {
                         if PLAYBACK_GENERATION.load(Ordering::SeqCst) == generation {
                             (ui.set_tts_state)(false, false);
                         }
@@ -236,20 +224,9 @@ fn synthesize_full_audio(
     })
 }
 
-fn start_playback(audio: PcmAudio, generation: u64) -> Result<ActivePlayback, String> {
-    let (stream, handle) =
-        OutputStream::try_default().map_err(|err| format!("No audio output available: {err}"))?;
-    if PLAYBACK_GENERATION.load(Ordering::SeqCst) != generation {
-        return Err("Playback superseded".to_string());
-    }
-
-    let sink = Sink::try_new(&handle).map_err(|err| format!("Failed to create sink: {err}"))?;
-    let source = SamplesBuffer::new(1, audio.sample_rate as u32, audio.pcm_samples);
-    sink.append(source);
-    sink.play();
-    Ok(ActivePlayback {
-        _stream: stream,
-        sink,
+fn start_playback(audio: PcmAudio, generation: u64) -> Result<(), String> {
+    play_pcm_buffer(&audio, || {
+        PLAYBACK_GENERATION.load(Ordering::SeqCst) != generation
     })
 }
 

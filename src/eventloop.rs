@@ -39,7 +39,11 @@ pub fn run_eventloop(bus_rx: Receiver<IoEvent>, ui: UiCallbacks, catalog: Langua
                 snapshot = Some(new_snapshot);
                 println!("Load took {:?}", load_start.elapsed());
             }
-            IoEvent::DownloadRequest { code, feature } => {
+            IoEvent::DownloadRequest {
+                code,
+                feature,
+                selected_tts_pack_id,
+            } => {
                 let Some(app_paths) = app_paths.clone() else {
                     println!("no app path, cant download");
                     continue;
@@ -49,7 +53,12 @@ pub fn run_eventloop(bus_rx: Receiver<IoEvent>, ui: UiCallbacks, catalog: Langua
                     continue;
                 };
 
-                if let Some(plan) = download_plan_for_feature(current_snapshot, &code, feature) {
+                if let Some(plan) = download_plan_for_feature(
+                    current_snapshot,
+                    &code,
+                    feature,
+                    selected_tts_pack_id.as_deref(),
+                ) {
                     if let Err(err) = download_feature(&code, feature, &plan, &app_paths.data, &ui)
                     {
                         eprintln!("Download failed for {code}: {err}");
@@ -128,14 +137,14 @@ pub fn run_eventloop(bus_rx: Receiver<IoEvent>, ui: UiCallbacks, catalog: Langua
                     (!selected_voice_name.is_empty()).then_some(selected_voice_name.as_str()),
                 ) {
                     Ok(result) => {
-                        let items = result
-                            .voices
-                            .into_iter()
-                            .map(|voice| TtsVoiceListItem {
-                                name: voice.name.into(),
-                                display_name: voice.display_name.into(),
-                            })
-                            .collect::<Vec<_>>();
+                        let mut items = vec![TtsVoiceListItem {
+                            name: String::new().into(),
+                            display_name: "Default".to_string().into(),
+                        }];
+                        items.extend(result.voices.into_iter().map(|voice| TtsVoiceListItem {
+                            name: voice.name.into(),
+                            display_name: voice.display_name.into(),
+                        }));
                         (ui.set_tts_voices)(
                             result.available,
                             items,
@@ -145,7 +154,12 @@ pub fn run_eventloop(bus_rx: Receiver<IoEvent>, ui: UiCallbacks, catalog: Langua
                     }
                     Err(err) => {
                         eprintln!("Failed to load TTS voices: {err}");
-                        (ui.set_tts_voices)(false, Vec::new(), String::new(), "Default".to_string());
+                        (ui.set_tts_voices)(
+                            false,
+                            Vec::new(),
+                            String::new(),
+                            "Default".to_string(),
+                        );
                     }
                 }
             }
@@ -198,7 +212,8 @@ pub fn run_eventloop(bus_rx: Receiver<IoEvent>, ui: UiCallbacks, catalog: Langua
                 match result {
                     Ok(image_translation) => {
                         if let Some(paths) = app_paths.as_ref()
-                            && let Ok(image_url) = persist_processed_image(&paths.data, &image_translation)
+                            && let Ok(image_url) =
+                                persist_processed_image(&paths.data, &image_translation)
                         {
                             (ui.set_selected_image_url)(image_url);
                         }

@@ -3,8 +3,8 @@ use std::sync::{Mutex, OnceLock};
 
 use qmetaobject::{QImage, QString};
 use translator::{
-    BackgroundMode, BergamotEngine, CatalogSnapshot, DetectedWord, PageSegMode, ReadingOrder,
-    Rect, TextBlock, TesseractWrapper, build_text_blocks, prepare_overlay_image,
+    BackgroundMode, BergamotEngine, CatalogSnapshot, DetectedWord, PageSegMode, ReadingOrder, Rect,
+    TesseractWrapper, TextBlock, build_text_blocks, prepare_overlay_image,
     translate_texts_in_snapshot,
 };
 
@@ -280,7 +280,8 @@ fn percent_decode(value: &str) -> String {
     let mut index = 0usize;
 
     while index < bytes.len() {
-        if bytes[index] == b'%' && index + 2 < bytes.len()
+        if bytes[index] == b'%'
+            && index + 2 < bytes.len()
             && let Ok(hex) = std::str::from_utf8(&bytes[index + 1..index + 3])
             && let Ok(value) = u8::from_str_radix(hex, 16)
         {

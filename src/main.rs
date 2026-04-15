@@ -3,6 +3,7 @@ mod download;
 mod eventloop;
 mod image_ocr;
 mod model;
+mod pulse;
 mod settings;
 mod tts;
 mod ui;
@@ -29,6 +30,7 @@ enum IoEvent {
     DownloadRequest {
         code: String,
         feature: FeatureKind,
+        selected_tts_pack_id: Option<String>,
     },
     DeleteLanguage {
         code: String,

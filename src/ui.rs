@@ -57,6 +57,16 @@ pub struct TtsVoiceListItem {
     pub display_name: QString,
 }
 
+#[derive(Clone, Default, SimpleListItem)]
+pub struct ManageTtsVoicePackListItem {
+    pub pack_id: QString,
+    pub region_display_name: QString,
+    pub voice_display_name: QString,
+    pub quality_text: QString,
+    pub size_text: QString,
+    pub installed: bool,
+}
+
 #[derive(QObject, Default)]
 pub struct AppBridge {
     base: qt_base_class!(trait QObject),
@@ -133,9 +143,16 @@ pub struct AppBridge {
     pub manage_filter_text: qt_property!(QString; NOTIFY manage_filter_text_changed),
     pub manage_filter_text_changed: qt_signal!(),
 
+    pub manage_tts_picker_open: qt_property!(bool; NOTIFY manage_tts_picker_open_changed),
+    pub manage_tts_picker_open_changed: qt_signal!(),
+
+    pub manage_tts_picker_language_name: qt_property!(QString; NOTIFY manage_tts_picker_language_name_changed),
+    pub manage_tts_picker_language_name_changed: qt_signal!(),
+
     pub installed_languages_model: qt_property!(RefCell<SimpleListModel<LanguageListItem>>; CONST),
     pub available_languages_model: qt_property!(RefCell<SimpleListModel<LanguageListItem>>; CONST),
     pub manage_languages_model: qt_property!(RefCell<SimpleListModel<ManageLanguageListItem>>; CONST),
+    pub manage_tts_picker_model: qt_property!(RefCell<SimpleListModel<ManageTtsVoicePackListItem>>; CONST),
     pub image_overlay_model: qt_property!(RefCell<SimpleListModel<ImageOverlayListItem>>; CONST),
     pub tts_voice_options_model: qt_property!(RefCell<SimpleListModel<TtsVoiceListItem>>; CONST),
 
@@ -200,25 +217,25 @@ pub struct AppBridge {
     ),
     pub download_language: qt_method!(
         fn download_language(&mut self, code: QString) {
-            self.send_feature_request(code.to_string(), FeatureKind::Core, true);
+            self.send_feature_request(code.to_string(), FeatureKind::Core, true, None);
         }
     ),
     pub delete_language: qt_method!(
         fn delete_language(&mut self, code: QString) {
-            self.send_feature_request(code.to_string(), FeatureKind::Core, false);
+            self.send_feature_request(code.to_string(), FeatureKind::Core, false, None);
         }
     ),
     pub download_feature: qt_method!(
         fn download_feature(&mut self, code: QString, feature: i32) {
             if let Some(feature) = FeatureKind::from_i32(feature) {
-                self.send_feature_request(code.to_string(), feature, true);
+                self.send_feature_request(code.to_string(), feature, true, None);
             }
         }
     ),
     pub delete_feature: qt_method!(
         fn delete_feature(&mut self, code: QString, feature: i32) {
             if let Some(feature) = FeatureKind::from_i32(feature) {
-                self.send_feature_request(code.to_string(), feature, false);
+                self.send_feature_request(code.to_string(), feature, false, None);
             }
         }
     ),
@@ -227,13 +244,13 @@ pub struct AppBridge {
             let code = code.to_string();
             if let Some(language) = self.find_language_by_code(&code).cloned() {
                 if language.core_size_bytes > 0 && !language.core_installed {
-                    self.send_feature_request(code.clone(), FeatureKind::Core, true);
+                    self.send_feature_request(code.clone(), FeatureKind::Core, true, None);
                 }
                 if language.dictionary_size_bytes > 0 && !language.dictionary_installed {
-                    self.send_feature_request(code.clone(), FeatureKind::Dictionary, true);
+                    self.send_feature_request(code.clone(), FeatureKind::Dictionary, true, None);
                 }
                 if language.tts_size_bytes > 0 && !language.tts_installed {
-                    self.send_feature_request(code, FeatureKind::Tts, true);
+                    self.send_feature_request(code, FeatureKind::Tts, true, None);
                 }
             }
         }
@@ -243,13 +260,13 @@ pub struct AppBridge {
             let code = code.to_string();
             if let Some(language) = self.find_language_by_code(&code).cloned() {
                 if language.tts_size_bytes > 0 && language.tts_installed {
-                    self.send_feature_request(code.clone(), FeatureKind::Tts, false);
+                    self.send_feature_request(code.clone(), FeatureKind::Tts, false, None);
                 }
                 if language.dictionary_size_bytes > 0 && language.dictionary_installed {
-                    self.send_feature_request(code.clone(), FeatureKind::Dictionary, false);
+                    self.send_feature_request(code.clone(), FeatureKind::Dictionary, false, None);
                 }
                 if language.core_size_bytes > 0 && language.core_installed {
-                    self.send_feature_request(code, FeatureKind::Core, false);
+                    self.send_feature_request(code, FeatureKind::Core, false, None);
                 }
             }
         }
@@ -275,9 +292,7 @@ pub struct AppBridge {
                     })
                     .unwrap_or(false);
 
-            if visible
-                && let Some(language) = self.find_language_by_code(&code).cloned()
-            {
+            if visible && let Some(language) = self.find_language_by_code(&code).cloned() {
                 update_manage_progress_item(
                     &mut self.manage_languages_model.borrow_mut(),
                     &language,
@@ -398,6 +413,30 @@ pub struct AppBridge {
             self.set_tts_voice_name_impl(value.to_string());
         }
     ),
+    pub open_tts_download_picker: qt_method!(
+        fn open_tts_download_picker(&mut self, code: QString) {
+            self.open_tts_download_picker_impl(code.to_string());
+        }
+    ),
+    pub close_tts_download_picker: qt_method!(
+        fn close_tts_download_picker(&mut self) {
+            self.set_manage_tts_picker_open_value(false);
+        }
+    ),
+    pub download_tts_pack: qt_method!(
+        fn download_tts_pack(&mut self, pack_id: QString) {
+            if self.manage_tts_picker_language_code.is_empty() {
+                return;
+            }
+            self.send_feature_request(
+                self.manage_tts_picker_language_code.clone(),
+                FeatureKind::Tts,
+                true,
+                Some(pack_id.to_string()),
+            );
+            self.set_manage_tts_picker_open_value(false);
+        }
+    ),
 
     // Settings setters
     pub set_ocr_background_mode_value: qt_method!(
@@ -476,6 +515,7 @@ pub struct AppBridge {
     original_image_path: String,
     manage_filter: String,
     expanded_languages: HashSet<String>,
+    manage_tts_picker_language_code: String,
 }
 
 #[derive(Clone)]
@@ -530,10 +570,16 @@ impl AppBridge {
         app.set_languages_value(languages);
 
         // Apply saved default languages by code (after languages are loaded)
-        if let Some(lang) = app.find_language_by_code(&settings.default_from_code).cloned() {
+        if let Some(lang) = app
+            .find_language_by_code(&settings.default_from_code)
+            .cloned()
+        {
             app.set_source_language_by_name(lang.name);
         }
-        if let Some(lang) = app.find_language_by_code(&settings.default_to_code).cloned() {
+        if let Some(lang) = app
+            .find_language_by_code(&settings.default_to_code)
+            .cloned()
+        {
             app.set_target_language_by_name(lang.name);
         }
 
@@ -664,6 +710,25 @@ impl AppBridge {
         }
     }
 
+    pub fn set_manage_tts_picker_open_value(&mut self, value: bool) {
+        if self.manage_tts_picker_open != value {
+            self.manage_tts_picker_open = value;
+            self.manage_tts_picker_open_changed();
+        }
+
+        if !value {
+            self.manage_tts_picker_language_code.clear();
+        }
+    }
+
+    pub fn set_manage_tts_picker_language_name_value(&mut self, value: String) {
+        let value = QString::from(value);
+        if self.manage_tts_picker_language_name != value {
+            self.manage_tts_picker_language_name = value;
+            self.manage_tts_picker_language_name_changed();
+        }
+    }
+
     pub fn set_image_mode_value(&mut self, value: bool) {
         if self.image_mode != value {
             self.image_mode = value;
@@ -716,6 +781,9 @@ impl AppBridge {
         if self.current_screen != screen {
             self.current_screen = screen;
             self.current_screen_changed();
+        }
+        if screen != Screen::ManageLanguages.as_i32() {
+            self.set_manage_tts_picker_open_value(false);
         }
     }
 
@@ -887,13 +955,67 @@ impl AppBridge {
 
     fn set_tts_voice_name_impl(&mut self, value: String) {
         if value.is_empty() {
+            self.tts_voice_overrides.remove(&self.target_language_code);
+        } else {
+            self.tts_voice_overrides
+                .insert(self.target_language_code.clone(), value.clone());
+        }
+        self.persist_settings();
+        self.refresh_tts_voices();
+    }
+
+    fn open_tts_download_picker_impl(&mut self, code: String) {
+        let Some(language) = self.find_language_by_code(&code).cloned() else {
+            return;
+        };
+
+        let items = language
+            .tts_voice_picker_regions
+            .into_iter()
+            .flat_map(|region| {
+                let region_display_name = if region.display_name.is_empty() {
+                    region.code
+                } else {
+                    region.display_name
+                };
+
+                region.voices.into_iter().map(move |voice| {
+                    let quality_text = voice
+                        .quality
+                        .clone()
+                        .unwrap_or_else(|| "Default quality".to_string());
+                    ManageTtsVoicePackListItem {
+                        pack_id: voice.pack_id.into(),
+                        region_display_name: region_display_name.clone().into(),
+                        voice_display_name: voice.display_name.into(),
+                        quality_text: quality_text.clone().into(),
+                        size_text: format!("{}, {}", format_size(voice.size_bytes), quality_text)
+                            .into(),
+                        installed: voice.installed,
+                    }
+                })
+            })
+            .collect::<Vec<_>>();
+
+        if items.is_empty() {
+            self.send_feature_request(code, FeatureKind::Tts, true, None);
             return;
         }
 
-        self.tts_voice_overrides
-            .insert(self.target_language_code.clone(), value.clone());
-        self.persist_settings();
-        self.refresh_tts_voices();
+        if items.len() == 1 {
+            self.send_feature_request(
+                code,
+                FeatureKind::Tts,
+                true,
+                Some(items[0].pack_id.to_string()),
+            );
+            return;
+        }
+
+        self.manage_tts_picker_model.borrow_mut().reset_data(items);
+        self.manage_tts_picker_language_code = language.code;
+        self.set_manage_tts_picker_language_name_value(language.name);
+        self.set_manage_tts_picker_open_value(true);
     }
 
     fn refresh_tts_voices(&mut self) {
@@ -938,7 +1060,7 @@ impl AppBridge {
             if language.core_installed || language.built_in {
                 self.set_source_language_by_name(language.name);
             } else {
-                self.send_feature_request(language.code, FeatureKind::Core, true);
+                self.send_feature_request(language.code, FeatureKind::Core, true, None);
             }
         }
     }
@@ -1163,9 +1285,19 @@ impl AppBridge {
             .find(|language| language.code == code)
     }
 
-    fn send_feature_request(&self, code: String, feature: FeatureKind, download: bool) {
+    fn send_feature_request(
+        &self,
+        code: String,
+        feature: FeatureKind,
+        download: bool,
+        selected_tts_pack_id: Option<String>,
+    ) {
         let event = if download {
-            IoEvent::DownloadRequest { code, feature }
+            IoEvent::DownloadRequest {
+                code,
+                feature,
+                selected_tts_pack_id,
+            }
         } else {
             IoEvent::DeleteLanguage { code, feature }
         };
@@ -1218,9 +1350,7 @@ fn update_progress_list_item(
     available_list: bool,
 ) {
     let target_code = QString::from(language.code.clone());
-    let index = {
-        model.iter().position(|item| item.code == target_code)
-    };
+    let index = { model.iter().position(|item| item.code == target_code) };
     if let Some(index) = index {
         let should_be_visible = if available_list {
             !language.core_installed && !language.built_in
@@ -1239,9 +1369,7 @@ fn update_manage_progress_item(
     expanded: bool,
 ) {
     let target_code = QString::from(language.code.clone());
-    let index = {
-        model.iter().position(|item| item.code == target_code)
-    };
+    let index = { model.iter().position(|item| item.code == target_code) };
     if let Some(index) = index {
         model.change_line(index, manage_language_to_list_item(language, expanded));
     }
@@ -1313,13 +1441,12 @@ pub fn create_ui_callbacks(app: QPointer<AppBridge>) -> UiCallbacks {
     });
 
     let image_overlay_app = app.clone();
-    let set_image_overlay =
-        queued_callback(move |args: (Vec<ImageOverlayListItem>, f32, f32)| {
-            if let Some(app) = image_overlay_app.as_pinned() {
-                app.borrow_mut()
-                    .set_image_overlay_value(args.0, args.1, args.2);
-            }
-        });
+    let set_image_overlay = queued_callback(move |args: (Vec<ImageOverlayListItem>, f32, f32)| {
+        if let Some(app) = image_overlay_app.as_pinned() {
+            app.borrow_mut()
+                .set_image_overlay_value(args.0, args.1, args.2);
+        }
+    });
 
     let detected_app = app.clone();
     let set_detected_language_code = queued_callback(move |code: String| {
@@ -1336,9 +1463,11 @@ pub fn create_ui_callbacks(app: QPointer<AppBridge>) -> UiCallbacks {
         set_input_text: Arc::new(move |text| set_input_text(text)),
         set_output_text: Arc::new(move |text| set_output_text(text)),
         set_tts_state: Arc::new(move |loading, playing| set_tts_state((loading, playing))),
-        set_tts_voices: Arc::new(move |available, items, selected_name, selected_display_name| {
-            set_tts_voices((available, items, selected_name, selected_display_name))
-        }),
+        set_tts_voices: Arc::new(
+            move |available, items, selected_name, selected_display_name| {
+                set_tts_voices((available, items, selected_name, selected_display_name))
+            },
+        ),
         set_selected_image_url: Arc::new(move |url| set_selected_image_url(url)),
         set_image_overlay: Arc::new(move |items, width, height| {
             set_image_overlay((items, width, height))
