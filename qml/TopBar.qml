@@ -3,6 +3,7 @@ import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 
 ToolBar {
+    id: topBarRoot
     property var appBridge
     property var theme
 
@@ -49,7 +50,7 @@ ToolBar {
             id: fromCombo
             Layout.fillWidth: true
             Layout.preferredWidth: 1
-            theme: parent.parent.theme
+            theme: topBarRoot.theme
             iconSource: appBridge.asset_url("expand_more.svg")
             model: appBridge.installed_from_language_names
             onActivated: appBridge.set_from(currentText)
@@ -69,7 +70,7 @@ ToolBar {
             id: toCombo
             Layout.fillWidth: true
             Layout.preferredWidth: 1
-            theme: parent.parent.theme
+            theme: topBarRoot.theme
             iconSource: appBridge.asset_url("expand_more.svg")
             model: appBridge.installed_to_language_names
             onActivated: appBridge.set_to(currentText)
