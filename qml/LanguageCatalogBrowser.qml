@@ -7,7 +7,7 @@ Item {
     property var theme
     property bool desktopMode: false
 
-    UiScale { id: ui; desktopMode: desktopMode }
+    UiScale { id: ui; desktopMode: appBridge ? appBridge.desktop_mode : desktopMode }
     function actionIcon(installed) {
         return installed ? appBridge.asset_url("delete.svg") : appBridge.asset_url("download.svg")
     }
