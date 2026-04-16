@@ -11,7 +11,7 @@ if [[ "$cargo_version" == "$click_version" ]]; then
     exit 0
 else
     printf 'Cargo:     %s\n' "$cargo_version"
-    printf 'Clickable: %s\n' "$click_version"
+    printf 'Clickable: %s - %s\n' "$click_version" "packaging/ubuntu-touch/manifest.json"
     echo "MISMATCH"
     exit 1
 fi
