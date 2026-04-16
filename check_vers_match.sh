@@ -6,12 +6,12 @@ cd "$(dirname "$0")"
 cargo_version="$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml)"
 click_version="$(sed -n 's/.*"version": "\(.*\)".*/\1/p' packaging/ubuntu-touch/manifest.json)"
 
-printf 'Cargo:     %s\n' "$cargo_version"
-printf 'Clickable: %s\n' "$click_version"
 
 if [[ "$cargo_version" == "$click_version" ]]; then
-    echo "OK"
+    exit 0
 else
+    printf 'Cargo:     %s\n' "$cargo_version"
+    printf 'Clickable: %s\n' "$click_version"
     echo "MISMATCH"
     exit 1
 fi

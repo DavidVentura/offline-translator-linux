@@ -10,7 +10,7 @@
             "desktop":  "translator.desktop"
         }
     },
-    "version": "1.0.0",
+    "version": "0.1.0",
     "maintainer": "David <david+ut@davidv.dev>",
     "framework" : "@CLICK_FRAMEWORK@"
 }

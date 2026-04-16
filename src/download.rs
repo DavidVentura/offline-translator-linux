@@ -7,6 +7,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use translator::{DownloadPlan, DownloadTask};
 use zip::ZipArchive;
 
+const USER_AGENT: &str = concat!("offline-translator-linux/", env!("CARGO_PKG_VERSION"));
+
 struct ProgressReader<R> {
     inner: R,
     total_downloaded: Arc<AtomicUsize>,
@@ -60,6 +62,7 @@ fn download_to_path(
     total_downloaded: Arc<AtomicUsize>,
 ) -> Result<(), String> {
     let mut response = ureq::get(url)
+        .header("User-Agent", USER_AGENT)
         .call()
         .map_err(|e| format!("Request failed: {e}"))?;
 
