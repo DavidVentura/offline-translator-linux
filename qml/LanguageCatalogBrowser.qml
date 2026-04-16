@@ -378,23 +378,13 @@ Item {
                             }
 
                             // Delete button: collapsed + everything installed + not busy
-                            Item {
+                            FeedbackIconButton {
                                 visible: !expanded && allInstalled && !anyBusy
                                 width: ui.dp(24); height: ui.dp(24)
                                 anchors.verticalCenter: parent.verticalCenter
-
-                                Image {
-                                    anchors.centerIn: parent
-                                    width: ui.dp(20); height: ui.dp(20)
-                                    source: appBridge.asset_url("delete.svg")
-                                    sourceSize.width: ui.dp(20); sourceSize.height: ui.dp(20)
-                                }
-
-                                MouseArea {
-                                    anchors.fill: parent
-                                    z: 1
-                                    onClicked: appBridge.delete_all_features(code)
-                                }
+                                iconSize: ui.dp(20)
+                                iconSource: appBridge.asset_url("delete.svg")
+                                onClicked: appBridge.delete_all_features(code)
                             }
 
                             // Indeterminate spinner: collapsed + any download active

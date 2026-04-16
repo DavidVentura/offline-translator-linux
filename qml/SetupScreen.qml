@@ -23,13 +23,11 @@ Item {
                 Layout.fillWidth: true
             }
 
-            ToolButton {
-                display: AbstractButton.IconOnly
-                icon.source: appBridge.asset_url("settings.svg")
-                icon.color: theme.textPrimary
-                icon.width: ui.dp(24)
-                icon.height: ui.dp(24)
-                text: "Settings"
+            FeedbackIconButton {
+                width: ui.dp(24)
+                height: ui.dp(24)
+                iconSize: ui.dp(24)
+                iconSource: appBridge.asset_url("settings.svg")
                 onClicked: appBridge.show_settings()
             }
         }

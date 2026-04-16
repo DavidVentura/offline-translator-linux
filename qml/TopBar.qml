@@ -63,15 +63,11 @@ ToolBar {
             onActivated: appBridge.set_from(currentText)
         }
 
-        ToolButton {
+        FeedbackIconButton {
             Layout.preferredWidth: ui.dp(36)
             Layout.fillHeight: true
-            display: AbstractButton.IconOnly
-            icon.source: appBridge.asset_url("swap.svg")
-            icon.color: theme.textPrimary
-            icon.width: ui.dp(20)
-            icon.height: ui.dp(20)
-            text: "Swap"
+            iconSize: ui.dp(20)
+            iconSource: appBridge.asset_url("swap.svg")
             enabled: appBridge.swap_enabled
             onClicked: appBridge.swap_languages()
         }
@@ -88,15 +84,11 @@ ToolBar {
             onActivated: appBridge.set_to(currentText)
         }
 
-        ToolButton {
+        FeedbackIconButton {
             Layout.preferredWidth: ui.dp(36)
             Layout.fillHeight: true
-            display: AbstractButton.IconOnly
-            icon.source: appBridge.asset_url("settings.svg")
-            icon.color: theme.textPrimary
-            icon.width: ui.dp(20)
-            icon.height: ui.dp(20)
-            text: "Settings"
+            iconSize: ui.dp(20)
+            iconSource: appBridge.asset_url("settings.svg")
             onClicked: appBridge.show_settings()
         }
     }

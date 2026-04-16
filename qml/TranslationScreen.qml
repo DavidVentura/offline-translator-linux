@@ -8,6 +8,8 @@ Item {
     property var theme
     property bool speechLongPressTriggered: false
     UiScale { id: ui; desktopMode: root.appBridge && root.appBridge.desktop_mode }
+    readonly property real clipboardButtonSize: ui.dp(24)
+    readonly property real clipboardIconSize: ui.dp(22)
     readonly property real imageOverlayButtonSize: appBridge.desktop_mode ? ui.dp(36) : ui.dp(40)
     readonly property real imageOverlayIconSize: appBridge.desktop_mode ? ui.dp(18) : ui.dp(20)
     readonly property real fullscreenOverlayButtonSize: ui.dp(40)
@@ -82,7 +84,7 @@ Item {
 
                     TextArea {
                         id: inputArea
-                        width: parent.width
+                        width: Math.max(0, parent.width - (inputActionButton.visible ? root.clipboardButtonSize + ui.dp(12) : 0))
                         implicitHeight: Math.max(ui.dp(28), contentHeight + topPadding + bottomPadding)
                         text: appBridge.input_text
                         color: theme.textPrimary
@@ -103,6 +105,28 @@ Item {
                         wrapMode: Text.Wrap
                         color: theme.textSecondary
                         font.pointSize: ui.pt(13)
+                    }
+                }
+
+                FeedbackIconButton {
+                    id: inputActionButton
+                    visible: !appBridge.image_mode
+                    anchors.top: parent.top
+                    anchors.right: parent.right
+                    anchors.topMargin: ui.dp(12)
+                    anchors.rightMargin: ui.dp(12)
+                    width: root.clipboardButtonSize
+                    height: root.clipboardButtonSize
+                    iconSize: root.clipboardIconSize
+                    iconSource: appBridge.asset_url(inputArea.text.length > 0 ? "clear.svg" : "paste.svg")
+
+                    onClicked: {
+                        inputArea.forceActiveFocus()
+                        if (inputArea.text.length > 0) {
+                            inputArea.text = ""
+                        } else {
+                            inputArea.paste()
+                        }
                     }
                 }
             }
@@ -185,7 +209,7 @@ Item {
             Layout.bottomMargin: ui.dp(4)
             color: theme.surfaceColor
             radius: ui.dp(8)
-            implicitHeight: ui.dp(52)
+            implicitHeight: ui.dp(60)
 
             Column {
                 anchors.left: parent.left
@@ -226,7 +250,7 @@ Item {
                 Image {
                     anchors.centerIn: parent
                     width: ui.dp(24); height: ui.dp(24)
-                    source: appBridge.asset_url("forward.svg")
+                    source: appBridge.asset_url(appBridge.detected_language_installed ? "forward.svg" : "download.svg")
                     sourceSize.width: ui.dp(24); sourceSize.height: ui.dp(24)
                 }
 
@@ -279,7 +303,8 @@ Item {
                         spacing: outputTransliteration.visible ? ui.dp(6) : 0
 
                         TextEdit {
-                            width: Math.max(0, parent.width - (speechButton.visible ? ui.dp(32) : 0))
+                            id: outputArea
+                            width: Math.max(0, parent.width - ((copyButton.visible || speechButton.visible) ? root.clipboardButtonSize + ui.dp(12) : 0))
                             text: appBridge.output_text
                             readOnly: true
                             wrapMode: TextEdit.Wrap
@@ -301,13 +326,32 @@ Item {
                 }
             }
 
+            FeedbackIconButton {
+                id: copyButton
+                visible: appBridge.output_text.length > 0
+                anchors.top: parent.top
+                anchors.right: parent.right
+                anchors.topMargin: ui.dp(12)
+                anchors.rightMargin: ui.dp(12)
+                width: root.clipboardButtonSize
+                height: root.clipboardButtonSize
+                iconSize: root.clipboardIconSize
+                iconSource: appBridge.asset_url("copy.svg")
+
+                onClicked: {
+                    outputArea.selectAll()
+                    outputArea.copy()
+                    outputArea.deselect()
+                }
+            }
+
             Item {
                 id: speechButton
                 visible: (appBridge.tts_available || appBridge.tts_loading || appBridge.tts_playing)
                          && appBridge.output_text.length > 0
-                anchors.top: parent.top
+                anchors.top: copyButton.visible ? copyButton.bottom : parent.top
                 anchors.right: parent.right
-                anchors.topMargin: ui.dp(12)
+                anchors.topMargin: copyButton.visible ? ui.dp(8) : ui.dp(12)
                 anchors.rightMargin: ui.dp(12)
                 width: ui.dp(24)
                 height: ui.dp(24)
