@@ -32,6 +32,7 @@ pub struct TtsVoicePickerRegion {
 pub struct Language {
     pub code: String,
     pub name: String,
+    pub script: String,
     pub direction: Direction,
     pub built_in: bool,
     pub core_size_bytes: u64,

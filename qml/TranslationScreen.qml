@@ -54,27 +54,53 @@ Item {
         spacing: ui.dp(12)
 
         ScrollView {
+            id: inputScroll
             visible: !appBridge.image_mode
             Layout.fillWidth: true
             Layout.fillHeight: true
-            Layout.preferredHeight: Math.max(ui.dp(180), root.height * 0.38)
+            Layout.preferredHeight: Math.max(ui.dp(180), root.height * 0.34)
             Layout.minimumHeight: ui.dp(120)
             clip: true
 
-            TextArea {
-                text: appBridge.input_text
-                color: theme.textPrimary
-                placeholderText: "Enter text"
-                placeholderTextColor: theme.textSecondary
-                wrapMode: TextEdit.Wrap
-                verticalAlignment: TextEdit.AlignTop
-                selectByMouse: true
-                background: Rectangle {
-                    color: theme.backgroundColor
-                    border.color: theme.borderColor
-                    border.width: 1
+            Rectangle {
+                width: parent.width
+                implicitHeight: Math.max(inputScroll.height, inputColumn.implicitHeight + ui.dp(24))
+                color: theme.backgroundColor
+                border.color: theme.borderColor
+                border.width: 1
+
+                Column {
+                    id: inputColumn
+                    x: ui.dp(12)
+                    y: ui.dp(12)
+                    width: Math.max(0, parent.width - ui.dp(24))
+                    spacing: inputTransliteration.visible ? ui.dp(6) : 0
+
+                    TextArea {
+                        id: inputArea
+                        width: parent.width
+                        implicitHeight: Math.max(ui.dp(28), contentHeight + topPadding + bottomPadding)
+                        text: appBridge.input_text
+                        color: theme.textPrimary
+                        placeholderText: "Enter text"
+                        placeholderTextColor: theme.textSecondary
+                        wrapMode: TextEdit.Wrap
+                        verticalAlignment: TextEdit.AlignTop
+                        selectByMouse: true
+                        background: Item {}
+                        onTextChanged: if (text !== appBridge.input_text) appBridge.process_text(text)
+                    }
+
+                    Text {
+                        id: inputTransliteration
+                        visible: appBridge.input_transliteration.length > 0
+                        width: parent.width
+                        text: appBridge.input_transliteration
+                        wrapMode: Text.Wrap
+                        color: theme.textSecondary
+                        font.pointSize: ui.pt(13)
+                    }
                 }
-                onTextChanged: if (text !== appBridge.input_text) appBridge.process_text(text)
             }
         }
 
@@ -226,27 +252,47 @@ Item {
         Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            Layout.preferredHeight: Math.max(ui.dp(180), root.height * 0.3)
+            Layout.preferredHeight: Math.max(ui.dp(180), root.height * 0.34)
             Layout.minimumHeight: ui.dp(140)
 
             ScrollView {
+                id: outputScroll
                 anchors.fill: parent
                 clip: true
 
-                TextArea {
-                    text: appBridge.output_text
-                    readOnly: true
-                    wrapMode: TextEdit.Wrap
-                    verticalAlignment: TextEdit.AlignTop
-                    color: theme.textPrimary
-                    leftPadding: ui.dp(12)
-                    rightPadding: speechButton.visible ? ui.dp(44) : ui.dp(12)
-                    topPadding: ui.dp(12)
-                    bottomPadding: ui.dp(12)
-                    background: Rectangle {
-                        color: theme.backgroundColor
-                        border.color: theme.borderColor
-                        border.width: 1
+                Rectangle {
+                    width: parent.width
+                    implicitHeight: Math.max(outputScroll.height, outputColumn.implicitHeight + ui.dp(24))
+                    color: theme.backgroundColor
+                    border.color: theme.borderColor
+                    border.width: 1
+
+                    Column {
+                        id: outputColumn
+                        x: ui.dp(12)
+                        y: ui.dp(12)
+                        width: Math.max(0, parent.width - ui.dp(24))
+                        spacing: outputTransliteration.visible ? ui.dp(6) : 0
+
+                        TextEdit {
+                            width: Math.max(0, parent.width - (speechButton.visible ? ui.dp(32) : 0))
+                            text: appBridge.output_text
+                            readOnly: true
+                            wrapMode: TextEdit.Wrap
+                            selectByMouse: true
+                            color: theme.textPrimary
+                            font.pointSize: ui.pt(16)
+                        }
+
+                        Text {
+                            id: outputTransliteration
+                            visible: appBridge.output_transliteration.length > 0
+                            width: parent.width
+                            text: appBridge.output_transliteration
+                            wrapMode: Text.Wrap
+                            color: theme.textSecondary
+                            font.pointSize: ui.pt(13)
+                        }
                     }
                 }
             }

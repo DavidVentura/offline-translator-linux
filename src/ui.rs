@@ -3,6 +3,7 @@ use std::cell::RefCell;
 use std::collections::{BTreeMap, HashSet};
 use std::sync::Arc;
 use std::sync::mpsc::Sender;
+use translator::transliterate_with_policy_for_language;
 
 use crate::IoEvent;
 use crate::catalog_state::{format_size, total_size};
@@ -85,6 +86,10 @@ pub struct AppBridge {
 
     pub output_text: qt_property!(QString; NOTIFY output_text_changed),
     pub output_text_changed: qt_signal!(),
+    pub input_transliteration: qt_property!(QString; NOTIFY input_transliteration_changed),
+    pub input_transliteration_changed: qt_signal!(),
+    pub output_transliteration: qt_property!(QString; NOTIFY output_transliteration_changed),
+    pub output_transliteration_changed: qt_signal!(),
 
     pub image_mode: qt_property!(bool; NOTIFY image_mode_changed),
     pub image_mode_changed: qt_signal!(),
@@ -500,6 +505,7 @@ pub struct AppBridge {
             if self.show_transliteration_output != value {
                 self.show_transliteration_output = value;
                 self.show_transliteration_output_changed();
+                self.refresh_output_transliteration();
                 self.persist_settings();
             }
         }
@@ -509,6 +515,7 @@ pub struct AppBridge {
             if self.show_transliteration_input != value {
                 self.show_transliteration_input = value;
                 self.show_transliteration_input_changed();
+                self.refresh_input_transliteration();
                 self.persist_settings();
             }
         }
@@ -633,6 +640,7 @@ impl AppBridge {
             self.input_text = text;
             self.input_text_changed();
         }
+        self.refresh_input_transliteration();
     }
 
     pub fn set_feature_progress_value(&mut self, code: &str, feature: FeatureKind, progress: f32) {
@@ -682,6 +690,7 @@ impl AppBridge {
             self.output_text = text;
             self.output_text_changed();
         }
+        self.refresh_output_transliteration();
     }
 
     pub fn set_tts_state_value(&mut self, loading: bool, playing: bool) {
@@ -825,6 +834,7 @@ impl AppBridge {
             self.refresh_swap_enabled();
             self.refresh_detected_language();
             self.refresh_translation_content();
+            self.refresh_input_transliteration();
             self.persist_settings();
         }
     }
@@ -848,6 +858,7 @@ impl AppBridge {
             self.tts_prewarmed_language_code.clear();
             self.refresh_tts_availability();
             self.reset_tts_voice_selection_state();
+            self.refresh_output_transliteration();
             self.persist_settings();
         }
     }
@@ -865,6 +876,7 @@ impl AppBridge {
             self.input_text = qtext;
             self.input_text_changed();
         }
+        self.refresh_input_transliteration();
 
         self.stop_tts();
 
@@ -1323,6 +1335,62 @@ impl AppBridge {
         self.tts_prewarmed_language_code.clear();
         self.refresh_tts_availability();
         self.reset_tts_voice_selection_state();
+        self.refresh_input_transliteration();
+        self.refresh_output_transliteration();
+    }
+
+    fn set_input_transliteration_value(&mut self, text: String) {
+        let text = QString::from(text);
+        if self.input_transliteration != text {
+            self.input_transliteration = text;
+            self.input_transliteration_changed();
+        }
+    }
+
+    fn set_output_transliteration_value(&mut self, text: String) {
+        let text = QString::from(text);
+        if self.output_transliteration != text {
+            self.output_transliteration = text;
+            self.output_transliteration_changed();
+        }
+    }
+
+    fn refresh_input_transliteration(&mut self) {
+        let transliteration = if self.show_transliteration_input {
+            self.compute_transliteration(&self.input_text.to_string(), &self.source_language_code)
+        } else {
+            String::new()
+        };
+        self.set_input_transliteration_value(transliteration);
+    }
+
+    fn refresh_output_transliteration(&mut self) {
+        let transliteration = if self.show_transliteration_output {
+            self.compute_transliteration(&self.output_text.to_string(), &self.target_language_code)
+        } else {
+            String::new()
+        };
+        self.set_output_transliteration_value(transliteration);
+    }
+
+    fn compute_transliteration(&self, text: &str, language_code: &str) -> String {
+        if text.trim().is_empty() || !text.chars().any(|ch| !ch.is_ascii()) {
+            return String::new();
+        }
+
+        let Some(language) = self.find_language_by_code(language_code) else {
+            return String::new();
+        };
+
+        transliterate_with_policy_for_language(
+            text,
+            &language.code,
+            &language.script,
+            "Latn",
+            None,
+            false,
+        )
+        .unwrap_or_default()
     }
 
     fn ensure_selected_languages_are_valid(&mut self) {
