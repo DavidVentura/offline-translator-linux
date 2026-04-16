@@ -54,6 +54,12 @@ pub struct TtsVoiceListItem {
 }
 
 #[derive(Clone, Default, SimpleListItem)]
+pub struct DictionaryPopupRowItem {
+    pub kind: QString,
+    pub text: QString,
+}
+
+#[derive(Clone, Default, SimpleListItem)]
 pub struct ManageTtsVoicePackListItem {
     pub pack_id: QString,
     pub region_display_name: QString,

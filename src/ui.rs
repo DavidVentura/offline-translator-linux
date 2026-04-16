@@ -1,5 +1,6 @@
 mod callbacks;
 mod core;
+mod dictionary;
 mod image;
 mod languages;
 mod transliteration;
@@ -8,14 +9,15 @@ mod types;
 
 pub use callbacks::{UiCallbacks, create_ui_callbacks};
 pub use types::{
-    ImageOverlayListItem, LanguageListItem, ManageLanguageListItem, ManageTtsVoicePackListItem,
-    TtsVoiceListItem, argb_to_qml_color,
+    DictionaryPopupRowItem, ImageOverlayListItem, LanguageListItem, ManageLanguageListItem,
+    ManageTtsVoicePackListItem, TtsVoiceListItem, argb_to_qml_color,
 };
 
 use qmetaobject::*;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, HashSet};
 use std::sync::mpsc::Sender;
+use translator::tarkka::WordWithTaggedEntries;
 
 use crate::IoEvent;
 use crate::model::{FeatureKind, Language, Screen};
@@ -116,6 +118,7 @@ pub struct AppBridge {
     pub manage_tts_picker_model: qt_property!(RefCell<SimpleListModel<ManageTtsVoicePackListItem>>; CONST),
     pub image_overlay_model: qt_property!(RefCell<SimpleListModel<ImageOverlayListItem>>; CONST),
     pub tts_voice_options_model: qt_property!(RefCell<SimpleListModel<TtsVoiceListItem>>; CONST),
+    pub dictionary_popup_rows_model: qt_property!(RefCell<SimpleListModel<DictionaryPopupRowItem>>; CONST),
 
     pub desktop_mode: qt_property!(bool; CONST),
 
@@ -151,6 +154,33 @@ pub struct AppBridge {
 
     pub tts_voice_option_count: qt_property!(i32; NOTIFY tts_voice_option_count_changed),
     pub tts_voice_option_count_changed: qt_signal!(),
+
+    pub dictionary_popup_open: qt_property!(bool; NOTIFY dictionary_popup_open_changed),
+    pub dictionary_popup_open_changed: qt_signal!(),
+
+    pub dictionary_popup_word: qt_property!(QString; NOTIFY dictionary_popup_word_changed),
+    pub dictionary_popup_word_changed: qt_signal!(),
+
+    pub dictionary_popup_subtitle: qt_property!(QString; NOTIFY dictionary_popup_subtitle_changed),
+    pub dictionary_popup_subtitle_changed: qt_signal!(),
+
+    pub dictionary_popup_primary_label: qt_property!(QString; NOTIFY dictionary_popup_primary_label_changed),
+    pub dictionary_popup_primary_label_changed: qt_signal!(),
+
+    pub dictionary_popup_secondary_label: qt_property!(QString; NOTIFY dictionary_popup_secondary_label_changed),
+    pub dictionary_popup_secondary_label_changed: qt_signal!(),
+
+    pub dictionary_popup_has_secondary: qt_property!(bool; NOTIFY dictionary_popup_has_secondary_changed),
+    pub dictionary_popup_has_secondary_changed: qt_signal!(),
+
+    pub dictionary_popup_selected_entry_index: qt_property!(i32; NOTIFY dictionary_popup_selected_entry_index_changed),
+    pub dictionary_popup_selected_entry_index_changed: qt_signal!(),
+
+    pub toast_message: qt_property!(QString; NOTIFY toast_message_changed),
+    pub toast_message_changed: qt_signal!(),
+
+    pub toast_visible: qt_property!(bool; NOTIFY toast_visible_changed),
+    pub toast_visible_changed: qt_signal!(),
 
     pub asset_url: qt_method!(
         fn asset_url(&self, name: QString) -> QString {
@@ -393,6 +423,29 @@ pub struct AppBridge {
             self.set_manage_tts_picker_open_value(false);
         }
     ),
+    pub lookup_output_dictionary: qt_method!(
+        fn lookup_output_dictionary(&mut self, word: QString) {
+            self.lookup_dictionary_for_language(
+                &word.to_string(),
+                &self.target_language_code.clone(),
+            );
+        }
+    ),
+    pub close_dictionary_popup: qt_method!(
+        fn close_dictionary_popup(&mut self) {
+            self.close_dictionary_popup_impl();
+        }
+    ),
+    pub clear_toast: qt_method!(
+        fn clear_toast(&mut self) {
+            self.clear_toast_impl();
+        }
+    ),
+    pub select_dictionary_popup_entry: qt_method!(
+        fn select_dictionary_popup_entry(&mut self, index: i32) {
+            self.select_dictionary_popup_entry_impl(index);
+        }
+    ),
     pub download_tts_pack: qt_method!(
         fn download_tts_pack(&mut self, pack_id: QString) {
             if self.manage_tts_picker_language_code.is_empty() {
@@ -489,4 +542,6 @@ pub struct AppBridge {
     manage_filter: String,
     expanded_languages: HashSet<String>,
     manage_tts_picker_language_code: String,
+    dictionary_popup_lookup_language_code: String,
+    dictionary_popup_data: Option<WordWithTaggedEntries>,
 }

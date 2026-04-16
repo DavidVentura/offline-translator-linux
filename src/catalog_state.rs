@@ -134,6 +134,7 @@ pub fn languages_from_snapshot(snapshot: &CatalogSnapshot) -> Vec<Language> {
                 code,
                 name: language.display_name.clone(),
                 script: language.script.clone(),
+                dictionary_code: language.dictionary_code.clone(),
                 direction,
                 built_in: language.is_english(),
                 core_size_bytes,

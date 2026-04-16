@@ -21,6 +21,24 @@ Item {
         }
     }
 
+    function isLookupWordChar(ch) {
+        return /[0-9A-Za-zÀ-ÖØ-öø-ÿĀ-ɏͰ-ϿЀ-ӿא-ת؀-ۿݐ-ݿऀ-ॿ়-৾਀-੿઀-૿଀-୿ா-௿ఀ-౿ಀ-೿ം-ൿก-๿ກ-໿ༀ-࿿က-႟Ḁ-ỿⰀ-⳿々-〇ぁ-ヿ一-鿿가-힯'\-]/.test(ch)
+    }
+
+    function wordAt(text, index) {
+        if (index < 0 || index >= text.length) {
+            return ""
+        }
+        if (!isLookupWordChar(text.charAt(index))) {
+            return ""
+        }
+        var start = index
+        var end = index + 1
+        while (start > 0 && isLookupWordChar(text.charAt(start - 1))) start--
+        while (end < text.length && isLookupWordChar(text.charAt(end))) end++
+        return text.slice(start, end)
+    }
+
     Loader {
         id: imagePickerLoader
         active: true
@@ -313,6 +331,38 @@ Item {
                             font.pointSize: ui.pt(16)
                         }
 
+                        MouseArea {
+                            id: lookupOutputArea
+                            property bool holdTriggered: false
+                            anchors.fill: outputArea
+                            acceptedButtons: Qt.LeftButton
+                            pressAndHoldInterval: 450
+                            z: 2
+
+                            onPressed: holdTriggered = false
+                            onCanceled: holdTriggered = false
+                            onReleased: {
+                                if (!holdTriggered) {
+                                    mouse.accepted = false
+                                }
+                            }
+                            onClicked: {
+                                if (!holdTriggered) {
+                                    mouse.accepted = false
+                                }
+                            }
+                            onDoubleClicked: mouse.accepted = false
+                            onPositionChanged: if (!pressed) mouse.accepted = false
+                            onPressAndHold: {
+                                holdTriggered = true
+                                const index = outputArea.positionAt(mouse.x, mouse.y)
+                                const word = root.wordAt(outputArea.text, index)
+                                if (word.length > 0) {
+                                    appBridge.lookup_output_dictionary(word)
+                                }
+                            }
+                        }
+
                         Text {
                             id: outputTransliteration
                             visible: appBridge.output_transliteration.length > 0
@@ -575,6 +625,7 @@ Item {
     }
 
     RoundButton {
+        visible: !appBridge.disable_ocr
         anchors.right: parent.right
         anchors.bottom: parent.bottom
         anchors.margins: ui.dp(24)
@@ -591,6 +642,69 @@ Item {
             border.width: 0
         }
         onClicked: if (imagePickerLoader.item) imagePickerLoader.item.open()
+    }
+
+    Rectangle {
+        id: toastBubble
+        visible: appBridge.toast_visible && appBridge.toast_message.length > 0
+        z: 14
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: ui.dp(24)
+        width: Math.min(parent.width - ui.dp(32), toastLabel.implicitWidth + ui.dp(28))
+        height: toastLabel.implicitHeight + ui.dp(18)
+        radius: ui.dp(12)
+        color: "#E6222530"
+        border.color: theme.borderColor
+        border.width: 1
+
+        Label {
+            id: toastLabel
+            anchors.centerIn: parent
+            width: Math.min(parent.width - ui.dp(28), implicitWidth)
+            text: appBridge.toast_message
+            color: theme.textPrimary
+            wrapMode: Text.Wrap
+            horizontalAlignment: Text.AlignHCenter
+            font.pointSize: ui.pt(14)
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            onClicked: appBridge.clear_toast()
+        }
+
+        Timer {
+            id: toastTimer
+            interval: 2200
+            repeat: false
+            onTriggered: appBridge.clear_toast()
+        }
+
+        Connections {
+            target: appBridge
+
+            function onToast_visible_changed() {
+                if (appBridge.toast_visible) {
+                    toastTimer.restart()
+                } else {
+                    toastTimer.stop()
+                }
+            }
+
+            function onToast_message_changed() {
+                if (appBridge.toast_visible) {
+                    toastTimer.restart()
+                }
+            }
+        }
+    }
+
+    DictionaryPopup {
+        anchors.fill: parent
+        appBridge: root.appBridge
+        theme: root.theme
+        z: 15
     }
 
     Rectangle {
