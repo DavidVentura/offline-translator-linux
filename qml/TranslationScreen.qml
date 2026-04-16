@@ -231,7 +231,6 @@ Item {
 
             ScrollView {
                 anchors.fill: parent
-                anchors.rightMargin: speechButton.visible ? ui.dp(32) : 0
                 clip: true
 
                 TextArea {
@@ -240,6 +239,10 @@ Item {
                     wrapMode: TextEdit.Wrap
                     verticalAlignment: TextEdit.AlignTop
                     color: theme.textPrimary
+                    leftPadding: ui.dp(12)
+                    rightPadding: speechButton.visible ? ui.dp(44) : ui.dp(12)
+                    topPadding: ui.dp(12)
+                    bottomPadding: ui.dp(12)
                     background: Rectangle {
                         color: theme.backgroundColor
                         border.color: theme.borderColor
@@ -254,6 +257,8 @@ Item {
                          && appBridge.output_text.length > 0
                 anchors.top: parent.top
                 anchors.right: parent.right
+                anchors.topMargin: ui.dp(12)
+                anchors.rightMargin: ui.dp(12)
                 width: ui.dp(24)
                 height: ui.dp(24)
 

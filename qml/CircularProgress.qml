@@ -5,7 +5,7 @@ Canvas {
     UiScale { id: ui }
     property real progress: 0.0   // 0.0 to 1.0, ignored if indeterminate
     property bool indeterminate: false
-    property color progressColor: "#7C3AED"
+    property color progressColor: "#A8BCFF"
     property color trackColor: "#303240"
     property real lineWidth: ui.dp(2.5)
 
