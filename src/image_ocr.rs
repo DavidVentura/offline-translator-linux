@@ -1,7 +1,8 @@
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
+use std::time::Instant;
 
-use qmetaobject::{QImage, QString};
+use image::{GenericImageView, ImageReader, imageops::FilterType};
 use translator::{
     BackgroundMode, BergamotEngine, CatalogSnapshot, DetectedWord, PageSegMode, ReadingOrder, Rect,
     TesseractWrapper, TextBlock, build_text_blocks, prepare_overlay_image,
@@ -9,11 +10,22 @@ use translator::{
 };
 
 #[derive(Debug, Clone)]
+pub struct ImageOverlayLine {
+    pub x: u32,
+    pub y: u32,
+    pub width: u32,
+    pub height: u32,
+    pub foreground_argb: u32,
+}
+
+#[derive(Debug, Clone)]
 pub struct ImageOverlayBlock {
     pub x: u32,
     pub y: u32,
     pub width: u32,
     pub height: u32,
+    pub avg_line_height: f32,
+    pub lines: Vec<ImageOverlayLine>,
     pub translated_text: String,
     pub background_argb: u32,
     pub foreground_argb: u32,
@@ -73,12 +85,19 @@ pub fn translate_image_in_snapshot(
     max_image_size: u32,
     background_mode_label: &str,
 ) -> Result<ImageTranslation, String> {
+    let total_start = Instant::now();
+    let load_start = Instant::now();
     let loaded = load_image_rgba(image_path, max_image_size)?;
+    let load_elapsed = load_start.elapsed();
     let reading_order = ReadingOrder::LeftToRight;
     let join_without_spaces = source_code == "ja";
     let relax_single_char_confidence = false;
     let background_mode = map_background_mode(background_mode_label);
 
+    let ocr_start = Instant::now();
+    let mut set_frame_elapsed = None;
+    let mut word_boxes_elapsed = None;
+    let mut build_blocks_elapsed = None;
     let blocks = with_ocr_engine(snapshot, source_code, reading_order, |ocr| {
         let bytes_per_pixel = 4i32;
         let width = loaded.width as i32;
@@ -88,6 +107,7 @@ pub fn translate_image_in_snapshot(
             .ok_or_else(|| "image width overflow".to_string())?;
 
         ocr.set_page_seg_mode(PageSegMode::PsmAuto);
+        let set_frame_start = Instant::now();
         ocr.set_frame(
             &loaded.rgba_bytes,
             width,
@@ -96,10 +116,13 @@ pub fn translate_image_in_snapshot(
             bytes_per_line,
         )
         .map_err(|err| format!("failed to set OCR frame: {err}"))?;
+        set_frame_elapsed = Some(set_frame_start.elapsed());
 
+        let word_boxes_start = Instant::now();
         let words = ocr
             .get_word_boxes()
             .map_err(|err| format!("failed to read OCR words: {err}"))?;
+        word_boxes_elapsed = Some(word_boxes_start.elapsed());
 
         let detected_words = words
             .into_iter()
@@ -118,13 +141,18 @@ pub fn translate_image_in_snapshot(
             })
             .collect::<Vec<_>>();
 
-        Ok(build_text_blocks(
+        let build_blocks_start = Instant::now();
+        let blocks = build_text_blocks(
             &detected_words,
             min_confidence,
             join_without_spaces,
             relax_single_char_confidence,
-        ))
+        );
+        build_blocks_elapsed = Some(build_blocks_start.elapsed());
+
+        Ok(blocks)
     })?;
+    let ocr_elapsed = ocr_start.elapsed();
 
     let source_texts = blocks
         .iter()
@@ -136,6 +164,7 @@ pub fn translate_image_in_snapshot(
         return Err("No text found in image".to_string());
     }
 
+    let translate_start = Instant::now();
     let translated_texts = if source_code == target_code {
         source_texts.clone()
     } else {
@@ -150,7 +179,9 @@ pub fn translate_image_in_snapshot(
             }
         }
     };
+    let translate_elapsed = translate_start.elapsed();
 
+    let overlay_start = Instant::now();
     let prepared = prepare_overlay_image(
         &loaded.rgba_bytes,
         loaded.width,
@@ -160,11 +191,33 @@ pub fn translate_image_in_snapshot(
         background_mode,
         reading_order,
     )?;
+    let overlay_elapsed = overlay_start.elapsed();
 
     let overlay_blocks = prepared
         .blocks
         .into_iter()
         .map(|block| ImageOverlayBlock {
+            avg_line_height: if block.lines.is_empty() {
+                block.bounding_box.height() as f32
+            } else {
+                block
+                    .lines
+                    .iter()
+                    .map(|line| line.bounding_box.height() as f32)
+                    .sum::<f32>()
+                    / block.lines.len() as f32
+            },
+            lines: block
+                .lines
+                .iter()
+                .map(|line| ImageOverlayLine {
+                    x: line.bounding_box.left,
+                    y: line.bounding_box.top,
+                    width: line.bounding_box.width(),
+                    height: line.bounding_box.height(),
+                    foreground_argb: line.foreground_argb,
+                })
+                .collect(),
             x: block.bounding_box.left,
             y: block.bounding_box.top,
             width: block.bounding_box.width(),
@@ -174,6 +227,18 @@ pub fn translate_image_in_snapshot(
             foreground_argb: block.foreground_argb,
         })
         .collect::<Vec<_>>();
+
+    println!(
+        "image_ocr timings load={:?} ocr={:?} ocr_set_frame={:?} ocr_word_boxes={:?} ocr_build_blocks={:?} translate={:?} overlay={:?} total={:?}",
+        load_elapsed,
+        ocr_elapsed,
+        set_frame_elapsed,
+        word_boxes_elapsed,
+        build_blocks_elapsed,
+        translate_elapsed,
+        overlay_elapsed,
+        total_start.elapsed()
+    );
 
     Ok(ImageTranslation {
         extracted_text: source_texts.join("\n\n"),
@@ -246,29 +311,26 @@ where
 }
 
 fn load_image_rgba(path: &Path, max_image_size: u32) -> Result<LoadedImage, String> {
-    let image = QImage::load_from_file(QString::from(path.to_string_lossy().into_owned()));
-    let source_size = image.size();
-    if source_size.width == 0 || source_size.height == 0 {
+    let image = ImageReader::open(path)
+        .map_err(|err| format!("Failed to open image {}: {err}", path.display()))?
+        .decode()
+        .map_err(|err| format!("Failed to decode image {}: {err}", path.display()))?;
+    let (source_width, source_height) = image.dimensions();
+    if source_width == 0 || source_height == 0 {
         return Err(format!("Failed to load image: {}", path.display()));
     }
 
-    let (width, height) = scaled_dimensions(source_size.width, source_size.height, max_image_size);
-    let mut rgba_bytes = Vec::with_capacity((width * height * 4) as usize);
-
-    for y in 0..height {
-        let source_y = y * source_size.height / height;
-        for x in 0..width {
-            let source_x = x * source_size.width / width;
-            let color = image.get_pixel_color(source_x, source_y);
-            rgba_bytes.push(color.red() as u8);
-            rgba_bytes.push(color.green() as u8);
-            rgba_bytes.push(color.blue() as u8);
-            rgba_bytes.push(color.alpha() as u8);
-        }
-    }
+    let (width, height) = scaled_dimensions(source_width, source_height, max_image_size);
+    let rgba = if width == source_width && height == source_height {
+        image.to_rgba8()
+    } else {
+        image
+            .resize_exact(width, height, FilterType::Triangle)
+            .to_rgba8()
+    };
 
     Ok(LoadedImage {
-        rgba_bytes,
+        rgba_bytes: rgba.into_raw(),
         width,
         height,
     })

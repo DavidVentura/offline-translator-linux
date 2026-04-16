@@ -28,4 +28,18 @@ fn main() {
     if !status.success() {
         panic!("ONNX Runtime build helper failed with status {status}");
     }
+
+    println!("cargo:rerun-if-changed=src/rendered_image_item.rs");
+
+    let qt_include_path =
+        std::env::var("DEP_QT_INCLUDE_PATH").expect("DEP_QT_INCLUDE_PATH missing");
+    let mut config = cpp_build::Config::new();
+    if let Ok(flags) = std::env::var("DEP_QT_COMPILE_FLAGS") {
+        for flag in flags.split_terminator(';') {
+            config.flag(flag);
+        }
+    }
+    config
+        .include(&qt_include_path)
+        .build("src/rendered_image_item.rs");
 }

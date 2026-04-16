@@ -4,12 +4,14 @@ mod eventloop;
 mod image_ocr;
 mod model;
 mod pulse;
+mod rendered_image_item;
 mod settings;
 mod tts;
 mod ui;
 
 use qmetaobject::*;
 use std::error::Error;
+use std::ffi::CStr;
 use std::path::PathBuf;
 use std::sync::mpsc;
 
@@ -87,6 +89,12 @@ fn get_app_paths() -> AppPaths {
 fn main() -> Result<(), Box<dyn Error>> {
     configure_onnxruntime_dylib_path()?;
     qmetaobject::log::init_qt_to_rust();
+    qml_register_type::<rendered_image_item::RenderedImageItem>(
+        unsafe { CStr::from_bytes_with_nul_unchecked(b"TranslatorUi\0") },
+        1,
+        0,
+        unsafe { CStr::from_bytes_with_nul_unchecked(b"RenderedImageItem\0") },
+    );
 
     let (bus_tx, bus_rx) = mpsc::channel::<IoEvent>();
     let app_paths = get_app_paths();

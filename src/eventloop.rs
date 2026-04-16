@@ -5,7 +5,6 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use cld2::{Format, detect_language};
-use image::{ImageBuffer, Rgba};
 use translator::{BergamotEngine, CatalogSnapshot, LanguageCatalog, translate_texts_in_snapshot};
 
 use crate::catalog_state::{
@@ -15,6 +14,7 @@ use crate::catalog_state::{
 use crate::download;
 use crate::image_ocr;
 use crate::model::FeatureKind;
+use crate::rendered_image_item::qimage_from_rgba_bytes;
 use crate::tts;
 use crate::ui::{ImageOverlayListItem, TtsVoiceListItem, UiCallbacks, argb_to_qml_color};
 use crate::{AppPaths, IoEvent};
@@ -220,12 +220,12 @@ pub fn run_eventloop(bus_rx: Receiver<IoEvent>, ui: UiCallbacks, catalog: Langua
 
                 match result {
                     Ok(image_translation) => {
-                        if let Some(paths) = app_paths.as_ref()
-                            && let Ok(image_url) =
-                                persist_processed_image(&paths.data, &image_translation)
-                        {
-                            (ui.set_selected_image_url)(image_url);
-                        }
+                        let ui_start = Instant::now();
+                        (ui.set_processed_image)(qimage_from_rgba_bytes(
+                            image_translation.image_width,
+                            image_translation.image_height,
+                            &image_translation.cleaned_rgba_bytes,
+                        ));
                         send_detection_to_ui(&image_translation.extracted_text, &ui);
                         (ui.set_input_text)(image_translation.extracted_text);
                         (ui.set_output_text)(image_translation.translated_text);
@@ -233,10 +233,31 @@ pub fn run_eventloop(bus_rx: Receiver<IoEvent>, ui: UiCallbacks, catalog: Langua
                             .overlay_blocks
                             .into_iter()
                             .map(|block| ImageOverlayListItem {
+                                line_rects: serde_json::to_string(
+                                    &block
+                                        .lines
+                                        .iter()
+                                        .map(|line| {
+                                            serde_json::json!({
+                                                "x": line.x,
+                                                "y": line.y,
+                                                "width": line.width,
+                                                "height": line.height,
+                                                "foreground_color": argb_to_qml_color(line.foreground_argb).to_string(),
+                                            })
+                                        })
+                                        .collect::<Vec<_>>(),
+                                )
+                                .unwrap_or_else(|err| {
+                                    eprintln!("Failed to encode OCR line rects: {err}");
+                                    "[]".to_string()
+                                })
+                                .into(),
                                 block_x: block.x as f32,
                                 block_y: block.y as f32,
                                 block_width: block.width as f32,
                                 block_height: block.height as f32,
+                                avg_line_height: block.avg_line_height,
                                 translated_text: block.translated_text.into(),
                                 background_color: argb_to_qml_color(block.background_argb),
                                 foreground_color: argb_to_qml_color(block.foreground_argb),
@@ -246,6 +267,11 @@ pub fn run_eventloop(bus_rx: Receiver<IoEvent>, ui: UiCallbacks, catalog: Langua
                             overlay_items,
                             image_translation.image_width as f32,
                             image_translation.image_height as f32,
+                        );
+                        println!(
+                            "image_ocr postprocess persist_png={:?} ui_model={:?}",
+                            Duration::ZERO,
+                            ui_start.elapsed()
                         );
                     }
                     Err(message) => {
@@ -264,34 +290,6 @@ pub fn run_eventloop(bus_rx: Receiver<IoEvent>, ui: UiCallbacks, catalog: Langua
         }
     }
     println!("all senders done, closing");
-}
-
-fn persist_processed_image(
-    data_dir: &str,
-    image_translation: &image_ocr::ImageTranslation,
-) -> Result<String, String> {
-    let render_dir = std::path::Path::new(data_dir).join("image-renders");
-    std::fs::create_dir_all(&render_dir)
-        .map_err(|err| format!("failed to create image render dir: {err}"))?;
-
-    let render_id = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_err(|err| format!("system clock error: {err}"))?
-        .as_millis();
-    let image_path = render_dir.join(format!("ocr-render-{render_id}.png"));
-
-    let image = ImageBuffer::<Rgba<u8>, _>::from_raw(
-        image_translation.image_width,
-        image_translation.image_height,
-        image_translation.cleaned_rgba_bytes.clone(),
-    )
-    .ok_or_else(|| "failed to build rendered image buffer".to_string())?;
-
-    image
-        .save(&image_path)
-        .map_err(|err| format!("failed to save rendered image: {err}"))?;
-
-    Ok(format!("file://{}", image_path.display()))
 }
 
 fn download_feature(

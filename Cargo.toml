@@ -8,6 +8,8 @@ cld2 = { git = "https://github.com/DavidVentura/rust-cld2.git" }
 #cld2 = { path = "../rust-cld2" }
 ureq = "3.1.2"
 qmetaobject = "0.2"
+qttypes = "0.2"
+cpp = "0.5"
 flate2 = "1.0"
 rayon = "1.10"
 translator = { git = "https://github.com/DavidVentura/translator-rs.git", features = ["tesseract", "tts", "transliterate", "mucab"] }
@@ -24,3 +26,6 @@ debug = "line-tables-only"
 [profile.release]
 lto = "thin"
 strip = "symbols"
+
+[build-dependencies]
+cpp_build = "0.5"

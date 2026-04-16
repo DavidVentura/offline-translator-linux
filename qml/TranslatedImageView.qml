@@ -1,4 +1,5 @@
 import QtQuick 2.15
+import TranslatorUi 1.0
 
 Item {
     id: root
@@ -17,6 +18,19 @@ Item {
         asynchronous: true
         cache: false
         smooth: true
+        opacity: root.appBridge && root.appBridge.processed_image_width > 0 && root.appBridge.processed_image_height > 0 ? 0 : 1
+    }
+
+    RenderedImageItem {
+        id: processedImage
+        x: (parent.width - selectedImage.paintedWidth) / 2
+        y: (parent.height - selectedImage.paintedHeight) / 2
+        width: selectedImage.paintedWidth
+        height: selectedImage.paintedHeight
+        visible: root.appBridge
+                 && root.appBridge.processed_image_width > 0
+                 && root.appBridge.processed_image_height > 0
+        image: root.appBridge ? root.appBridge.processed_image : undefined
     }
 
     Item {
@@ -36,20 +50,188 @@ Item {
                 model: root.appBridge ? root.appBridge.image_overlay_model : null
 
                 Item {
-                    x: block_x * parent.width / root.appBridge.processed_image_width
-                    y: block_y * parent.height / root.appBridge.processed_image_height
-                    width: block_width * parent.width / root.appBridge.processed_image_width
-                    height: block_height * parent.height / root.appBridge.processed_image_height
+                    id: blockItem
+                    width: paintedBounds.width
+                    height: paintedBounds.height
+                    property var lineRects: []
+                    property var fittedLines: []
+                    property real fittedPixelSize: Math.max(8, Math.floor(avg_line_height))
+                    property real minLineHeight: 0
 
-                    Text {
-                        anchors.fill: parent
-                        anchors.margins: ui.dp(2)
-                        text: translated_text
-                        color: foreground_color
-                        wrapMode: Text.Wrap
-                        font.pixelSize: Math.max(10, parent.height * 0.55)
-                        elide: Text.ElideRight
-                        clip: true
+                    function skipSeparators(text, startIndex) {
+                        var index = startIndex
+                        while (index < text.length) {
+                            var ch = text.charAt(index)
+                            if (ch === " " || ch === "\t" || ch === "\r" || ch === "\n") {
+                                index += 1
+                            } else {
+                                break
+                            }
+                        }
+                        return index
+                    }
+
+                    function trimLineText(text) {
+                        return text.replace(/[ \t\r\n]+$/g, "")
+                    }
+
+                    function findBreakIndex(text, startIndex, rawEndIndex) {
+                        for (var index = rawEndIndex - 1; index >= startIndex; index -= 1) {
+                            var ch = text.charAt(index)
+                            if (ch === " " || ch === "\t") {
+                                return index + 1
+                            }
+                            if (ch === "\n") {
+                                return index
+                            }
+                        }
+                        return rawEndIndex
+                    }
+
+                    function countFittingChars(text, startIndex, endIndex, maxWidth) {
+                        var available = text.slice(startIndex, endIndex)
+                        if (!available.length) {
+                            return 0
+                        }
+
+                        var low = 0
+                        var high = available.length
+                        var best = 0
+
+                        while (low <= high) {
+                            var mid = Math.floor((low + high) / 2)
+                            metrics.text = available.slice(0, mid)
+                            var measuredWidth = metrics.advanceWidth || metrics.width
+
+                            if (measuredWidth <= maxWidth + 0.5) {
+                                best = mid
+                                low = mid + 1
+                            } else {
+                                high = mid - 1
+                            }
+                        }
+
+                        return best
+                    }
+
+                    function fitTextToLines(text, rects, pixelSize) {
+                        metrics.font.pixelSize = pixelSize
+                        var startIndex = 0
+                        var lines = []
+
+                        for (var lineIndex = 0; lineIndex < rects.length; lineIndex += 1) {
+                            startIndex = skipSeparators(text, startIndex)
+                            if (startIndex >= text.length) {
+                                break
+                            }
+
+                            var newlineIndex = text.indexOf("\n", startIndex)
+                            if (newlineIndex === -1) {
+                                newlineIndex = text.length
+                            }
+
+                            var countedChars = countFittingChars(
+                                        text,
+                                        startIndex,
+                                        newlineIndex,
+                                        rects[lineIndex].width)
+                            if (countedChars <= 0) {
+                                return { fits: false, lines: lines }
+                            }
+
+                            var rawEndIndex = startIndex + countedChars
+                            var endIndex = rawEndIndex >= newlineIndex
+                                    ? newlineIndex
+                                    : findBreakIndex(text, startIndex, rawEndIndex)
+                            if (endIndex <= startIndex) {
+                                endIndex = rawEndIndex
+                            }
+
+                            var lineText = trimLineText(text.slice(startIndex, endIndex))
+                            metrics.text = lineText || "Ag"
+                            var measuredHeight = metrics.boundingRect ? metrics.boundingRect.height : 0
+                            if (measuredHeight > rects[lineIndex].height) {
+                                return { fits: false, lines: lines }
+                            }
+
+                            lines.push(lineText)
+                            startIndex = endIndex
+                        }
+
+                        startIndex = skipSeparators(text, startIndex)
+                        return { fits: startIndex >= text.length, lines: lines }
+                    }
+
+                    function rebuildLayout() {
+                        var parsedRects = []
+                        if (line_rects) {
+                            try {
+                                var parsed = JSON.parse(line_rects)
+                                if (Array.isArray(parsed)) {
+                                    parsedRects = parsed
+                                }
+                            } catch (error) {
+                                parsedRects = []
+                            }
+                        }
+
+                        lineRects = parsedRects
+                        minLineHeight = parsedRects.length
+                                ? parsedRects.reduce(function(minValue, rect) {
+                                      return Math.min(minValue, rect.height)
+                                  }, parsedRects[0].height)
+                                : 0
+                        if (!translated_text || !parsedRects.length) {
+                            fittedPixelSize = Math.max(8, Math.floor(avg_line_height))
+                            fittedLines = []
+                            return
+                        }
+
+                        var minPixelSize = 8
+                        var startPixelSize = Math.max(
+                                    minPixelSize,
+                                    Math.ceil(avg_line_height) + 4)
+                        var lastAttempt = { fits: false, lines: [] }
+
+                        for (var pixelSize = startPixelSize; pixelSize >= minPixelSize; pixelSize -= 1) {
+                            lastAttempt = fitTextToLines(translated_text, parsedRects, pixelSize)
+                            if (lastAttempt.fits) {
+                                fittedPixelSize = pixelSize
+                                fittedLines = lastAttempt.lines
+                                return
+                            }
+                        }
+
+                        fittedPixelSize = minPixelSize
+                        fittedLines = lastAttempt.lines
+                    }
+
+                    Component.onCompleted: rebuildLayout()
+
+                    TextMetrics {
+                        id: metrics
+                    }
+
+                    Repeater {
+                        model: blockItem.fittedLines.length
+
+                        Text {
+                            property var lineRect: blockItem.lineRects[index] || null
+                            x: lineRect ? lineRect.x * paintedBounds.width / root.appBridge.processed_image_width : 0
+                            y: lineRect ? lineRect.y * paintedBounds.height / root.appBridge.processed_image_height : 0
+                            width: lineRect ? lineRect.width * paintedBounds.width / root.appBridge.processed_image_width : 0
+                            height: lineRect ? lineRect.height * paintedBounds.height / root.appBridge.processed_image_height : 0
+                            text: blockItem.fittedLines[index]
+                            color: lineRect && lineRect.foreground_color ? lineRect.foreground_color : foreground_color
+                            wrapMode: Text.NoWrap
+                            clip: true
+                            font.pixelSize: Math.max(
+                                8,
+                                blockItem.fittedPixelSize * paintedBounds.height / root.appBridge.processed_image_height
+                            )
+                            verticalAlignment: Text.AlignTop
+                            renderType: Text.NativeRendering
+                        }
                     }
                 }
             }

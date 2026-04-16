@@ -48,6 +48,8 @@ pub struct ImageOverlayListItem {
     pub block_y: f32,
     pub block_width: f32,
     pub block_height: f32,
+    pub avg_line_height: f32,
+    pub line_rects: QString,
     pub translated_text: QString,
     pub background_color: QString,
     pub foreground_color: QString,
@@ -109,6 +111,8 @@ pub struct AppBridge {
 
     pub selected_image_url: qt_property!(QString; NOTIFY selected_image_url_changed),
     pub selected_image_url_changed: qt_signal!(),
+    pub processed_image: qt_property!(QImage; NOTIFY processed_image_changed),
+    pub processed_image_changed: qt_signal!(),
     pub share_image_url: qt_property!(QString; NOTIFY share_image_url_changed),
     pub share_image_url_changed: qt_signal!(),
 
@@ -394,6 +398,7 @@ pub struct AppBridge {
             self.set_image_mode_value(false);
             self.set_image_viewer_open_value(false);
             self.set_selected_image_url_value(String::new());
+            self.set_processed_image_value(QImage::default());
             self.set_share_image_url_value(String::new());
             self.set_image_overlay_value(Vec::new(), 0.0, 0.0);
         }
@@ -547,7 +552,7 @@ pub struct UiCallbacks {
     pub set_output_text: Arc<dyn Fn(String) + Send + Sync>,
     pub set_tts_state: Arc<dyn Fn(bool, bool) + Send + Sync>,
     pub set_tts_voices: Arc<dyn Fn(bool, Vec<TtsVoiceListItem>, String, String) + Send + Sync>,
-    pub set_selected_image_url: Arc<dyn Fn(String) + Send + Sync>,
+    pub set_processed_image: Arc<dyn Fn(QImage) + Send + Sync>,
     pub set_image_overlay: Arc<dyn Fn(Vec<ImageOverlayListItem>, f32, f32) + Send + Sync>,
     pub set_detected_language_code: Arc<dyn Fn(String) + Send + Sync>,
 }
@@ -770,6 +775,13 @@ impl AppBridge {
         }
     }
 
+    pub fn set_processed_image_value(&mut self, image: QImage) {
+        if self.processed_image != image {
+            self.processed_image = image;
+            self.processed_image_changed();
+        }
+    }
+
     pub fn set_share_image_url_value(&mut self, url: String) {
         let url = QString::from(url);
         if self.share_image_url != url {
@@ -911,6 +923,7 @@ impl AppBridge {
         self.set_image_mode_value(true);
         self.set_image_viewer_open_value(false);
         self.set_selected_image_url_value(url.clone());
+        self.set_processed_image_value(QImage::default());
         self.set_share_image_url_value(url);
         self.set_image_overlay_value(Vec::new(), 0.0, 0.0);
         self.set_input_text_value(String::new());
@@ -943,6 +956,7 @@ impl AppBridge {
         self.stop_tts();
         self.set_image_overlay_value(Vec::new(), 0.0, 0.0);
         self.set_image_viewer_open_value(false);
+        self.set_processed_image_value(QImage::default());
         self.set_output_text_value("Running OCR...".to_string());
         self.set_detected_language_code_value("");
 
@@ -1658,10 +1672,10 @@ pub fn create_ui_callbacks(app: QPointer<AppBridge>) -> UiCallbacks {
             }
         });
 
-    let selected_image_app = app.clone();
-    let set_selected_image_url = queued_callback(move |url: String| {
-        if let Some(app) = selected_image_app.as_pinned() {
-            app.borrow_mut().set_selected_image_url_value(url);
+    let processed_image_app = app.clone();
+    let set_processed_image = queued_callback(move |image: QImage| {
+        if let Some(app) = processed_image_app.as_pinned() {
+            app.borrow_mut().set_processed_image_value(image);
         }
     });
 
@@ -1693,7 +1707,7 @@ pub fn create_ui_callbacks(app: QPointer<AppBridge>) -> UiCallbacks {
                 set_tts_voices((available, items, selected_name, selected_display_name))
             },
         ),
-        set_selected_image_url: Arc::new(move |url| set_selected_image_url(url)),
+        set_processed_image: Arc::new(move |image| set_processed_image(image)),
         set_image_overlay: Arc::new(move |items, width, height| {
             set_image_overlay((items, width, height))
         }),

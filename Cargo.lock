@@ -1450,9 +1450,12 @@ name = "offline-translator-linux"
 version = "0.1.0"
 dependencies = [
  "cld2",
+ "cpp",
+ "cpp_build",
  "flate2",
  "image",
  "qmetaobject",
+ "qttypes",
  "rayon",
  "serde",
  "serde_json",
