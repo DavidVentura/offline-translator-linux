@@ -1,6 +1,7 @@
 use qmetaobject::*;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, HashSet};
+use std::path::Path;
 use std::sync::Arc;
 use std::sync::mpsc::Sender;
 use translator::transliterate_with_policy_for_language;
@@ -529,6 +530,7 @@ pub struct AppBridge {
     bus_tx: Option<Sender<IoEvent>>,
     asset_dir: String,
     config_dir: String,
+    data_dir: String,
     tts_voice_overrides: BTreeMap<String, String>,
     tts_prewarmed_language_code: String,
     original_image_path: String,
@@ -556,6 +558,7 @@ impl AppBridge {
         bus_tx: Sender<IoEvent>,
         asset_dir: String,
         config_dir: String,
+        data_dir: String,
         settings: Settings,
     ) -> Self {
         let mut app = Self::default();
@@ -569,6 +572,7 @@ impl AppBridge {
         app.desktop_mode = std::env::var_os("CLICKABLE_DESKTOP_MODE").is_some();
         app.asset_dir = asset_dir;
         app.config_dir = config_dir;
+        app.data_dir = data_dir;
         app.source_language_code = "en".to_string();
         app.target_language_code = "en".to_string();
         app.source_language_name = QString::from("English");
@@ -1382,13 +1386,22 @@ impl AppBridge {
             return String::new();
         };
 
+        let japanese_dict_path = if language.code == "ja" {
+            let candidate = Path::new(&self.data_dir).join("bin/mucab.bin");
+            candidate
+                .exists()
+                .then(|| candidate.to_string_lossy().into_owned())
+        } else {
+            None
+        };
+
         transliterate_with_policy_for_language(
             text,
             &language.code,
             &language.script,
             "Latn",
-            None,
-            false,
+            japanese_dict_path.as_deref(),
+            true,
         )
         .unwrap_or_default()
     }

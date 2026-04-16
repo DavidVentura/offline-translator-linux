@@ -69,6 +69,10 @@ Item {
                 border.color: theme.borderColor
                 border.width: 1
 
+                TapHandler {
+                    onTapped: inputArea.forceActiveFocus()
+                }
+
                 Column {
                     id: inputColumn
                     x: ui.dp(12)

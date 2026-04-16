@@ -102,6 +102,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         bus_tx.clone(),
         asset_dir,
         app_paths.config.clone(),
+        app_paths.data.clone(),
         settings,
     ));
 
