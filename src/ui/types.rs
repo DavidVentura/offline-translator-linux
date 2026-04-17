@@ -40,7 +40,7 @@ pub struct ImageOverlayListItem {
     pub block_y: f32,
     pub block_width: f32,
     pub block_height: f32,
-    pub avg_line_height: f32,
+    pub suggested_font_size_px: f32,
     pub line_rects: QString,
     pub translated_text: QString,
     pub background_color: QString,

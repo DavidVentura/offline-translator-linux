@@ -55,7 +55,11 @@ Item {
     }
 
     Item {
-        anchors.fill: parent
+        id: overlayLayer
+        x: paintedBounds.x
+        y: paintedBounds.y
+        width: paintedBounds.width
+        height: paintedBounds.height
         visible: root.appBridge
                  && root.appBridge.processed_image_width > 0
                  && root.appBridge.processed_image_height > 0
@@ -65,11 +69,11 @@ Item {
 
                 Item {
                     id: blockItem
-                    width: paintedBounds.width
-                    height: paintedBounds.height
+                    width: overlayLayer.width
+                    height: overlayLayer.height
                     property var lineRects: []
                     property var fittedLines: []
-                    property real fittedPixelSize: Math.max(8, Math.floor(avg_line_height))
+                    property real fittedPixelSize: Math.max(8, Math.floor(suggested_font_size_px))
                     property real minLineHeight: 0
 
                     function skipSeparators(text, startIndex) {
@@ -196,7 +200,7 @@ Item {
                                   }, parsedRects[0].height)
                                 : 0
                         if (!translated_text || !parsedRects.length) {
-                            fittedPixelSize = Math.max(8, Math.floor(avg_line_height))
+                            fittedPixelSize = Math.max(8, Math.floor(suggested_font_size_px))
                             fittedLines = []
                             return
                         }
@@ -204,7 +208,7 @@ Item {
                         var minPixelSize = 8
                         var startPixelSize = Math.max(
                                     minPixelSize,
-                                    Math.ceil(avg_line_height) + 4)
+                                    Math.ceil(suggested_font_size_px) + 4)
                         var lastAttempt = { fits: false, lines: [] }
 
                         for (var pixelSize = startPixelSize; pixelSize >= minPixelSize; pixelSize -= 1) {
@@ -231,17 +235,17 @@ Item {
 
                         Text {
                             property var lineRect: blockItem.lineRects[index] || null
-                            x: lineRect ? lineRect.x * paintedBounds.width / root.appBridge.processed_image_width : 0
-                            y: lineRect ? lineRect.y * paintedBounds.height / root.appBridge.processed_image_height : 0
-                            width: lineRect ? lineRect.width * paintedBounds.width / root.appBridge.processed_image_width : 0
-                            height: lineRect ? lineRect.height * paintedBounds.height / root.appBridge.processed_image_height : 0
+                            x: lineRect ? lineRect.x * overlayLayer.width / root.appBridge.processed_image_width : 0
+                            y: lineRect ? lineRect.y * overlayLayer.height / root.appBridge.processed_image_height : 0
+                            width: lineRect ? lineRect.width * overlayLayer.width / root.appBridge.processed_image_width : 0
+                            height: lineRect ? lineRect.height * overlayLayer.height / root.appBridge.processed_image_height : 0
                             text: blockItem.fittedLines[index]
                             color: lineRect && lineRect.foreground_color ? lineRect.foreground_color : foreground_color
                             wrapMode: Text.NoWrap
                             clip: true
                             font.pixelSize: Math.max(
                                 8,
-                                blockItem.fittedPixelSize * paintedBounds.height / root.appBridge.processed_image_height
+                                blockItem.fittedPixelSize * overlayLayer.height / root.appBridge.processed_image_height
                             )
                             verticalAlignment: Text.AlignTop
                             renderType: Text.NativeRendering

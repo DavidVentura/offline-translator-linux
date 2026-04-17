@@ -255,7 +255,7 @@ pub fn run_eventloop(bus_rx: Receiver<IoEvent>, ui: UiCallbacks, catalog: Langua
                                 block_y: block.y as f32,
                                 block_width: block.width as f32,
                                 block_height: block.height as f32,
-                                avg_line_height: block.avg_line_height,
+                                suggested_font_size_px: block.suggested_font_size_px,
                                 translated_text: block.translated_text.into(),
                                 background_color: argb_to_qml_color(block.background_argb),
                                 foreground_color: argb_to_qml_color(block.foreground_argb),

@@ -1,12 +1,10 @@
 use std::path::{Path, PathBuf};
-use std::sync::{Mutex, OnceLock};
 use std::time::Instant;
 
 use image::{GenericImageView, ImageDecoder, ImageReader, imageops::FilterType};
 use translator::{
-    BackgroundMode, BergamotEngine, CatalogSnapshot, DetectedWord, PageSegMode, ReadingOrder, Rect,
-    TesseractWrapper, TextBlock, build_text_blocks, prepare_overlay_image,
-    translate_texts_in_snapshot,
+    BackgroundMode, BergamotEngine, CatalogSnapshot, ImageTranslationOutcome,
+    translate_image_rgba_in_snapshot,
 };
 
 #[derive(Debug, Clone)]
@@ -24,7 +22,7 @@ pub struct ImageOverlayBlock {
     pub y: u32,
     pub width: u32,
     pub height: u32,
-    pub avg_line_height: f32,
+    pub suggested_font_size_px: f32,
     pub lines: Vec<ImageOverlayLine>,
     pub translated_text: String,
     pub background_argb: u32,
@@ -53,15 +51,6 @@ pub(crate) fn load_preview_rgba(
     let loaded = load_image_rgba(path, max_image_size)?;
     Ok((loaded.rgba_bytes, loaded.width, loaded.height))
 }
-
-struct OcrEngineState {
-    engine: TesseractWrapper,
-    language_spec: String,
-    reading_order: ReadingOrder,
-    tessdata_path: String,
-}
-
-static OCR_ENGINE: OnceLock<Mutex<Option<OcrEngineState>>> = OnceLock::new();
 
 pub fn resolve_local_path(input: &str) -> Option<PathBuf> {
     if input.is_empty() {
@@ -97,124 +86,35 @@ pub fn translate_image_in_snapshot(
     let load_start = Instant::now();
     let loaded = load_image_rgba(image_path, max_image_size)?;
     let load_elapsed = load_start.elapsed();
-    let reading_order = ReadingOrder::LeftToRight;
-    let join_without_spaces = source_code == "ja";
-    let relax_single_char_confidence = false;
     let background_mode = map_background_mode(background_mode_label);
-
-    let ocr_start = Instant::now();
-    let mut set_frame_elapsed = None;
-    let mut word_boxes_elapsed = None;
-    let mut build_blocks_elapsed = None;
-    let blocks = with_ocr_engine(snapshot, source_code, reading_order, |ocr| {
-        let bytes_per_pixel = 4i32;
-        let width = loaded.width as i32;
-        let height = loaded.height as i32;
-        let bytes_per_line = width
-            .checked_mul(bytes_per_pixel)
-            .ok_or_else(|| "image width overflow".to_string())?;
-
-        ocr.set_page_seg_mode(PageSegMode::PsmAuto);
-        let set_frame_start = Instant::now();
-        ocr.set_frame(
-            &loaded.rgba_bytes,
-            width,
-            height,
-            bytes_per_pixel,
-            bytes_per_line,
-        )
-        .map_err(|err| format!("failed to set OCR frame: {err}"))?;
-        set_frame_elapsed = Some(set_frame_start.elapsed());
-
-        let word_boxes_start = Instant::now();
-        let words = ocr
-            .get_word_boxes()
-            .map_err(|err| format!("failed to read OCR words: {err}"))?;
-        word_boxes_elapsed = Some(word_boxes_start.elapsed());
-
-        let detected_words = words
-            .into_iter()
-            .map(|word| DetectedWord {
-                text: word.text,
-                confidence: word.confidence,
-                bounding_box: Rect {
-                    left: word.bounding_rect.left as u32,
-                    top: word.bounding_rect.top as u32,
-                    right: word.bounding_rect.right as u32,
-                    bottom: word.bounding_rect.bottom as u32,
-                },
-                is_at_beginning_of_para: word.is_at_beginning_of_para,
-                end_para: word.end_para,
-                end_line: word.end_line,
-            })
-            .collect::<Vec<_>>();
-
-        let build_blocks_start = Instant::now();
-        let blocks = build_text_blocks(
-            &detected_words,
-            min_confidence,
-            join_without_spaces,
-            relax_single_char_confidence,
-        );
-        build_blocks_elapsed = Some(build_blocks_start.elapsed());
-
-        Ok(blocks)
-    })?;
-    let ocr_elapsed = ocr_start.elapsed();
-
-    let source_texts = blocks
-        .iter()
-        .map(TextBlock::translation_text)
-        .filter(|text| !text.trim().is_empty())
-        .collect::<Vec<_>>();
-
-    if source_texts.is_empty() {
-        return Err("No text found in image".to_string());
-    }
-
-    let translate_start = Instant::now();
-    let translated_texts = if source_code == target_code {
-        source_texts.clone()
-    } else {
-        match translate_texts_in_snapshot(engine, snapshot, source_code, target_code, &source_texts)
-        {
-            Some(Ok(values)) => values,
-            Some(Err(message)) => return Err(message),
-            None => {
-                return Err(format!(
-                    "Missing installed language pair {source_code}->{target_code}"
-                ));
-            }
-        }
-    };
-    let translate_elapsed = translate_start.elapsed();
-
-    let overlay_start = Instant::now();
-    let prepared = prepare_overlay_image(
+    let process_start = Instant::now();
+    let prepared = match translate_image_rgba_in_snapshot(
+        engine,
+        snapshot,
         &loaded.rgba_bytes,
         loaded.width,
         loaded.height,
-        &blocks,
-        &translated_texts,
+        source_code,
+        target_code,
+        min_confidence,
+        translator::ReadingOrder::LeftToRight,
         background_mode,
-        reading_order,
-    )?;
-    let overlay_elapsed = overlay_start.elapsed();
+    ) {
+        Ok(ImageTranslationOutcome::Ready(prepared)) => prepared,
+        Ok(ImageTranslationOutcome::MissingLanguagePair) => {
+            return Err(format!(
+                "Missing installed language pair {source_code}->{target_code}"
+            ));
+        }
+        Err(message) => return Err(message),
+    };
+    let process_elapsed = process_start.elapsed();
 
     let overlay_blocks = prepared
         .blocks
         .into_iter()
         .map(|block| ImageOverlayBlock {
-            avg_line_height: if block.lines.is_empty() {
-                block.bounding_box.height() as f32
-            } else {
-                block
-                    .lines
-                    .iter()
-                    .map(|line| line.bounding_box.height() as f32)
-                    .sum::<f32>()
-                    / block.lines.len() as f32
-            },
+            suggested_font_size_px: block.layout_hints.suggested_font_size_px,
             lines: block
                 .lines
                 .iter()
@@ -237,85 +137,20 @@ pub fn translate_image_in_snapshot(
         .collect::<Vec<_>>();
 
     println!(
-        "image_ocr timings load={:?} ocr={:?} ocr_set_frame={:?} ocr_word_boxes={:?} ocr_build_blocks={:?} translate={:?} overlay={:?} total={:?}",
+        "image_ocr timings load={:?} process={:?} total={:?}",
         load_elapsed,
-        ocr_elapsed,
-        set_frame_elapsed,
-        word_boxes_elapsed,
-        build_blocks_elapsed,
-        translate_elapsed,
-        overlay_elapsed,
+        process_elapsed,
         total_start.elapsed()
     );
 
     Ok(ImageTranslation {
-        extracted_text: source_texts.join("\n\n"),
-        translated_text: translated_texts.join("\n\n"),
+        extracted_text: prepared.extracted_text,
+        translated_text: prepared.translated_text,
         image_width: loaded.width,
         image_height: loaded.height,
         cleaned_rgba_bytes: prepared.rgba_bytes,
         overlay_blocks,
     })
-}
-
-fn with_ocr_engine<T, F>(
-    snapshot: &CatalogSnapshot,
-    source_code: &str,
-    reading_order: ReadingOrder,
-    f: F,
-) -> Result<T, String>
-where
-    F: FnOnce(&mut TesseractWrapper) -> Result<T, String>,
-{
-    let language = snapshot
-        .catalog
-        .language_by_code(source_code)
-        .ok_or_else(|| format!("unknown source language: {source_code}"))?;
-
-    let tessdata_path = Path::new(&snapshot.base_dir)
-        .join("tesseract")
-        .join("tessdata");
-    let has_japanese_vertical_model =
-        source_code == "ja" && tessdata_path.join("jpn_vert.traineddata").exists();
-    let language_spec = match (source_code, reading_order, has_japanese_vertical_model) {
-        ("ja", ReadingOrder::TopToBottomLeftToRight, true) => "jpn_vert".to_string(),
-        _ => format!("{}+eng", language.tess_name),
-    };
-
-    let mut slot = OCR_ENGINE
-        .get_or_init(|| Mutex::new(None))
-        .lock()
-        .map_err(|_| "OCR engine mutex poisoned".to_string())?;
-
-    let tessdata_path_string = tessdata_path.to_string_lossy().into_owned();
-    let needs_reinit = slot.as_ref().is_none_or(|state| {
-        state.language_spec != language_spec
-            || state.reading_order != reading_order
-            || state.tessdata_path != tessdata_path_string
-    });
-
-    if needs_reinit {
-        let engine = TesseractWrapper::new(
-            Some(
-                tessdata_path
-                    .to_str()
-                    .ok_or_else(|| "invalid tessdata path".to_string())?,
-            ),
-            Some(&language_spec),
-        )
-        .map_err(|err| format!("failed to initialize tesseract: {err}"))?;
-        *slot = Some(OcrEngineState {
-            engine,
-            language_spec,
-            reading_order,
-            tessdata_path: tessdata_path_string,
-        });
-    }
-
-    let state = slot
-        .as_mut()
-        .ok_or_else(|| "OCR engine unavailable".to_string())?;
-    f(&mut state.engine)
 }
 
 fn load_image_rgba(path: &Path, max_image_size: u32) -> Result<LoadedImage, String> {
