@@ -58,10 +58,6 @@ impl AppBridge {
     }
 
     pub(crate) fn compute_transliteration(&self, text: &str, language_code: &str) -> String {
-        if text.trim().is_empty() || text.is_ascii() {
-            return String::new();
-        }
-
         let Some(language) = self.find_language_by_code(language_code) else {
             return String::new();
         };
