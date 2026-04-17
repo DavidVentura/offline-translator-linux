@@ -4,8 +4,8 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 
 use translator::{
-    CatalogSnapshot, DeletePlan, DownloadPlan, LanguageCatalog, PackInstallChecker, PackResolver,
-    build_catalog_snapshot, language_rows_in_snapshot, parse_and_validate_catalog,
+    CatalogSnapshot, DeletePlan, DownloadPlan, LanguageCatalog, LanguageCode, PackInstallChecker,
+    PackResolver, build_catalog_snapshot, language_rows_in_snapshot, parse_and_validate_catalog,
     plan_delete_dictionary_in_snapshot, plan_delete_language_in_snapshot,
     plan_delete_tts_in_snapshot, plan_dictionary_download, plan_dictionary_download_in_snapshot,
     plan_language_download, plan_language_download_in_snapshot, plan_tts_download,
@@ -101,22 +101,24 @@ pub fn languages_from_snapshot(snapshot: &CatalogSnapshot) -> Vec<Language> {
         .map(|row| {
             let language = row.language;
             let code = language.code.clone();
+            let language_code = LanguageCode::from(code.as_str());
             let core_size_bytes =
-                plan_language_download(catalog, &code, &mut full_resolver).total_size;
+                plan_language_download(catalog, &language_code, &mut full_resolver).total_size;
             let dictionary_size_bytes =
-                plan_dictionary_download(catalog, &code, &mut full_resolver)
+                plan_dictionary_download(catalog, &language_code, &mut full_resolver)
                     .map(|plan| plan.total_size)
                     .unwrap_or(0);
-            let tts_size_bytes = plan_tts_download(catalog, &code, None, &mut full_resolver)
-                .map(|plan| plan.total_size)
-                .unwrap_or(0);
+            let tts_size_bytes =
+                plan_tts_download(catalog, &language_code, None, &mut full_resolver)
+                    .map(|plan| plan.total_size)
+                    .unwrap_or(0);
 
             let core_installed = core_size_bytes > 0
-                && plan_language_download_in_snapshot(snapshot, &code)
+                && plan_language_download_in_snapshot(snapshot, &language_code)
                     .tasks
                     .is_empty();
             let dictionary_installed = dictionary_size_bytes > 0
-                && plan_dictionary_download_in_snapshot(snapshot, &code)
+                && plan_dictionary_download_in_snapshot(snapshot, &language_code)
                     .is_some_and(|plan| plan.tasks.is_empty());
 
             let direction = match (
@@ -153,7 +155,7 @@ pub fn languages_from_snapshot(snapshot: &CatalogSnapshot) -> Vec<Language> {
                 tts_progress: 0.0,
                 tts_voice_picker_regions: snapshot
                     .catalog
-                    .tts_voice_picker_regions(&language.code)
+                    .tts_voice_picker_regions(&LanguageCode::from(language.code.as_str()))
                     .into_iter()
                     .map(|region| TtsVoicePickerRegion {
                         code: region.code,
@@ -164,7 +166,7 @@ pub fn languages_from_snapshot(snapshot: &CatalogSnapshot) -> Vec<Language> {
                             .map(|voice| TtsVoicePackOption {
                                 installed: plan_tts_download_in_snapshot(
                                     snapshot,
-                                    &language.code,
+                                    &LanguageCode::from(language.code.as_str()),
                                     Some(voice.pack_id.as_str()),
                                 )
                                 .is_some_and(|plan| plan.tasks.is_empty()),
@@ -192,11 +194,18 @@ pub fn download_plan_for_feature(
     selected_tts_pack_id: Option<&str>,
 ) -> Option<DownloadPlan> {
     match feature {
-        FeatureKind::Core => Some(plan_language_download_in_snapshot(snapshot, language_code)),
-        FeatureKind::Dictionary => plan_dictionary_download_in_snapshot(snapshot, language_code),
-        FeatureKind::Tts => {
-            plan_tts_download_in_snapshot(snapshot, language_code, selected_tts_pack_id)
+        FeatureKind::Core => Some(plan_language_download_in_snapshot(
+            snapshot,
+            &LanguageCode::from(language_code),
+        )),
+        FeatureKind::Dictionary => {
+            plan_dictionary_download_in_snapshot(snapshot, &LanguageCode::from(language_code))
         }
+        FeatureKind::Tts => plan_tts_download_in_snapshot(
+            snapshot,
+            &LanguageCode::from(language_code),
+            selected_tts_pack_id,
+        ),
     }
 }
 
@@ -206,9 +215,15 @@ pub fn delete_plan_for_feature(
     feature: FeatureKind,
 ) -> DeletePlan {
     match feature {
-        FeatureKind::Core => plan_delete_language_in_snapshot(snapshot, language_code),
-        FeatureKind::Dictionary => plan_delete_dictionary_in_snapshot(snapshot, language_code),
-        FeatureKind::Tts => plan_delete_tts_in_snapshot(snapshot, language_code),
+        FeatureKind::Core => {
+            plan_delete_language_in_snapshot(snapshot, &LanguageCode::from(language_code))
+        }
+        FeatureKind::Dictionary => {
+            plan_delete_dictionary_in_snapshot(snapshot, &LanguageCode::from(language_code))
+        }
+        FeatureKind::Tts => {
+            plan_delete_tts_in_snapshot(snapshot, &LanguageCode::from(language_code))
+        }
     }
 }
 

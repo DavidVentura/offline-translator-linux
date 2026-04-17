@@ -3,7 +3,8 @@ use std::time::Instant;
 
 use image::{GenericImageView, ImageDecoder, ImageReader, imageops::FilterType};
 use translator::{
-    BackgroundMode, BergamotEngine, CatalogSnapshot, ImageTranslationOutcome, Translator,
+    BackgroundMode, BergamotEngine, CatalogSnapshot, ImageTranslationOutcome, LanguageCode,
+    Translator,
 };
 
 #[derive(Debug, Clone)]
@@ -88,12 +89,14 @@ pub fn translate_image_in_snapshot(
     let background_mode = map_background_mode(background_mode_label);
     let process_start = Instant::now();
     let mut translator = Translator::new(engine, snapshot);
+    let source_code = LanguageCode::from(source_code);
+    let target_code = LanguageCode::from(target_code);
     let prepared = match translator.translate_image_rgba(
         &loaded.rgba_bytes,
         loaded.width,
         loaded.height,
-        source_code,
-        target_code,
+        &source_code,
+        &target_code,
         min_confidence,
         translator::ReadingOrder::LeftToRight,
         background_mode,
@@ -101,10 +104,12 @@ pub fn translate_image_in_snapshot(
         Ok(ImageTranslationOutcome::Ready(prepared)) => prepared,
         Ok(ImageTranslationOutcome::MissingLanguagePair) => {
             return Err(format!(
-                "Missing installed language pair {source_code}->{target_code}"
+                "Missing installed language pair {}->{}",
+                source_code.as_str(),
+                target_code.as_str()
             ));
         }
-        Err(message) => return Err(message),
+        Err(error) => return Err(error.message),
     };
     let process_elapsed = process_start.elapsed();
 

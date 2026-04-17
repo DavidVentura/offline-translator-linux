@@ -1,6 +1,7 @@
 use qmetaobject::QString;
 use std::path::Path;
-use translator::transliterate_with_policy_for_language;
+use translator::transliterate::transliterate_with_policy_for_language;
+use translator::{LanguageCode, ScriptCode};
 
 use super::AppBridge;
 
@@ -73,9 +74,9 @@ impl AppBridge {
 
         transliterate_with_policy_for_language(
             text,
-            &language.code,
-            &language.script,
-            "Latn",
+            &LanguageCode::from(language.code.clone()),
+            &ScriptCode::from(language.script.clone()),
+            &ScriptCode::from("Latn"),
             japanese_dict_path.as_deref(),
             true,
         )

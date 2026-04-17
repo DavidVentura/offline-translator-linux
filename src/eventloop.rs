@@ -5,7 +5,10 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use cld2::{Format, detect_language};
-use translator::{BergamotEngine, CatalogSnapshot, LanguageCatalog, Translator};
+use translator::{
+    BergamotEngine, CatalogSnapshot, LanguageCatalog, LanguageCode, TextTranslationOutcome,
+    Translator,
+};
 
 use crate::catalog_state::{
     build_snapshot, delete_plan_for_feature, download_plan_for_feature, languages_from_snapshot,
@@ -94,11 +97,16 @@ pub fn run_eventloop(bus_rx: Receiver<IoEvent>, ui: UiCallbacks, catalog: Langua
 
                 let start = Instant::now();
                 let mut translator = Translator::new(&mut engine, current_snapshot);
+                let from_code = LanguageCode::from(from.as_str());
+                let to_code = LanguageCode::from(to.as_str());
 
-                let result = match translator.translate_text(&from, &to, &text) {
-                    Ok(Some(value)) => Ok(value),
-                    Ok(None) => Err(format!("Missing installed language pair {from}->{to}")),
-                    Err(message) => Err(message),
+                let result = match translator.translate_text(&from_code, &to_code, &text) {
+                    Ok(TextTranslationOutcome::Translated(value))
+                    | Ok(TextTranslationOutcome::Passthrough(value)) => Ok(value),
+                    Ok(TextTranslationOutcome::MissingLanguagePair) => {
+                        Err(format!("Missing installed language pair {from}->{to}"))
+                    }
+                    Err(error) => Err(error.message),
                 };
 
                 let text = match result {

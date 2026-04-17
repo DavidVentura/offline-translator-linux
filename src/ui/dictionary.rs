@@ -1,6 +1,6 @@
 use qmetaobject::QString;
-use translator::lookup_dictionary_for_code;
 use translator::tarkka::WordWithTaggedEntries;
+use translator::{DictionaryCode, DictionaryLookupOutcome, lookup_dictionary_for_code};
 
 use super::{AppBridge, types::DictionaryPopupRowItem};
 
@@ -23,11 +23,14 @@ impl AppBridge {
             return;
         }
 
-        let lookup_result =
-            lookup_dictionary_for_code(&self.data_dir, &language.dictionary_code, trimmed);
+        let lookup_result = lookup_dictionary_for_code(
+            &self.data_dir,
+            &DictionaryCode::from(language.dictionary_code.clone()),
+            trimmed,
+        );
 
         match lookup_result {
-            Ok(Some(word_data)) => {
+            Ok(DictionaryLookupOutcome::Found(word_data)) => {
                 self.dictionary_popup_lookup_language_code = language_code.to_string();
                 self.dictionary_popup_data = Some(word_data);
                 self.dictionary_popup_selected_entry_index = 0;
@@ -35,7 +38,7 @@ impl AppBridge {
                 self.rebuild_dictionary_popup_state();
                 self.set_dictionary_popup_open_value(true);
             }
-            Ok(None) => {
+            Ok(DictionaryLookupOutcome::NotFound) => {
                 eprintln!(
                     "dictionary lookup: '{}' not found for {}",
                     trimmed, language_code
@@ -45,10 +48,13 @@ impl AppBridge {
                     trimmed, language.name
                 ));
             }
-            Err(err) => {
+            Ok(DictionaryLookupOutcome::MissingDictionary) => {
+                self.show_toast_impl(format!("No {} dictionary installed", language.name));
+            }
+            Err(error) => {
                 eprintln!(
                     "dictionary lookup failed for '{}' ({}): {}",
-                    trimmed, language_code, err
+                    trimmed, language_code, error.message
                 );
                 self.show_toast_impl("Dictionary lookup failed".to_string());
             }

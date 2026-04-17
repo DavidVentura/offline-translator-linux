@@ -5,9 +5,10 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use translator::{
-    CatalogSnapshot, PcmAudio, SpeechChunk, TtsVoiceOption, available_tts_voices_in_snapshot,
-    plan_speech_chunks_for_text_in_snapshot, synthesize_pcm_in_snapshot,
-    warm_tts_model_in_snapshot,
+    CatalogSnapshot, LanguageCode, PcmAudio, PcmSynthesisOutcome, SpeechChunk,
+    SpeechChunkPlanningOutcome, TtsVoiceOption, TtsVoicesOutcome, TtsWarmOutcome, VoiceName,
+    available_tts_voices_in_snapshot, plan_speech_chunks_for_text_in_snapshot,
+    synthesize_pcm_in_snapshot, warm_tts_model_in_snapshot,
 };
 
 use crate::pulse::PulsePlaybackStream;
@@ -45,15 +46,19 @@ pub fn load_tts_voices(
     language_code: &str,
     selected_voice_name: Option<&str>,
 ) -> Result<TtsVoiceRefresh, String> {
-    let Some(voices) =
-        catch_tts_panic(|| available_tts_voices_in_snapshot(snapshot, language_code))?
-    else {
-        return Ok(TtsVoiceRefresh {
-            available: false,
-            voices: Vec::new(),
-            selected_voice_name: String::new(),
-            selected_voice_display_name: "Default".to_string(),
-        });
+    let language_code = LanguageCode::from(language_code);
+    let voices = match catch_tts_panic(|| {
+        available_tts_voices_in_snapshot(snapshot, &language_code).map_err(|error| error.message)
+    })? {
+        TtsVoicesOutcome::Available(voices) => voices,
+        TtsVoicesOutcome::MissingLanguage => {
+            return Ok(TtsVoiceRefresh {
+                available: false,
+                voices: Vec::new(),
+                selected_voice_name: String::new(),
+                selected_voice_display_name: "Default".to_string(),
+            });
+        }
     };
 
     let voice_preview = voices
@@ -63,7 +68,7 @@ pub fn load_tts_voices(
         .collect::<Vec<_>>();
     eprintln!(
         "tts.load_tts_voices: language={} returned {} voice(s) preview={:?}{}",
-        language_code,
+        language_code.as_str(),
         voices.len(),
         voice_preview,
         if voices.len() > voice_preview.len() {
@@ -98,12 +103,18 @@ pub fn load_tts_voices(
 
 pub fn warm_tts_model(snapshot: &CatalogSnapshot, language_code: &str) -> Result<bool, String> {
     let started_at = Instant::now();
+    let language_code = LanguageCode::from(language_code);
 
-    let ready = catch_tts_panic(|| warm_tts_model_in_snapshot(snapshot, language_code))?;
+    let ready = matches!(
+        catch_tts_panic(|| {
+            warm_tts_model_in_snapshot(snapshot, &language_code).map_err(|error| error.message)
+        })?,
+        TtsWarmOutcome::Warmed
+    );
 
     eprintln!(
         "tts.warm: ready language={} took_ms={}",
-        language_code,
+        language_code.as_str(),
         started_at.elapsed().as_millis()
     );
 
@@ -170,9 +181,19 @@ fn play_text_streaming(
     ui: &UiCallbacks,
 ) -> Result<(), String> {
     let planning_started_at = Instant::now();
-    let planned_chunks =
-        catch_tts_panic(|| plan_speech_chunks_for_text_in_snapshot(snapshot, language_code, text))?
-            .ok_or_else(|| format!("No TTS voice installed for {language_code}"))?;
+    let language_code = LanguageCode::from(language_code);
+    let planned_chunks = match catch_tts_panic(|| {
+        plan_speech_chunks_for_text_in_snapshot(snapshot, &language_code, text)
+            .map_err(|error| error.message)
+    })? {
+        SpeechChunkPlanningOutcome::Planned(chunks) => chunks,
+        SpeechChunkPlanningOutcome::MissingLanguage => {
+            return Err(format!(
+                "No TTS voice installed for {}",
+                language_code.as_str()
+            ));
+        }
+    };
 
     if planned_chunks.is_empty() {
         return Err("Nothing to speak".to_string());
@@ -180,14 +201,14 @@ fn play_text_streaming(
 
     eprintln!(
         "tts.stream: language={} planning_took_ms={} planned {} chunk(s)",
-        language_code,
+        language_code.as_str(),
         planning_started_at.elapsed().as_millis(),
         planned_chunks.len()
     );
 
     let (tx, rx) = sync_channel::<Result<QueuedAudioChunk, String>>(SYNTHESIS_QUEUE_DEPTH);
     let producer_snapshot = snapshot.clone();
-    let producer_language_code = language_code.to_string();
+    let producer_language_code = language_code.as_str().to_string();
     let producer_voice_name = voice_name.map(ToOwned::to_owned);
 
     thread::spawn(move || {
@@ -260,17 +281,20 @@ fn produce_audio_chunks(
             chunk_preview(&chunk.content)
         );
         let pcm = match catch_tts_panic(|| {
-            synthesize_pcm_in_snapshot(
+            match synthesize_pcm_in_snapshot(
                 &snapshot,
-                &language_code,
+                &LanguageCode::from(language_code.as_str()),
                 &chunk.content,
                 speech_speed,
-                voice_name.as_deref(),
+                voice_name.as_deref().map(VoiceName::from).as_ref(),
                 chunk.is_phonemes,
-            )
-            .and_then(|audio| {
-                audio.ok_or_else(|| format!("No TTS voice installed for {language_code}"))
-            })
+            ) {
+                Ok(PcmSynthesisOutcome::Ready(audio)) => Ok(audio),
+                Ok(PcmSynthesisOutcome::MissingLanguage) => {
+                    Err(format!("No TTS voice installed for {language_code}"))
+                }
+                Err(error) => Err(error.message),
+            }
         }) {
             Ok(pcm) => pcm,
             Err(err) => {
