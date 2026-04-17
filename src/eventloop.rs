@@ -277,7 +277,6 @@ pub fn run_eventloop(bus_rx: Receiver<IoEvent>, ui: UiCallbacks, catalog: Langua
                     Err(message) => {
                         (ui.set_input_text)(String::new());
                         (ui.set_output_text)(message);
-                        (ui.set_image_overlay)(Vec::new(), 0.0, 0.0);
                     }
                 }
                 println!("image translation took {:?}", start.elapsed());

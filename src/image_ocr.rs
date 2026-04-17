@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 use std::time::Instant;
 
-use image::{GenericImageView, ImageReader, imageops::FilterType};
+use image::{GenericImageView, ImageDecoder, ImageReader, imageops::FilterType};
 use translator::{
     BackgroundMode, BergamotEngine, CatalogSnapshot, DetectedWord, PageSegMode, ReadingOrder, Rect,
     TesseractWrapper, TextBlock, build_text_blocks, prepare_overlay_image,
@@ -44,6 +44,14 @@ struct LoadedImage {
     rgba_bytes: Vec<u8>,
     width: u32,
     height: u32,
+}
+
+pub(crate) fn load_preview_rgba(
+    path: &Path,
+    max_image_size: u32,
+) -> Result<(Vec<u8>, u32, u32), String> {
+    let loaded = load_image_rgba(path, max_image_size)?;
+    Ok((loaded.rgba_bytes, loaded.width, loaded.height))
 }
 
 struct OcrEngineState {
@@ -311,11 +319,33 @@ where
 }
 
 fn load_image_rgba(path: &Path, max_image_size: u32) -> Result<LoadedImage, String> {
-    let image = ImageReader::open(path)
+    let mut decoder = ImageReader::open(path)
         .map_err(|err| format!("Failed to open image {}: {err}", path.display()))?
-        .decode()
+        .into_decoder()
+        .map_err(|err| {
+            format!(
+                "Failed to create decoder for image {}: {err}",
+                path.display()
+            )
+        })?;
+    let orientation = decoder.orientation().map_err(|err| {
+        format!(
+            "Failed to read orientation for image {}: {err}",
+            path.display()
+        )
+    })?;
+    let mut image = image::DynamicImage::from_decoder(decoder)
         .map_err(|err| format!("Failed to decode image {}: {err}", path.display()))?;
+    image.apply_orientation(orientation);
+
     let (source_width, source_height) = image.dimensions();
+    println!(
+        "image load orientation path={} orientation={orientation:?} size={}x{} max_image_size={}",
+        path.display(),
+        source_width,
+        source_height,
+        max_image_size
+    );
     if source_width == 0 || source_height == 0 {
         return Err(format!("Failed to load image: {}", path.display()));
     }

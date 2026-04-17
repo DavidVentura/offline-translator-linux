@@ -1,6 +1,7 @@
 use qmetaobject::{QImage, QString};
 
 use crate::IoEvent;
+use crate::rendered_image_item::qimage_from_rgba_bytes;
 
 use super::{AppBridge, ImageOverlayListItem};
 
@@ -92,14 +93,22 @@ impl AppBridge {
             return;
         };
 
+        let preview =
+            crate::image_ocr::load_preview_rgba(&path, self.ocr_max_image_size.max(0) as u32).ok();
+
         self.original_image_path = path.display().to_string();
         self.stop_tts();
         self.set_image_mode_value(true);
         self.set_image_viewer_open_value(false);
         self.set_selected_image_url_value(url.clone());
-        self.set_processed_image_value(QImage::default());
         self.set_share_image_url_value(url);
-        self.set_image_overlay_value(Vec::new(), 0.0, 0.0);
+        if let Some((rgba_bytes, width, height)) = preview {
+            self.set_processed_image_value(qimage_from_rgba_bytes(width, height, &rgba_bytes));
+            self.set_image_overlay_value(Vec::new(), width as f32, height as f32);
+        } else {
+            self.set_processed_image_value(QImage::default());
+            self.set_image_overlay_value(Vec::new(), 0.0, 0.0);
+        }
         self.set_input_text_value(String::new());
         self.set_output_text_value("Running OCR...".to_string());
         self.set_detected_language_code_value("");
@@ -128,9 +137,12 @@ impl AppBridge {
         }
 
         self.stop_tts();
-        self.set_image_overlay_value(Vec::new(), 0.0, 0.0);
+        self.set_image_overlay_value(
+            Vec::new(),
+            self.processed_image_width,
+            self.processed_image_height,
+        );
         self.set_image_viewer_open_value(false);
-        self.set_processed_image_value(QImage::default());
         self.set_output_text_value("Running OCR...".to_string());
         self.set_detected_language_code_value("");
 

@@ -259,5 +259,4 @@ Item {
             height: paintedBounds.height
             onClicked: root.imageClicked()
         }
-    }
-}
+  }
