@@ -121,14 +121,18 @@ Item {
                         bottomPadding: 0
                         text: appBridge.input_text
                         color: theme.textPrimary
-                        placeholderText: "Enter text"
-                        placeholderTextColor: theme.textSecondary
                         wrapMode: TextEdit.Wrap
                         verticalAlignment: TextEdit.AlignTop
                         activeFocusOnPress: true
                         selectByMouse: appBridge.desktop_mode
                         background: Item {}
                         onTextChanged: if (text !== appBridge.input_text) appBridge.process_text(text)
+                    }
+
+                    PlaceholderText {
+                        target: inputArea
+                        placeholderText: "Enter text"
+                        placeholderColor: theme.textSecondary
                     }
 
                     Text {

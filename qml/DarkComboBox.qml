@@ -6,11 +6,19 @@ ComboBox {
     property var theme
     property string iconSource
     property bool desktopMode: false
+    leftInset: 0
+    rightInset: 0
+    topInset: 0
+    bottomInset: 0
+    leftPadding: 0
+    rightPadding: 0
+    topPadding: 0
+    bottomPadding: 0
     UiScale { id: ui; desktopMode: control.desktopMode }
 
     contentItem: Label {
-        leftPadding: ui.dp(12)
-        rightPadding: control.indicator ? control.indicator.width + ui.dp(10) : ui.dp(30)
+        leftPadding: ui.dp(6)
+        rightPadding: control.indicator ? control.indicator.width + ui.dp(6) : ui.dp(6)
         text: control.displayText
         color: theme.textPrimary
         verticalAlignment: Text.AlignVCenter
@@ -50,7 +58,7 @@ ComboBox {
 
                 Label {
                     anchors.fill: parent
-                    leftPadding: ui.dp(12)
+                    leftPadding: ui.dp(6)
                     text: modelData
                     color: theme.textPrimary
                     verticalAlignment: Text.AlignVCenter
