@@ -2,10 +2,7 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use image::{GenericImageView, ImageDecoder, ImageReader, imageops::FilterType};
-use translator::{
-    BackgroundMode, BergamotEngine, CatalogSnapshot, ImageTranslationOutcome, LanguageCode,
-    Translator,
-};
+use translator::{BackgroundMode, ImageTranslationOutcome, TranslatorSession};
 
 #[derive(Debug, Clone)]
 pub struct ImageOverlayLine {
@@ -72,9 +69,8 @@ pub fn resolve_local_path(input: &str) -> Option<PathBuf> {
     Some(direct)
 }
 
-pub fn translate_image_in_snapshot(
-    engine: &mut BergamotEngine,
-    snapshot: &CatalogSnapshot,
+pub fn translate_image_with_session(
+    session: &TranslatorSession,
     image_path: &Path,
     source_code: &str,
     target_code: &str,
@@ -88,15 +84,12 @@ pub fn translate_image_in_snapshot(
     let load_elapsed = load_start.elapsed();
     let background_mode = map_background_mode(background_mode_label);
     let process_start = Instant::now();
-    let mut translator = Translator::new(engine, snapshot);
-    let source_code = LanguageCode::from(source_code);
-    let target_code = LanguageCode::from(target_code);
-    let prepared = match translator.translate_image_rgba(
+    let prepared = match session.translate_image_rgba(
         &loaded.rgba_bytes,
         loaded.width,
         loaded.height,
-        &source_code,
-        &target_code,
+        source_code,
+        target_code,
         min_confidence,
         translator::ReadingOrder::LeftToRight,
         background_mode,
@@ -104,9 +97,7 @@ pub fn translate_image_in_snapshot(
         Ok(ImageTranslationOutcome::Ready(prepared)) => prepared,
         Ok(ImageTranslationOutcome::MissingLanguagePair) => {
             return Err(format!(
-                "Missing installed language pair {}->{}",
-                source_code.as_str(),
-                target_code.as_str()
+                "Missing installed language pair {source_code}->{target_code}"
             ));
         }
         Err(error) => return Err(error.message),

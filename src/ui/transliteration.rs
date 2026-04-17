@@ -1,7 +1,4 @@
 use qmetaobject::QString;
-use std::path::Path;
-use translator::transliterate::transliterate_with_policy_for_language;
-use translator::{LanguageCode, ScriptCode};
 
 use super::AppBridge;
 
@@ -59,27 +56,11 @@ impl AppBridge {
     }
 
     pub(crate) fn compute_transliteration(&self, text: &str, language_code: &str) -> String {
-        let Some(language) = self.find_language_by_code(language_code) else {
+        let Some(session) = self.session.as_ref() else {
             return String::new();
         };
-
-        let japanese_dict_path = if language.code == "ja" {
-            let candidate = Path::new(&self.data_dir).join("bin/mucab.bin");
-            candidate
-                .exists()
-                .then(|| candidate.to_string_lossy().into_owned())
-        } else {
-            None
-        };
-
-        transliterate_with_policy_for_language(
-            text,
-            &LanguageCode::from(language.code.clone()),
-            &ScriptCode::from(language.script.clone()),
-            &ScriptCode::from("Latn"),
-            japanese_dict_path.as_deref(),
-            true,
-        )
-        .unwrap_or_default()
+        session
+            .transliterate(text, language_code)
+            .unwrap_or_default()
     }
 }

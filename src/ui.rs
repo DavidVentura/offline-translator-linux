@@ -556,6 +556,7 @@ pub struct AppBridge {
     detected_language_code: String,
     previous_screen: Screen,
     bus_tx: Option<Sender<IoEvent>>,
+    session: Option<std::sync::Arc<translator::TranslatorSession>>,
     asset_dir: String,
     config_dir: String,
     data_dir: String,

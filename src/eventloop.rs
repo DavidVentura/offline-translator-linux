@@ -5,10 +5,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use cld2::{Format, detect_language};
-use translator::{
-    BergamotEngine, CatalogSnapshot, LanguageCatalog, LanguageCode, TextTranslationOutcome,
-    Translator,
-};
+use translator::{LanguageCatalog, TextTranslationOutcome, TranslatorSession};
 
 use crate::catalog_state::{
     build_snapshot, delete_plan_for_feature, download_plan_for_feature, languages_from_snapshot,
@@ -22,10 +19,13 @@ use crate::tts;
 use crate::ui::{ImageOverlayListItem, TtsVoiceListItem, UiCallbacks, argb_to_qml_color};
 use crate::{AppPaths, IoEvent};
 
-pub fn run_eventloop(bus_rx: Receiver<IoEvent>, ui: UiCallbacks, catalog: LanguageCatalog) {
-    let mut engine = BergamotEngine::new();
+pub fn run_eventloop(
+    bus_rx: Receiver<IoEvent>,
+    ui: UiCallbacks,
+    catalog: LanguageCatalog,
+    session: Arc<TranslatorSession>,
+) {
     let mut app_paths = None::<AppPaths>;
-    let mut snapshot = None::<CatalogSnapshot>;
 
     while let Ok(msg) = bus_rx.recv() {
         match msg {
@@ -39,7 +39,7 @@ pub fn run_eventloop(bus_rx: Receiver<IoEvent>, ui: UiCallbacks, catalog: Langua
                 let new_snapshot = build_snapshot(&catalog, &path.data);
                 let languages = languages_from_snapshot(&new_snapshot);
                 (ui.set_languages)(languages);
-                snapshot = Some(new_snapshot);
+                session.replace_snapshot(new_snapshot);
                 println!("Load took {:?}", load_start.elapsed());
             }
             IoEvent::DownloadRequest {
@@ -51,13 +51,10 @@ pub fn run_eventloop(bus_rx: Receiver<IoEvent>, ui: UiCallbacks, catalog: Langua
                     println!("no app path, cant download");
                     continue;
                 };
-                let Some(current_snapshot) = snapshot.as_ref() else {
-                    println!("no snapshot, cant download");
-                    continue;
-                };
 
+                let current_snapshot = session.snapshot();
                 if let Some(plan) = download_plan_for_feature(
-                    current_snapshot,
+                    &current_snapshot,
                     &code,
                     feature,
                     selected_tts_pack_id.as_deref(),
@@ -69,38 +66,28 @@ pub fn run_eventloop(bus_rx: Receiver<IoEvent>, ui: UiCallbacks, catalog: Langua
                 let new_snapshot = build_snapshot(&catalog, &app_paths.data);
                 let languages = languages_from_snapshot(&new_snapshot);
                 (ui.set_languages)(languages);
-                snapshot = Some(new_snapshot);
+                session.replace_snapshot(new_snapshot);
             }
             IoEvent::DeleteLanguage { code, feature } => {
                 let Some(app_paths) = app_paths.clone() else {
                     println!("no app path, cant delete");
                     continue;
                 };
-                let Some(current_snapshot) = snapshot.as_ref() else {
-                    println!("no snapshot, cant delete");
-                    continue;
-                };
 
-                let delete_plan = delete_plan_for_feature(current_snapshot, &code, feature);
+                let delete_plan = delete_plan_for_feature(&session.snapshot(), &code, feature);
                 remove_delete_plan(&app_paths.data, &delete_plan);
 
                 let new_snapshot = build_snapshot(&catalog, &app_paths.data);
                 let languages = languages_from_snapshot(&new_snapshot);
                 (ui.set_languages)(languages);
-                snapshot = Some(new_snapshot);
+                session.replace_snapshot(new_snapshot);
             }
             IoEvent::TranslationRequest { text, from, to } => {
                 send_detection_to_ui(&text, &ui);
-                let Some(current_snapshot) = snapshot.as_ref() else {
-                    continue;
-                };
 
                 let start = Instant::now();
-                let mut translator = Translator::new(&mut engine, current_snapshot);
-                let from_code = LanguageCode::from(from.as_str());
-                let to_code = LanguageCode::from(to.as_str());
 
-                let result = match translator.translate_text(&from_code, &to_code, &text) {
+                let result = match session.translate_text(&from, &to, &text) {
                     Ok(TextTranslationOutcome::Translated(value))
                     | Ok(TextTranslationOutcome::Passthrough(value)) => Ok(value),
                     Ok(TextTranslationOutcome::MissingLanguagePair) => {
@@ -120,12 +107,8 @@ pub fn run_eventloop(bus_rx: Receiver<IoEvent>, ui: UiCallbacks, catalog: Langua
                 language_code,
                 selected_voice_name,
             } => {
-                let Some(current_snapshot) = snapshot.as_ref() else {
-                    continue;
-                };
-
                 match tts::load_tts_voices(
-                    current_snapshot,
+                    &session,
                     &language_code,
                     (!selected_voice_name.is_empty()).then_some(selected_voice_name.as_str()),
                 ) {
@@ -157,11 +140,7 @@ pub fn run_eventloop(bus_rx: Receiver<IoEvent>, ui: UiCallbacks, catalog: Langua
                 }
             }
             IoEvent::WarmTtsModel { language_code } => {
-                let Some(current_snapshot) = snapshot.as_ref() else {
-                    continue;
-                };
-
-                if let Err(err) = tts::warm_tts_model(current_snapshot, &language_code) {
+                if let Err(err) = tts::warm_tts_model(&session, &language_code) {
                     eprintln!("Failed to warm TTS model for {language_code}: {err}");
                 }
             }
@@ -171,11 +150,8 @@ pub fn run_eventloop(bus_rx: Receiver<IoEvent>, ui: UiCallbacks, catalog: Langua
                 speech_speed,
                 voice_name,
             } => {
-                let Some(current_snapshot) = snapshot.as_ref() else {
-                    continue;
-                };
                 tts::play_text_async(
-                    current_snapshot.clone(),
+                    Arc::clone(&session),
                     language_code,
                     text,
                     speech_speed,
@@ -195,14 +171,9 @@ pub fn run_eventloop(bus_rx: Receiver<IoEvent>, ui: UiCallbacks, catalog: Langua
                 max_image_size,
                 background_mode,
             } => {
-                let Some(current_snapshot) = snapshot.as_ref() else {
-                    continue;
-                };
-
                 let start = Instant::now();
-                let result = image_ocr::translate_image_in_snapshot(
-                    &mut engine,
-                    current_snapshot,
+                let result = image_ocr::translate_image_with_session(
+                    &session,
                     std::path::Path::new(&image_path),
                     &from,
                     &to,

@@ -1,6 +1,6 @@
 use qmetaobject::QString;
+use translator::DictionaryLookupOutcome;
 use translator::tarkka::WordWithTaggedEntries;
-use translator::{DictionaryCode, DictionaryLookupOutcome, lookup_dictionary_for_code};
 
 use super::{AppBridge, types::DictionaryPopupRowItem};
 
@@ -23,11 +23,10 @@ impl AppBridge {
             return;
         }
 
-        let lookup_result = lookup_dictionary_for_code(
-            &self.data_dir,
-            &DictionaryCode::from(language.dictionary_code.clone()),
-            trimmed,
-        );
+        let Some(session) = self.session.as_ref() else {
+            return;
+        };
+        let lookup_result = session.lookup_dictionary(language_code, trimmed);
 
         match lookup_result {
             Ok(DictionaryLookupOutcome::Found(word_data)) => {

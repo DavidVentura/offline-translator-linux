@@ -1,4 +1,7 @@
+use std::sync::Arc;
+
 use qmetaobject::QString;
+use translator::TranslatorSession;
 
 use crate::IoEvent;
 use crate::model::{FeatureKind, Language, Screen};
@@ -14,6 +17,7 @@ impl AppBridge {
         config_dir: String,
         data_dir: String,
         settings: Settings,
+        session: Arc<TranslatorSession>,
     ) -> Self {
         let current_screen = std::env::var("START_SCREEN")
             .ok()
@@ -24,6 +28,7 @@ impl AppBridge {
         let mut app = AppBridge {
             current_screen,
             bus_tx: Some(bus_tx),
+            session: Some(session),
             previous_screen: Screen::Translation,
             desktop_mode,
             ..Default::default()

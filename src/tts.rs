@@ -1,14 +1,13 @@
 use std::panic::{AssertUnwindSafe, catch_unwind};
+use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{RecvTimeoutError, SyncSender, sync_channel};
 use std::thread;
 use std::time::{Duration, Instant};
 
 use translator::{
-    CatalogSnapshot, LanguageCode, PcmAudio, PcmSynthesisOutcome, SpeechChunk,
-    SpeechChunkPlanningOutcome, TtsVoiceOption, TtsVoicesOutcome, TtsWarmOutcome, VoiceName,
-    available_tts_voices_in_snapshot, plan_speech_chunks_for_text_in_snapshot,
-    synthesize_pcm_in_snapshot, warm_tts_model_in_snapshot,
+    PcmAudio, PcmSynthesisOutcome, SpeechChunk, SpeechChunkPlanningOutcome, TranslatorSession,
+    TtsVoiceOption, TtsVoicesOutcome, TtsWarmOutcome,
 };
 
 use crate::pulse::PulsePlaybackStream;
@@ -42,13 +41,14 @@ pub fn stop_playback() {
 }
 
 pub fn load_tts_voices(
-    snapshot: &CatalogSnapshot,
+    session: &TranslatorSession,
     language_code: &str,
     selected_voice_name: Option<&str>,
 ) -> Result<TtsVoiceRefresh, String> {
-    let language_code = LanguageCode::from(language_code);
     let voices = match catch_tts_panic(|| {
-        available_tts_voices_in_snapshot(snapshot, &language_code).map_err(|error| error.message)
+        session
+            .available_tts_voices(language_code)
+            .map_err(|error| error.message)
     })? {
         TtsVoicesOutcome::Available(voices) => voices,
         TtsVoicesOutcome::MissingLanguage => {
@@ -68,7 +68,7 @@ pub fn load_tts_voices(
         .collect::<Vec<_>>();
     eprintln!(
         "tts.load_tts_voices: language={} returned {} voice(s) preview={:?}{}",
-        language_code.as_str(),
+        language_code,
         voices.len(),
         voice_preview,
         if voices.len() > voice_preview.len() {
@@ -101,20 +101,21 @@ pub fn load_tts_voices(
     })
 }
 
-pub fn warm_tts_model(snapshot: &CatalogSnapshot, language_code: &str) -> Result<bool, String> {
+pub fn warm_tts_model(session: &TranslatorSession, language_code: &str) -> Result<bool, String> {
     let started_at = Instant::now();
-    let language_code = LanguageCode::from(language_code);
 
     let ready = matches!(
         catch_tts_panic(|| {
-            warm_tts_model_in_snapshot(snapshot, &language_code).map_err(|error| error.message)
+            session
+                .warm_tts_model(language_code)
+                .map_err(|error| error.message)
         })?,
         TtsWarmOutcome::Warmed
     );
 
     eprintln!(
         "tts.warm: ready language={} took_ms={}",
-        language_code.as_str(),
+        language_code,
         started_at.elapsed().as_millis()
     );
 
@@ -122,7 +123,7 @@ pub fn warm_tts_model(snapshot: &CatalogSnapshot, language_code: &str) -> Result
 }
 
 pub fn play_text_async(
-    snapshot: CatalogSnapshot,
+    session: Arc<TranslatorSession>,
     language_code: String,
     text: String,
     speech_speed: f32,
@@ -135,7 +136,7 @@ pub fn play_text_async(
 
     thread::spawn(move || {
         let result = play_text_streaming(
-            &snapshot,
+            &session,
             &language_code,
             &text,
             speech_speed,
@@ -172,7 +173,7 @@ struct QueuedAudioChunk {
 }
 
 fn play_text_streaming(
-    snapshot: &CatalogSnapshot,
+    session: &Arc<TranslatorSession>,
     language_code: &str,
     text: &str,
     speech_speed: f32,
@@ -181,17 +182,14 @@ fn play_text_streaming(
     ui: &UiCallbacks,
 ) -> Result<(), String> {
     let planning_started_at = Instant::now();
-    let language_code = LanguageCode::from(language_code);
     let planned_chunks = match catch_tts_panic(|| {
-        plan_speech_chunks_for_text_in_snapshot(snapshot, &language_code, text)
+        session
+            .plan_speech_chunks(language_code, text)
             .map_err(|error| error.message)
     })? {
         SpeechChunkPlanningOutcome::Planned(chunks) => chunks,
         SpeechChunkPlanningOutcome::MissingLanguage => {
-            return Err(format!(
-                "No TTS voice installed for {}",
-                language_code.as_str()
-            ));
+            return Err(format!("No TTS voice installed for {}", language_code));
         }
     };
 
@@ -201,14 +199,14 @@ fn play_text_streaming(
 
     eprintln!(
         "tts.stream: language={} planning_took_ms={} planned {} chunk(s)",
-        language_code.as_str(),
+        language_code,
         planning_started_at.elapsed().as_millis(),
         planned_chunks.len()
     );
 
     let (tx, rx) = sync_channel::<Result<QueuedAudioChunk, String>>(SYNTHESIS_QUEUE_DEPTH);
-    let producer_snapshot = snapshot.clone();
-    let producer_language_code = language_code.as_str().to_string();
+    let producer_session = Arc::clone(session);
+    let producer_language_code = language_code.to_string();
     let producer_voice_name = voice_name.map(ToOwned::to_owned);
 
     thread::spawn(move || {
@@ -216,7 +214,7 @@ fn play_text_streaming(
             planned_chunks,
             tx,
             generation,
-            producer_snapshot,
+            producer_session,
             producer_language_code,
             speech_speed,
             producer_voice_name,
@@ -262,7 +260,7 @@ fn produce_audio_chunks(
     planned_chunks: Vec<SpeechChunk>,
     tx: SyncSender<Result<QueuedAudioChunk, String>>,
     generation: u64,
-    snapshot: CatalogSnapshot,
+    session: Arc<TranslatorSession>,
     language_code: String,
     speech_speed: f32,
     voice_name: Option<String>,
@@ -281,12 +279,11 @@ fn produce_audio_chunks(
             chunk_preview(&chunk.content)
         );
         let pcm = match catch_tts_panic(|| {
-            match synthesize_pcm_in_snapshot(
-                &snapshot,
-                &LanguageCode::from(language_code.as_str()),
+            match session.synthesize_pcm(
+                &language_code,
                 &chunk.content,
                 speech_speed,
-                voice_name.as_deref().map(VoiceName::from).as_ref(),
+                voice_name.as_deref(),
                 chunk.is_phonemes,
             ) {
                 Ok(PcmSynthesisOutcome::Ready(audio)) => Ok(audio),
