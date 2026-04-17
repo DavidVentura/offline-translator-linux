@@ -42,6 +42,9 @@ Item {
     Loader {
         id: imagePickerLoader
         active: true
+        parent: appBridge.desktop_mode ? root : Overlay.overlay
+        anchors.fill: parent
+        z: 30
         source: appBridge.desktop_mode ? "DesktopImagePicker.qml" : "UbportsImagePicker.qml"
 
         onLoaded: {
@@ -81,10 +84,14 @@ Item {
             Layout.preferredHeight: Math.max(ui.dp(180), root.height * 0.34)
             Layout.minimumHeight: ui.dp(120)
             clip: true
+            contentWidth: availableWidth
+            contentHeight: inputPane.height
+            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
 
             Rectangle {
-                width: parent.width
-                implicitHeight: Math.max(inputScroll.height, inputColumn.implicitHeight + ui.dp(24))
+                id: inputPane
+                width: inputScroll.availableWidth
+                height: Math.max(inputScroll.availableHeight, inputContent.height + ui.dp(24))
                 color: theme.backgroundColor
                 border.color: theme.borderColor
                 border.width: 1
@@ -93,17 +100,17 @@ Item {
                     onTapped: inputArea.forceActiveFocus()
                 }
 
-                Column {
-                    id: inputColumn
+                Item {
+                    id: inputContent
                     x: ui.dp(12)
                     y: ui.dp(12)
                     width: Math.max(0, parent.width - ui.dp(24))
-                    spacing: inputTransliteration.visible ? ui.dp(6) : 0
+                    height: inputArea.height + (inputTransliteration.visible ? ui.dp(6) + inputTransliteration.implicitHeight : 0)
 
                     TextArea {
                         id: inputArea
                         width: Math.max(0, parent.width - (inputActionButton.visible ? root.clipboardButtonSize + ui.dp(12) : 0))
-                        implicitHeight: Math.max(ui.dp(28), contentHeight + topPadding + bottomPadding)
+                        height: Math.max(ui.dp(28), contentHeight + topPadding + bottomPadding)
                         text: appBridge.input_text
                         color: theme.textPrimary
                         placeholderText: "Enter text"
@@ -118,6 +125,7 @@ Item {
                     Text {
                         id: inputTransliteration
                         visible: appBridge.input_transliteration.length > 0
+                        y: inputArea.height + (visible ? ui.dp(6) : 0)
                         width: parent.width
                         text: appBridge.input_transliteration
                         wrapMode: Text.Wrap
@@ -305,30 +313,36 @@ Item {
                 id: outputScroll
                 anchors.fill: parent
                 clip: true
+                contentWidth: availableWidth
+                contentHeight: outputPane.height
+                ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
 
                 Rectangle {
-                    width: parent.width
-                    implicitHeight: Math.max(outputScroll.height, outputColumn.implicitHeight + ui.dp(24))
+                    id: outputPane
+                    width: outputScroll.availableWidth
+                    height: Math.max(outputScroll.availableHeight, outputContent.height + ui.dp(24))
                     color: theme.backgroundColor
                     border.color: theme.borderColor
                     border.width: 1
 
-                    Column {
-                        id: outputColumn
+                    Item {
+                        id: outputContent
                         x: ui.dp(12)
                         y: ui.dp(12)
                         width: Math.max(0, parent.width - ui.dp(24))
-                        spacing: outputTransliteration.visible ? ui.dp(6) : 0
+                        height: outputArea.height + (outputTransliteration.visible ? ui.dp(6) + outputTransliteration.implicitHeight : 0)
 
-                        TextEdit {
+                        TextArea {
                             id: outputArea
                             width: Math.max(0, parent.width - ((copyButton.visible || speechButton.visible) ? root.clipboardButtonSize + ui.dp(12) : 0))
+                            height: Math.max(ui.dp(28), contentHeight + topPadding + bottomPadding)
                             text: appBridge.output_text
                             readOnly: true
                             wrapMode: TextEdit.Wrap
                             selectByMouse: true
                             color: theme.textPrimary
                             font.pointSize: ui.pt(16)
+                            background: Item {}
                         }
 
                         MouseArea {
@@ -366,6 +380,7 @@ Item {
                         Text {
                             id: outputTransliteration
                             visible: appBridge.output_transliteration.length > 0
+                            y: outputArea.height + (visible ? ui.dp(6) : 0)
                             width: parent.width
                             text: appBridge.output_transliteration
                             wrapMode: Text.Wrap
