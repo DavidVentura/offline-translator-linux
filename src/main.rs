@@ -1,6 +1,7 @@
 #![recursion_limit = "256"]
 
 mod catalog_state;
+mod data;
 mod download;
 mod eventloop;
 mod image_ocr;

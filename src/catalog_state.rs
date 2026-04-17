@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 use std::fs;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 
 use translator::{
@@ -11,9 +12,8 @@ use translator::{
     plan_tts_download_in_snapshot,
 };
 
+use crate::data::INDEX_JSON;
 use crate::model::{Direction, FeatureKind, Language, TtsVoicePackOption, TtsVoicePickerRegion};
-
-const BUNDLED_CATALOG_JSON: &str = include_str!("../data/catalog.json");
 
 pub struct FsInstallChecker {
     base_dir: PathBuf,
@@ -64,8 +64,13 @@ impl PackInstallChecker for EmptyInstallChecker {
 }
 
 pub fn bundled_catalog() -> LanguageCatalog {
-    let catalog =
-        parse_and_validate_catalog(BUNDLED_CATALOG_JSON).expect("bundled catalog should parse");
+    let mut decoder = flate2::read::GzDecoder::new(INDEX_JSON);
+    let mut json = String::new();
+    decoder
+        .read_to_string(&mut json)
+        .expect("bundled index should decompress");
+
+    let catalog = parse_and_validate_catalog(&json).expect("bundled index should parse");
     eprintln!(
         "catalog loaded: format={} languages={}",
         catalog.format_version,
