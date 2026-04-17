@@ -117,8 +117,7 @@ fn extract_zip(
 ) -> Result<(), String> {
     let extract_root = Path::new(base_dir).join(extract_to);
     let install_root_name = install_marker_path
-        .map(|path| Path::new(path).parent().and_then(Path::file_name))
-        .flatten()
+        .and_then(|path| Path::new(path).parent().and_then(Path::file_name))
         .map(|value| value.to_string_lossy().to_string());
 
     {

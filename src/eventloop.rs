@@ -58,11 +58,9 @@ pub fn run_eventloop(bus_rx: Receiver<IoEvent>, ui: UiCallbacks, catalog: Langua
                     &code,
                     feature,
                     selected_tts_pack_id.as_deref(),
-                ) {
-                    if let Err(err) = download_feature(&code, feature, &plan, &app_paths.data, &ui)
-                    {
-                        eprintln!("Download failed for {code}: {err}");
-                    }
+                ) && let Err(err) = download_feature(&code, feature, &plan, &app_paths.data, &ui)
+                {
+                    eprintln!("Download failed for {code}: {err}");
                 }
 
                 let new_snapshot = build_snapshot(&catalog, &app_paths.data);

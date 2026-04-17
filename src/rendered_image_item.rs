@@ -32,7 +32,7 @@ impl QQuickItem for RenderedImageItem {}
 impl QQuickPaintedItem for RenderedImageItem {
     fn paint(&mut self, painter: &mut QPainter) {
         let size = self.image.size();
-        if size.width <= 0 || size.height <= 0 {
+        if size.width == 0 || size.height == 0 {
             return;
         }
 

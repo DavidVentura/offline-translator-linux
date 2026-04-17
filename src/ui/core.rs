@@ -15,15 +15,19 @@ impl AppBridge {
         data_dir: String,
         settings: Settings,
     ) -> Self {
-        let mut app = Self::default();
-        app.bus_tx = Some(bus_tx);
-        app.current_screen = std::env::var("START_SCREEN")
+        let current_screen = std::env::var("START_SCREEN")
             .ok()
             .filter(|s| !s.is_empty())
             .and_then(|s| s.parse::<i32>().ok())
             .unwrap_or(Screen::NoLanguages.as_i32());
-        app.previous_screen = Screen::Translation;
-        app.desktop_mode = std::env::var_os("CLICKABLE_DESKTOP_MODE").is_some();
+        let desktop_mode = std::env::var_os("CLICKABLE_DESKTOP_MODE").is_some();
+        let mut app = AppBridge {
+            current_screen,
+            bus_tx: Some(bus_tx),
+            previous_screen: Screen::Translation,
+            desktop_mode,
+            ..Default::default()
+        };
         if cfg!(debug_assertions) {
             let automation_from = std::env::var("AUTOMATION_FROM").unwrap_or_default();
             let automation_to = std::env::var("AUTOMATION_TO").unwrap_or_default();

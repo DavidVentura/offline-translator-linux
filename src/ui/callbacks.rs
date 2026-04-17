@@ -89,22 +89,22 @@ pub fn create_ui_callbacks(app: QPointer<AppBridge>) -> UiCallbacks {
     });
 
     UiCallbacks {
-        set_languages: Arc::new(move |languages| set_languages(languages)),
+        set_languages: Arc::new(set_languages),
         set_feature_progress: Arc::new(move |code, feature, progress| {
             set_feature_progress((code, feature.as_i32(), progress))
         }),
-        set_input_text: Arc::new(move |text| set_input_text(text)),
-        set_output_text: Arc::new(move |text| set_output_text(text)),
+        set_input_text: Arc::new(set_input_text),
+        set_output_text: Arc::new(set_output_text),
         set_tts_state: Arc::new(move |loading, playing| set_tts_state((loading, playing))),
         set_tts_voices: Arc::new(
             move |available, items, selected_name, selected_display_name| {
                 set_tts_voices((available, items, selected_name, selected_display_name))
             },
         ),
-        set_processed_image: Arc::new(move |image| set_processed_image(image)),
+        set_processed_image: Arc::new(set_processed_image),
         set_image_overlay: Arc::new(move |items, width, height| {
             set_image_overlay((items, width, height))
         }),
-        set_detected_language_code: Arc::new(move |code| set_detected_language_code(code)),
+        set_detected_language_code: Arc::new(set_detected_language_code),
     }
 }

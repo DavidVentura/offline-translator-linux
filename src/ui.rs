@@ -207,7 +207,7 @@ pub struct AppBridge {
     ),
     pub automation_log: qt_method!(
         fn automation_log(&self, message: QString) {
-            println!("automation qml {}", message.to_string());
+            println!("automation qml {}", message);
         }
     ),
 

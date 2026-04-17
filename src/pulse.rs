@@ -100,7 +100,7 @@ impl PulsePlayback {
     }
 
     fn write_samples(&self, samples: &[i16]) -> Result<(), String> {
-        let mut bytes = Vec::with_capacity(samples.len() * std::mem::size_of::<i16>());
+        let mut bytes = Vec::with_capacity(std::mem::size_of_val(samples));
         for sample in samples {
             bytes.extend_from_slice(&sample.to_le_bytes());
         }

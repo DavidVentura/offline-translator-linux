@@ -235,7 +235,7 @@ fn dictionary_subtitle(word: &WordWithTaggedEntries) -> String {
     let ipa = word
         .sounds
         .as_ref()
-        .map(|value| value.replace('[', "/").replace(']', "/"))
+        .map(|value| value.replace(['[', ']'], "/"))
         .filter(|value| !value.trim().is_empty());
     let hyphenation = (!word.hyphenations.is_empty()).then(|| word.hyphenations.join("·"));
 
