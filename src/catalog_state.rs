@@ -1,57 +1,20 @@
 use std::collections::HashSet;
 use std::fs;
 use std::io::Read;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use translator::{
-    CatalogSnapshot, DeletePlan, DownloadPlan, LanguageCatalog, LanguageCode, PackInstallChecker,
-    PackResolver, build_catalog_snapshot, language_rows_in_snapshot, parse_and_validate_catalog,
-    plan_delete_dictionary_in_snapshot, plan_delete_language_in_snapshot,
-    plan_delete_tts_in_snapshot, plan_dictionary_download, plan_dictionary_download_in_snapshot,
+    CatalogSnapshot, DeletePlan, FsPackInstallChecker, LanguageCatalog, LanguageCode,
+    PackInstallChecker, PackResolver, build_catalog_snapshot, language_rows_in_snapshot,
+    parse_and_validate_catalog, plan_dictionary_download, plan_dictionary_download_in_snapshot,
     plan_language_download, plan_language_download_in_snapshot, plan_tts_download,
     plan_tts_download_in_snapshot,
 };
 
 use crate::data::INDEX_JSON;
-use crate::model::{Direction, FeatureKind, Language, TtsVoicePackOption, TtsVoicePickerRegion};
-
-pub struct FsInstallChecker {
-    base_dir: PathBuf,
-}
+use crate::model::{Direction, Language, TtsVoicePackOption, TtsVoicePickerRegion};
 
 struct EmptyInstallChecker;
-
-impl FsInstallChecker {
-    pub fn new(base_dir: impl Into<PathBuf>) -> Self {
-        Self {
-            base_dir: base_dir.into(),
-        }
-    }
-
-    fn resolve(&self, relative_path: &str) -> PathBuf {
-        self.base_dir.join(relative_path)
-    }
-}
-
-impl PackInstallChecker for FsInstallChecker {
-    fn file_exists(&self, install_path: &str) -> bool {
-        self.resolve(install_path).exists()
-    }
-
-    fn install_marker_exists(&self, marker_path: &str, expected_version: i32) -> bool {
-        let marker_file = self.resolve(marker_path);
-        if !marker_file.exists() {
-            return false;
-        }
-
-        let Ok(contents) = fs::read_to_string(marker_file) else {
-            return false;
-        };
-
-        contents.contains(&format!("\"version\":{expected_version}"))
-            || contents.contains(&format!("\"version\": {expected_version}"))
-    }
-}
 
 impl PackInstallChecker for EmptyInstallChecker {
     fn file_exists(&self, _install_path: &str) -> bool {
@@ -80,7 +43,7 @@ pub fn bundled_catalog() -> LanguageCatalog {
 }
 
 pub fn build_snapshot(catalog: &LanguageCatalog, base_dir: &str) -> CatalogSnapshot {
-    let checker = FsInstallChecker::new(base_dir);
+    let checker = FsPackInstallChecker::new(base_dir);
     let snapshot = build_catalog_snapshot(catalog.clone(), base_dir.to_string(), &checker);
     eprintln!(
         "snapshot built: base_dir={} languages={} statuses={}",
@@ -185,46 +148,6 @@ pub fn languages_from_snapshot(snapshot: &CatalogSnapshot) -> Vec<Language> {
     languages.sort_by(|left, right| left.name.cmp(&right.name));
     eprintln!("languages_from_snapshot: {} rows", languages.len());
     languages
-}
-
-pub fn download_plan_for_feature(
-    snapshot: &CatalogSnapshot,
-    language_code: &str,
-    feature: FeatureKind,
-    selected_tts_pack_id: Option<&str>,
-) -> Option<DownloadPlan> {
-    match feature {
-        FeatureKind::Core => Some(plan_language_download_in_snapshot(
-            snapshot,
-            &LanguageCode::from(language_code),
-        )),
-        FeatureKind::Dictionary => {
-            plan_dictionary_download_in_snapshot(snapshot, &LanguageCode::from(language_code))
-        }
-        FeatureKind::Tts => plan_tts_download_in_snapshot(
-            snapshot,
-            &LanguageCode::from(language_code),
-            selected_tts_pack_id,
-        ),
-    }
-}
-
-pub fn delete_plan_for_feature(
-    snapshot: &CatalogSnapshot,
-    language_code: &str,
-    feature: FeatureKind,
-) -> DeletePlan {
-    match feature {
-        FeatureKind::Core => {
-            plan_delete_language_in_snapshot(snapshot, &LanguageCode::from(language_code))
-        }
-        FeatureKind::Dictionary => {
-            plan_delete_dictionary_in_snapshot(snapshot, &LanguageCode::from(language_code))
-        }
-        FeatureKind::Tts => {
-            plan_delete_tts_in_snapshot(snapshot, &LanguageCode::from(language_code))
-        }
-    }
 }
 
 pub fn format_size(size_bytes: u64) -> String {

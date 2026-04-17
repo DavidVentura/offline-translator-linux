@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use image::{GenericImageView, ImageDecoder, ImageReader, imageops::FilterType};
-use translator::{BackgroundMode, ImageTranslationOutcome, TranslatorSession};
+use translator::{BackgroundMode, TranslatorSession};
 
 #[derive(Debug, Clone)]
 pub struct ImageOverlayLine {
@@ -84,24 +84,24 @@ pub fn translate_image_with_session(
     let load_elapsed = load_start.elapsed();
     let background_mode = map_background_mode(background_mode_label);
     let process_start = Instant::now();
-    let prepared = match session.translate_image_rgba(
-        &loaded.rgba_bytes,
-        loaded.width,
-        loaded.height,
-        source_code,
-        target_code,
-        min_confidence,
-        translator::ReadingOrder::LeftToRight,
-        background_mode,
-    ) {
-        Ok(ImageTranslationOutcome::Ready(prepared)) => prepared,
-        Ok(ImageTranslationOutcome::MissingLanguagePair) => {
-            return Err(format!(
-                "Missing installed language pair {source_code}->{target_code}"
-            ));
-        }
-        Err(error) => return Err(error.message),
-    };
+    let prepared = session
+        .translate_image_rgba(
+            &loaded.rgba_bytes,
+            loaded.width,
+            loaded.height,
+            source_code,
+            target_code,
+            min_confidence,
+            translator::ReadingOrder::LeftToRight,
+            background_mode,
+        )
+        .map_err(|err| {
+            if err.is_missing_asset() {
+                format!("Missing installed language pair {source_code}->{target_code}")
+            } else {
+                err.message
+            }
+        })?;
     let process_elapsed = process_start.elapsed();
 
     let overlay_blocks = prepared

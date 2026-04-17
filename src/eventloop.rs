@@ -5,12 +5,9 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use cld2::{Format, detect_language};
-use translator::{LanguageCatalog, TextTranslationOutcome, TranslatorSession};
+use translator::{LanguageCatalog, TranslatorSession};
 
-use crate::catalog_state::{
-    build_snapshot, delete_plan_for_feature, download_plan_for_feature, languages_from_snapshot,
-    remove_delete_plan,
-};
+use crate::catalog_state::{build_snapshot, languages_from_snapshot, remove_delete_plan};
 use crate::download;
 use crate::image_ocr;
 use crate::model::FeatureKind;
@@ -52,13 +49,9 @@ pub fn run_eventloop(
                     continue;
                 };
 
-                let current_snapshot = session.snapshot();
-                if let Some(plan) = download_plan_for_feature(
-                    &current_snapshot,
-                    &code,
-                    feature,
-                    selected_tts_pack_id.as_deref(),
-                ) && let Err(err) = download_feature(&code, feature, &plan, &app_paths.data, &ui)
+                if let Some(plan) =
+                    session.plan_download(&code, feature.into(), selected_tts_pack_id.as_deref())
+                    && let Err(err) = download_feature(&code, feature, &plan, &app_paths.data, &ui)
                 {
                     eprintln!("Download failed for {code}: {err}");
                 }
@@ -74,7 +67,7 @@ pub fn run_eventloop(
                     continue;
                 };
 
-                let delete_plan = delete_plan_for_feature(&session.snapshot(), &code, feature);
+                let delete_plan = session.prepare_delete(&code, feature.into());
                 remove_delete_plan(&app_paths.data, &delete_plan);
 
                 let new_snapshot = build_snapshot(&catalog, &app_paths.data);
@@ -87,14 +80,13 @@ pub fn run_eventloop(
 
                 let start = Instant::now();
 
-                let result = match session.translate_text(&from, &to, &text) {
-                    Ok(TextTranslationOutcome::Translated(value))
-                    | Ok(TextTranslationOutcome::Passthrough(value)) => Ok(value),
-                    Ok(TextTranslationOutcome::MissingLanguagePair) => {
-                        Err(format!("Missing installed language pair {from}->{to}"))
+                let result = session.translate_text(&from, &to, &text).map_err(|error| {
+                    if error.is_missing_asset() {
+                        format!("Missing installed language pair {from}->{to}")
+                    } else {
+                        error.message
                     }
-                    Err(error) => Err(error.message),
-                };
+                });
 
                 let text = match result {
                     Ok(result) => result,

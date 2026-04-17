@@ -12,6 +12,16 @@ pub enum FeatureKind {
     Tts,
 }
 
+impl From<FeatureKind> for translator::Feature {
+    fn from(value: FeatureKind) -> Self {
+        match value {
+            FeatureKind::Core => translator::Feature::Core,
+            FeatureKind::Dictionary => translator::Feature::Dictionary,
+            FeatureKind::Tts => translator::Feature::Tts,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct TtsVoicePackOption {
     pub pack_id: String,

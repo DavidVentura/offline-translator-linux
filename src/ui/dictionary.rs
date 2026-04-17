@@ -1,5 +1,4 @@
 use qmetaobject::QString;
-use translator::DictionaryLookupOutcome;
 use translator::tarkka::WordWithTaggedEntries;
 
 use super::{AppBridge, types::DictionaryPopupRowItem};
@@ -29,7 +28,7 @@ impl AppBridge {
         let lookup_result = session.lookup_dictionary(language_code, trimmed);
 
         match lookup_result {
-            Ok(DictionaryLookupOutcome::Found(word_data)) => {
+            Ok(Some(word_data)) => {
                 self.dictionary_popup_lookup_language_code = language_code.to_string();
                 self.dictionary_popup_data = Some(word_data);
                 self.dictionary_popup_selected_entry_index = 0;
@@ -37,7 +36,7 @@ impl AppBridge {
                 self.rebuild_dictionary_popup_state();
                 self.set_dictionary_popup_open_value(true);
             }
-            Ok(DictionaryLookupOutcome::NotFound) => {
+            Ok(None) => {
                 eprintln!(
                     "dictionary lookup: '{}' not found for {}",
                     trimmed, language_code
@@ -47,7 +46,7 @@ impl AppBridge {
                     trimmed, language.name
                 ));
             }
-            Ok(DictionaryLookupOutcome::MissingDictionary) => {
+            Err(error) if error.is_missing_asset() => {
                 self.show_toast_impl(format!("No {} dictionary installed", language.name));
             }
             Err(error) => {

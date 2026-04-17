@@ -5,10 +5,7 @@ use std::sync::mpsc::{RecvTimeoutError, SyncSender, sync_channel};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use translator::{
-    PcmAudio, PcmSynthesisOutcome, SpeechChunk, SpeechChunkPlanningOutcome, TranslatorSession,
-    TtsVoiceOption, TtsVoicesOutcome, TtsWarmOutcome,
-};
+use translator::{PcmAudio, SpeechChunk, TranslatorSession, TtsVoiceOption};
 
 use crate::pulse::PulsePlaybackStream;
 use crate::ui::UiCallbacks;
@@ -45,13 +42,15 @@ pub fn load_tts_voices(
     language_code: &str,
     selected_voice_name: Option<&str>,
 ) -> Result<TtsVoiceRefresh, String> {
-    let voices = match catch_tts_panic(|| {
-        session
-            .available_tts_voices(language_code)
-            .map_err(|error| error.message)
+    let voices = match catch_tts_panic(|| -> Result<Option<Vec<TtsVoiceOption>>, String> {
+        match session.available_tts_voices(language_code) {
+            Ok(voices) => Ok(Some(voices)),
+            Err(err) if err.is_missing_asset() => Ok(None),
+            Err(err) => Err(err.message),
+        }
     })? {
-        TtsVoicesOutcome::Available(voices) => voices,
-        TtsVoicesOutcome::MissingLanguage => {
+        Some(voices) => voices,
+        None => {
             return Ok(TtsVoiceRefresh {
                 available: false,
                 voices: Vec::new(),
@@ -104,14 +103,11 @@ pub fn load_tts_voices(
 pub fn warm_tts_model(session: &TranslatorSession, language_code: &str) -> Result<bool, String> {
     let started_at = Instant::now();
 
-    let ready = matches!(
-        catch_tts_panic(|| {
-            session
-                .warm_tts_model(language_code)
-                .map_err(|error| error.message)
-        })?,
-        TtsWarmOutcome::Warmed
-    );
+    let ready = catch_tts_panic(|| match session.warm_tts_model(language_code) {
+        Ok(()) => Ok(true),
+        Err(err) if err.is_missing_asset() => Ok(false),
+        Err(err) => Err(err.message),
+    })?;
 
     eprintln!(
         "tts.warm: ready language={} took_ms={}",
@@ -182,16 +178,14 @@ fn play_text_streaming(
     ui: &UiCallbacks,
 ) -> Result<(), String> {
     let planning_started_at = Instant::now();
-    let planned_chunks = match catch_tts_panic(|| {
-        session
-            .plan_speech_chunks(language_code, text)
-            .map_err(|error| error.message)
-    })? {
-        SpeechChunkPlanningOutcome::Planned(chunks) => chunks,
-        SpeechChunkPlanningOutcome::MissingLanguage => {
-            return Err(format!("No TTS voice installed for {}", language_code));
+    let planned_chunks = catch_tts_panic(|| -> Result<Option<Vec<SpeechChunk>>, String> {
+        match session.plan_speech_chunks(language_code, text) {
+            Ok(chunks) => Ok(Some(chunks)),
+            Err(err) if err.is_missing_asset() => Ok(None),
+            Err(err) => Err(err.message),
         }
-    };
+    })?
+    .ok_or_else(|| format!("No TTS voice installed for {}", language_code))?;
 
     if planned_chunks.is_empty() {
         return Err("Nothing to speak".to_string());
@@ -286,11 +280,11 @@ fn produce_audio_chunks(
                 voice_name.as_deref(),
                 chunk.is_phonemes,
             ) {
-                Ok(PcmSynthesisOutcome::Ready(audio)) => Ok(audio),
-                Ok(PcmSynthesisOutcome::MissingLanguage) => {
+                Ok(audio) => Ok(audio),
+                Err(err) if err.is_missing_asset() => {
                     Err(format!("No TTS voice installed for {language_code}"))
                 }
-                Err(error) => Err(error.message),
+                Err(err) => Err(err.message),
             }
         }) {
             Ok(pcm) => pcm,
