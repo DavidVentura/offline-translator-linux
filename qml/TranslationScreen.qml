@@ -111,14 +111,22 @@ Item {
                         id: inputArea
                         width: Math.max(0, parent.width - (inputActionButton.visible ? root.clipboardButtonSize + ui.dp(12) : 0))
                         height: Math.max(ui.dp(28), contentHeight + topPadding + bottomPadding)
-                        padding: 0
+                        topInset: 0
+                        leftInset: 0
+                        rightInset: 0
+                        bottomInset: 0
+                        topPadding: 0
+                        leftPadding: 0
+                        rightPadding: 0
+                        bottomPadding: 0
                         text: appBridge.input_text
                         color: theme.textPrimary
                         placeholderText: "Enter text"
                         placeholderTextColor: theme.textSecondary
                         wrapMode: TextEdit.Wrap
                         verticalAlignment: TextEdit.AlignTop
-                        selectByMouse: true
+                        activeFocusOnPress: true
+                        selectByMouse: appBridge.desktop_mode
                         background: Item {}
                         onTextChanged: if (text !== appBridge.input_text) appBridge.process_text(text)
                     }
@@ -337,11 +345,19 @@ Item {
                             id: outputArea
                             width: Math.max(0, parent.width - ((copyButton.visible || speechButton.visible) ? root.clipboardButtonSize + ui.dp(12) : 0))
                             height: Math.max(ui.dp(28), contentHeight + topPadding + bottomPadding)
-                            padding: 0
+                            topInset: 0
+                            leftInset: 0
+                            rightInset: 0
+                            bottomInset: 0
+                            topPadding: 0
+                            leftPadding: 0
+                            rightPadding: 0
+                            bottomPadding: 0
                             text: appBridge.output_text
                             readOnly: true
                             wrapMode: TextEdit.Wrap
-                            selectByMouse: true
+                            activeFocusOnPress: appBridge.desktop_mode
+                            selectByMouse: appBridge.desktop_mode
                             color: theme.textPrimary
                             font.pointSize: ui.pt(16)
                             background: Item {}
