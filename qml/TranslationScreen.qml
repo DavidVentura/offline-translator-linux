@@ -111,6 +111,7 @@ Item {
                         id: inputArea
                         width: Math.max(0, parent.width - (inputActionButton.visible ? root.clipboardButtonSize + ui.dp(12) : 0))
                         height: Math.max(ui.dp(28), contentHeight + topPadding + bottomPadding)
+                        padding: 0
                         text: appBridge.input_text
                         color: theme.textPrimary
                         placeholderText: "Enter text"
@@ -336,6 +337,7 @@ Item {
                             id: outputArea
                             width: Math.max(0, parent.width - ((copyButton.visible || speechButton.visible) ? root.clipboardButtonSize + ui.dp(12) : 0))
                             height: Math.max(ui.dp(28), contentHeight + topPadding + bottomPadding)
+                            padding: 0
                             text: appBridge.output_text
                             readOnly: true
                             wrapMode: TextEdit.Wrap

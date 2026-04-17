@@ -1465,7 +1465,7 @@ dependencies = [
 
 [[package]]
 name = "offline-translator-linux"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "cld2",
  "cpp",
