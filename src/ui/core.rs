@@ -24,6 +24,24 @@ impl AppBridge {
             .unwrap_or(Screen::NoLanguages.as_i32());
         app.previous_screen = Screen::Translation;
         app.desktop_mode = std::env::var_os("CLICKABLE_DESKTOP_MODE").is_some();
+        if cfg!(debug_assertions) {
+            let automation_from = std::env::var("AUTOMATION_FROM").unwrap_or_default();
+            let automation_to = std::env::var("AUTOMATION_TO").unwrap_or_default();
+            let automation_text = std::env::var("AUTOMATION_TEXT").unwrap_or_default();
+            let automation_screenshot_path =
+                std::env::var("AUTOMATION_SCREENSHOT_PATH").unwrap_or_default();
+            app.automation_enabled = !automation_from.is_empty()
+                || !automation_to.is_empty()
+                || !automation_text.is_empty()
+                || !automation_screenshot_path.is_empty();
+            app.automation_from = QString::from(automation_from);
+            app.automation_to = QString::from(automation_to);
+            app.automation_text = QString::from(automation_text);
+            app.automation_screenshot_path = QString::from(automation_screenshot_path);
+            app.automation_quit_after_screenshot = std::env::var("AUTOMATION_QUIT")
+                .map(|value| value == "1" || value.eq_ignore_ascii_case("true"))
+                .unwrap_or(false);
+        }
         app.asset_dir = asset_dir;
         app.config_dir = config_dir;
         app.data_dir = data_dir;

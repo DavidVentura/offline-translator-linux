@@ -121,6 +121,12 @@ pub struct AppBridge {
     pub dictionary_popup_rows_model: qt_property!(RefCell<SimpleListModel<DictionaryPopupRowItem>>; CONST),
 
     pub desktop_mode: qt_property!(bool; CONST),
+    pub automation_enabled: qt_property!(bool; CONST),
+    pub automation_from: qt_property!(QString; CONST),
+    pub automation_to: qt_property!(QString; CONST),
+    pub automation_text: qt_property!(QString; CONST),
+    pub automation_screenshot_path: qt_property!(QString; CONST),
+    pub automation_quit_after_screenshot: qt_property!(bool; CONST),
 
     pub ocr_background_mode: qt_property!(QString; NOTIFY ocr_background_mode_changed),
     pub ocr_background_mode_changed: qt_signal!(),
@@ -185,6 +191,23 @@ pub struct AppBridge {
     pub asset_url: qt_method!(
         fn asset_url(&self, name: QString) -> QString {
             format!("file://{}/{}", self.asset_dir, name).into()
+        }
+    ),
+    pub save_automation_screenshot: qt_method!(
+        fn save_automation_screenshot(&self, path: QString) -> bool {
+            let path_str = path.to_string();
+            println!("automation rust save_window_screenshot path={}", path_str);
+            let ok = crate::rendered_image_item::save_window_screenshot(&path_str);
+            println!(
+                "automation rust save_window_screenshot result={} path={}",
+                ok, path_str
+            );
+            ok
+        }
+    ),
+    pub automation_log: qt_method!(
+        fn automation_log(&self, message: QString) {
+            println!("automation qml {}", message.to_string());
         }
     ),
 

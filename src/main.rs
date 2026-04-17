@@ -1,3 +1,5 @@
+#![recursion_limit = "256"]
+
 mod catalog_state;
 mod download;
 mod eventloop;

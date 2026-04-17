@@ -3,6 +3,10 @@ use qmetaobject::*;
 
 cpp! {{
     #include <QtGui/QImage>
+    #include <QtGui/QGuiApplication>
+    #include <QtQuick/QQuickWindow>
+    #include <QtGui/QScreen>
+    #include <QtGui/QPixmap>
     #include <cstring>
 }}
 
@@ -58,5 +62,36 @@ pub fn qimage_from_rgba_bytes(width: u32, height: u32, rgba_bytes: &[u8]) -> QIm
             std::memcpy(image.bits(), bytes_ptr, bytes_len);
         }
         return image;
+    })
+}
+
+pub fn save_window_screenshot(path: &str) -> bool {
+    let path_ptr = path.as_ptr();
+    let path_len = path.len();
+    cpp!(unsafe [path_ptr as "const char *", path_len as "size_t"] -> bool as "bool" {
+        const QString path = QString::fromUtf8(path_ptr, static_cast<int>(path_len));
+        QPixmap shot;
+        const auto windows = QGuiApplication::topLevelWindows();
+        for (QWindow* window : windows) {
+            auto quickWindow = qobject_cast<QQuickWindow*>(window);
+            if (!quickWindow || !quickWindow->isVisible()) {
+                continue;
+            }
+            QScreen* screen = quickWindow->screen();
+            if (!screen) {
+                screen = QGuiApplication::primaryScreen();
+            }
+            if (!screen) {
+                continue;
+            }
+            shot = screen->grabWindow(quickWindow->winId());
+            if (!shot.isNull()) {
+                break;
+            }
+        }
+        if (shot.isNull()) {
+            return false;
+        }
+        return shot.save(path);
     })
 }
