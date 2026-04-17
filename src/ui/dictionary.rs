@@ -1,7 +1,5 @@
-use std::path::Path;
-
 use qmetaobject::QString;
-use translator::lookup_dictionary;
+use translator::lookup_dictionary_for_code;
 use translator::tarkka::WordWithTaggedEntries;
 
 use super::{AppBridge, types::DictionaryPopupRowItem};
@@ -25,25 +23,8 @@ impl AppBridge {
             return;
         }
 
-        let dict_path = Path::new(&self.data_dir)
-            .join("dictionaries")
-            .join(format!("{}.dict", language.dictionary_code));
-        if !dict_path.exists() {
-            eprintln!(
-                "dictionary lookup skipped, missing file: {}",
-                dict_path.display()
-            );
-            self.show_toast_impl(format!("No {} dictionary installed", language.name));
-            return;
-        }
-
-        let dict_path_str = dict_path.to_string_lossy().to_string();
-        let lowered = trimmed.to_lowercase();
-        let lookup_result = match lookup_dictionary(&dict_path_str, trimmed) {
-            Ok(Some(word_data)) => Ok(Some(word_data)),
-            Ok(None) if lowered != trimmed => lookup_dictionary(&dict_path_str, &lowered),
-            other => other,
-        };
+        let lookup_result =
+            lookup_dictionary_for_code(&self.data_dir, &language.dictionary_code, trimmed);
 
         match lookup_result {
             Ok(Some(word_data)) => {
