@@ -3,8 +3,7 @@ use std::time::Instant;
 
 use image::{GenericImageView, ImageDecoder, ImageReader, imageops::FilterType};
 use translator::{
-    BackgroundMode, BergamotEngine, CatalogSnapshot, ImageTranslationOutcome,
-    translate_image_rgba_in_snapshot,
+    BackgroundMode, BergamotEngine, CatalogSnapshot, ImageTranslationOutcome, Translator,
 };
 
 #[derive(Debug, Clone)]
@@ -88,9 +87,8 @@ pub fn translate_image_in_snapshot(
     let load_elapsed = load_start.elapsed();
     let background_mode = map_background_mode(background_mode_label);
     let process_start = Instant::now();
-    let prepared = match translate_image_rgba_in_snapshot(
-        engine,
-        snapshot,
+    let mut translator = Translator::new(engine, snapshot);
+    let prepared = match translator.translate_image_rgba(
         &loaded.rgba_bytes,
         loaded.width,
         loaded.height,
