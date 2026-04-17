@@ -1,13 +1,13 @@
 use std::panic::{AssertUnwindSafe, catch_unwind};
-use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{RecvTimeoutError, SyncSender, sync_channel};
 use std::thread;
 use std::time::{Duration, Instant};
 
 use translator::{
-    CatalogSnapshot, PcmAudio, ResolvedTtsVoiceFiles, TtsVoiceOption, list_voices,
-    plan_speech_chunks_for_text, resolve_tts_voice_files_in_snapshot, synthesize_pcm,
+    CatalogSnapshot, PcmAudio, SpeechChunk, TtsVoiceOption, available_tts_voices_in_snapshot,
+    plan_speech_chunks_for_text_in_snapshot, synthesize_pcm_in_snapshot,
+    warm_tts_model_in_snapshot,
 };
 
 use crate::pulse::PulsePlaybackStream;
@@ -45,7 +45,9 @@ pub fn load_tts_voices(
     language_code: &str,
     selected_voice_name: Option<&str>,
 ) -> Result<TtsVoiceRefresh, String> {
-    let Some(files) = resolve_tts_files(snapshot, language_code) else {
+    let Some(voices) =
+        catch_tts_panic(|| available_tts_voices_in_snapshot(snapshot, language_code))?
+    else {
         return Ok(TtsVoiceRefresh {
             available: false,
             voices: Vec::new(),
@@ -53,29 +55,6 @@ pub fn load_tts_voices(
             selected_voice_display_name: "Default".to_string(),
         });
     };
-
-    let model_path = absolute_install_path(snapshot, &files.model_install_path);
-    let aux_path = absolute_install_path(snapshot, &files.aux_install_path);
-    let support_data_root = support_data_root(snapshot, &files);
-
-    eprintln!(
-        "tts.load_tts_voices: language={} engine={} model={} aux={} support_root={}",
-        language_code,
-        files.engine,
-        model_path,
-        aux_path,
-        support_data_root.as_deref().unwrap_or("<none>")
-    );
-
-    let voices = catch_tts_panic(|| {
-        list_voices(
-            &files.engine,
-            &model_path,
-            &aux_path,
-            support_data_root.as_deref(),
-            language_code,
-        )
-    })?;
 
     let voice_preview = voices
         .iter()
@@ -118,29 +97,9 @@ pub fn load_tts_voices(
 }
 
 pub fn warm_tts_model(snapshot: &CatalogSnapshot, language_code: &str) -> Result<bool, String> {
-    let Some(files) = resolve_tts_files(snapshot, language_code) else {
-        return Ok(false);
-    };
-
-    let model_path = absolute_install_path(snapshot, &files.model_install_path);
-    let aux_path = absolute_install_path(snapshot, &files.aux_install_path);
-    let support_data_root = support_data_root(snapshot, &files);
     let started_at = Instant::now();
 
-    eprintln!(
-        "tts.warm: start language={} engine={} model={}",
-        language_code, files.engine, model_path
-    );
-
-    catch_tts_panic(|| {
-        list_voices(
-            &files.engine,
-            &model_path,
-            &aux_path,
-            support_data_root.as_deref(),
-            language_code,
-        )
-    })?;
+    let ready = catch_tts_panic(|| warm_tts_model_in_snapshot(snapshot, language_code))?;
 
     eprintln!(
         "tts.warm: ready language={} took_ms={}",
@@ -148,7 +107,7 @@ pub fn warm_tts_model(snapshot: &CatalogSnapshot, language_code: &str) -> Result
         started_at.elapsed().as_millis()
     );
 
-    Ok(true)
+    Ok(ready)
 }
 
 pub fn play_text_async(
@@ -194,29 +153,6 @@ pub fn play_text_async(
     });
 }
 
-fn resolve_tts_files(
-    snapshot: &CatalogSnapshot,
-    language_code: &str,
-) -> Option<ResolvedTtsVoiceFiles> {
-    resolve_tts_voice_files_in_snapshot(snapshot, language_code)
-}
-
-fn absolute_install_path(snapshot: &CatalogSnapshot, relative_path: &str) -> String {
-    Path::new(&snapshot.base_dir)
-        .join(relative_path)
-        .display()
-        .to_string()
-}
-
-fn support_data_root(snapshot: &CatalogSnapshot, files: &ResolvedTtsVoiceFiles) -> Option<String> {
-    let _ = files;
-    let data_dir = Path::new(&snapshot.base_dir).join("bin");
-    data_dir
-        .join("espeak-ng-data")
-        .is_dir()
-        .then(|| data_dir.display().to_string())
-}
-
 #[derive(Debug)]
 struct QueuedAudioChunk {
     chunk_index: usize,
@@ -233,23 +169,10 @@ fn play_text_streaming(
     generation: u64,
     ui: &UiCallbacks,
 ) -> Result<(), String> {
-    let files = resolve_tts_files(snapshot, language_code)
-        .ok_or_else(|| format!("No TTS voice installed for {language_code}"))?;
-    let model_path = absolute_install_path(snapshot, &files.model_install_path);
-    let aux_path = absolute_install_path(snapshot, &files.aux_install_path);
-    let support_data_root = support_data_root(snapshot, &files);
-    let speaker_id = files.speaker_id.map(i64::from);
     let planning_started_at = Instant::now();
-    let planned_chunks = catch_tts_panic(|| {
-        plan_speech_chunks_for_text(
-            &files.engine,
-            &model_path,
-            &aux_path,
-            support_data_root.as_deref(),
-            language_code,
-            text,
-        )
-    })?;
+    let planned_chunks =
+        catch_tts_panic(|| plan_speech_chunks_for_text_in_snapshot(snapshot, language_code, text))?
+            .ok_or_else(|| format!("No TTS voice installed for {language_code}"))?;
 
     if planned_chunks.is_empty() {
         return Err("Nothing to speak".to_string());
@@ -263,10 +186,7 @@ fn play_text_streaming(
     );
 
     let (tx, rx) = sync_channel::<Result<QueuedAudioChunk, String>>(SYNTHESIS_QUEUE_DEPTH);
-    let producer_files_engine = files.engine.clone();
-    let producer_model_path = model_path.clone();
-    let producer_aux_path = aux_path.clone();
-    let producer_support_data_root = support_data_root.clone();
+    let producer_snapshot = snapshot.clone();
     let producer_language_code = language_code.to_string();
     let producer_voice_name = voice_name.map(ToOwned::to_owned);
 
@@ -275,14 +195,10 @@ fn play_text_streaming(
             planned_chunks,
             tx,
             generation,
-            producer_files_engine,
-            producer_model_path,
-            producer_aux_path,
-            producer_support_data_root,
+            producer_snapshot,
             producer_language_code,
             speech_speed,
             producer_voice_name,
-            speaker_id,
         );
     });
 
@@ -322,17 +238,13 @@ fn play_text_streaming(
 
 #[allow(clippy::too_many_arguments)]
 fn produce_audio_chunks(
-    planned_chunks: Vec<translator::SpeechChunk>,
+    planned_chunks: Vec<SpeechChunk>,
     tx: SyncSender<Result<QueuedAudioChunk, String>>,
     generation: u64,
-    engine: String,
-    model_path: String,
-    aux_path: String,
-    support_data_root: Option<String>,
+    snapshot: CatalogSnapshot,
     language_code: String,
     speech_speed: f32,
     voice_name: Option<String>,
-    speaker_id: Option<i64>,
 ) {
     for (chunk_index, chunk) in planned_chunks.into_iter().enumerate() {
         if PLAYBACK_GENERATION.load(Ordering::SeqCst) != generation {
@@ -348,18 +260,17 @@ fn produce_audio_chunks(
             chunk_preview(&chunk.content)
         );
         let pcm = match catch_tts_panic(|| {
-            synthesize_pcm(
-                &engine,
-                &model_path,
-                &aux_path,
-                support_data_root.as_deref(),
+            synthesize_pcm_in_snapshot(
+                &snapshot,
                 &language_code,
                 &chunk.content,
                 speech_speed,
                 voice_name.as_deref(),
-                speaker_id,
                 chunk.is_phonemes,
             )
+            .and_then(|audio| {
+                audio.ok_or_else(|| format!("No TTS voice installed for {language_code}"))
+            })
         }) {
             Ok(pcm) => pcm,
             Err(err) => {
