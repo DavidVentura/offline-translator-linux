@@ -5,9 +5,9 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use cld2::{Format, detect_language};
-use translator::{LanguageCatalog, TranslatorSession};
+use translator::TranslatorSession;
 
-use crate::catalog_state::{build_snapshot, languages_from_snapshot, remove_delete_plan};
+use crate::catalog_state::languages_from_overview;
 use crate::download;
 use crate::image_ocr;
 use crate::model::FeatureKind;
@@ -16,12 +16,7 @@ use crate::tts;
 use crate::ui::{ImageOverlayListItem, TtsVoiceListItem, UiCallbacks, argb_to_qml_color};
 use crate::{AppPaths, IoEvent};
 
-pub fn run_eventloop(
-    bus_rx: Receiver<IoEvent>,
-    ui: UiCallbacks,
-    catalog: LanguageCatalog,
-    session: Arc<TranslatorSession>,
-) {
+pub fn run_eventloop(bus_rx: Receiver<IoEvent>, ui: UiCallbacks, session: Arc<TranslatorSession>) {
     let mut app_paths = None::<AppPaths>;
 
     while let Ok(msg) = bus_rx.recv() {
@@ -33,10 +28,8 @@ pub fn run_eventloop(
                 std::fs::create_dir_all(&path.data).expect("can't make data dir");
                 std::fs::create_dir_all(&path.config).expect("can't make config dir");
 
-                let new_snapshot = build_snapshot(&catalog, &path.data);
-                let languages = languages_from_snapshot(&new_snapshot);
-                (ui.set_languages)(languages);
-                session.replace_snapshot(new_snapshot);
+                session.refresh_snapshot();
+                (ui.set_languages)(languages_from_overview(session.language_overview()));
                 println!("Load took {:?}", load_start.elapsed());
             }
             IoEvent::DownloadRequest {
@@ -56,24 +49,13 @@ pub fn run_eventloop(
                     eprintln!("Download failed for {code}: {err}");
                 }
 
-                let new_snapshot = build_snapshot(&catalog, &app_paths.data);
-                let languages = languages_from_snapshot(&new_snapshot);
-                (ui.set_languages)(languages);
-                session.replace_snapshot(new_snapshot);
+                session.refresh_snapshot();
+                (ui.set_languages)(languages_from_overview(session.language_overview()));
             }
             IoEvent::DeleteLanguage { code, feature } => {
-                let Some(app_paths) = app_paths.clone() else {
-                    println!("no app path, cant delete");
-                    continue;
-                };
-
                 let delete_plan = session.prepare_delete(&code, feature.into());
-                remove_delete_plan(&app_paths.data, &delete_plan);
-
-                let new_snapshot = build_snapshot(&catalog, &app_paths.data);
-                let languages = languages_from_snapshot(&new_snapshot);
-                (ui.set_languages)(languages);
-                session.replace_snapshot(new_snapshot);
+                session.apply_delete_plan(&delete_plan);
+                (ui.set_languages)(languages_from_overview(session.language_overview()));
             }
             IoEvent::TranslationRequest { text, from, to } => {
                 send_detection_to_ui(&text, &ui);

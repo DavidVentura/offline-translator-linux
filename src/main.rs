@@ -20,7 +20,7 @@ use std::sync::mpsc;
 
 use translator::TranslatorSession;
 
-use crate::catalog_state::{build_snapshot, bundled_catalog, languages_from_snapshot};
+use crate::catalog_state::{bundled_catalog, languages_from_overview};
 use crate::model::FeatureKind;
 use crate::settings::load_settings;
 use crate::ui::{AppBridge, create_ui_callbacks};
@@ -104,9 +104,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     let (bus_tx, bus_rx) = mpsc::channel::<IoEvent>();
     let app_paths = get_app_paths();
     let catalog = bundled_catalog();
-    let initial_snapshot = build_snapshot(&catalog, &app_paths.data);
-    let initial_languages = languages_from_snapshot(&initial_snapshot);
-    let session = Arc::new(TranslatorSession::from_snapshot(initial_snapshot));
+    let session = Arc::new(TranslatorSession::from_catalog(
+        catalog,
+        app_paths.data.clone(),
+    ));
+    let initial_languages = languages_from_overview(session.language_overview());
     let main_qml = find_main_qml()?;
     let asset_dir = find_asset_dir(&main_qml)?;
     let settings = load_settings(&app_paths.config);
@@ -126,7 +128,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let ui_callbacks = create_ui_callbacks(QPointer::from(app.pinned().borrow()));
     let session_for_loop = Arc::clone(&session);
     let jh = std::thread::spawn(move || {
-        eventloop::run_eventloop(bus_rx, ui_callbacks, catalog, session_for_loop)
+        eventloop::run_eventloop(bus_rx, ui_callbacks, session_for_loop)
     });
 
     bus_tx.send(IoEvent::SetAppPaths(app_paths)).unwrap();
