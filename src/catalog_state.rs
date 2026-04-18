@@ -4,27 +4,13 @@ use std::io::Read;
 use std::path::Path;
 
 use translator::{
-    CatalogSnapshot, DeletePlan, FsPackInstallChecker, LanguageCatalog, LanguageCode,
-    PackInstallChecker, PackResolver, build_catalog_snapshot, language_rows_in_snapshot,
-    parse_and_validate_catalog, plan_dictionary_download, plan_dictionary_download_in_snapshot,
-    plan_language_download, plan_language_download_in_snapshot, plan_tts_download,
-    plan_tts_download_in_snapshot,
+    CatalogSnapshot, DeletePlan, DictionaryCode, FsPackInstallChecker, LanguageCatalog,
+    LanguageCode, build_catalog_snapshot, language_rows_in_snapshot, parse_and_validate_catalog,
+    plan_dictionary_download, plan_language_download, plan_tts_download,
 };
 
 use crate::data::INDEX_JSON;
 use crate::model::{Direction, Language, TtsVoicePackOption, TtsVoicePickerRegion};
-
-struct EmptyInstallChecker;
-
-impl PackInstallChecker for EmptyInstallChecker {
-    fn file_exists(&self, _install_path: &str) -> bool {
-        false
-    }
-
-    fn install_marker_exists(&self, _marker_path: &str, _expected_version: i32) -> bool {
-        false
-    }
-}
 
 pub fn bundled_catalog() -> LanguageCatalog {
     let mut decoder = flate2::read::GzDecoder::new(INDEX_JSON);
@@ -56,8 +42,6 @@ pub fn build_snapshot(catalog: &LanguageCatalog, base_dir: &str) -> CatalogSnaps
 
 pub fn languages_from_snapshot(snapshot: &CatalogSnapshot) -> Vec<Language> {
     let catalog = &snapshot.catalog;
-    let empty_checker = EmptyInstallChecker;
-    let mut full_resolver = PackResolver::new(catalog, &empty_checker);
 
     let mut languages = language_rows_in_snapshot(snapshot)
         .into_iter()
@@ -65,23 +49,20 @@ pub fn languages_from_snapshot(snapshot: &CatalogSnapshot) -> Vec<Language> {
             let language = row.language;
             let code = language.code.clone();
             let language_code = LanguageCode::from(code.as_str());
-            let core_size_bytes =
-                plan_language_download(catalog, &language_code, &mut full_resolver).total_size;
-            let dictionary_size_bytes =
-                plan_dictionary_download(catalog, &language_code, &mut full_resolver)
-                    .map(|plan| plan.total_size)
-                    .unwrap_or(0);
-            let tts_size_bytes =
-                plan_tts_download(catalog, &language_code, None, &mut full_resolver)
-                    .map(|plan| plan.total_size)
-                    .unwrap_or(0);
+
+            let core_size_bytes = catalog.translation_size_bytes_for_language(&language_code);
+            let dictionary_size_bytes = catalog
+                .dictionary_info(&DictionaryCode::from(language.dictionary_code.clone()))
+                .map(|info| info.size)
+                .unwrap_or(0);
+            let tts_size_bytes = catalog.tts_size_bytes_for_language(&language_code);
 
             let core_installed = core_size_bytes > 0
-                && plan_language_download_in_snapshot(snapshot, &language_code)
+                && plan_language_download(snapshot, &language_code)
                     .tasks
                     .is_empty();
             let dictionary_installed = dictionary_size_bytes > 0
-                && plan_dictionary_download_in_snapshot(snapshot, &language_code)
+                && plan_dictionary_download(snapshot, &language_code)
                     .is_some_and(|plan| plan.tasks.is_empty());
 
             let direction = match (
@@ -116,9 +97,8 @@ pub fn languages_from_snapshot(snapshot: &CatalogSnapshot) -> Vec<Language> {
                 tts_size_bytes,
                 tts_installed: row.availability.tts_files,
                 tts_progress: 0.0,
-                tts_voice_picker_regions: snapshot
-                    .catalog
-                    .tts_voice_picker_regions(&LanguageCode::from(language.code.as_str()))
+                tts_voice_picker_regions: catalog
+                    .tts_voice_picker_regions(&language_code)
                     .into_iter()
                     .map(|region| TtsVoicePickerRegion {
                         code: region.code,
@@ -127,9 +107,9 @@ pub fn languages_from_snapshot(snapshot: &CatalogSnapshot) -> Vec<Language> {
                             .voices
                             .into_iter()
                             .map(|voice| TtsVoicePackOption {
-                                installed: plan_tts_download_in_snapshot(
+                                installed: plan_tts_download(
                                     snapshot,
-                                    &LanguageCode::from(language.code.as_str()),
+                                    &language_code,
                                     Some(voice.pack_id.as_str()),
                                 )
                                 .is_some_and(|plan| plan.tasks.is_empty()),
