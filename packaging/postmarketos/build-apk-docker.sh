@@ -21,7 +21,16 @@ tar \
   --exclude=.claude \
   --exclude=.codex \
   --exclude=clickable/build \
+  --exclude=build \
   --exclude=packaging \
+  --exclude=third_party/onnxruntime/onnxruntime/test \
+  --exclude=third_party/onnxruntime/winml \
+  --exclude=third_party/onnxruntime/csharp \
+  --exclude=third_party/onnxruntime/js \
+  --exclude=third_party/onnxruntime/orttraining \
+  --exclude=third_party/onnxruntime/docs \
+  --exclude=third_party/onnxruntime/java \
+  --exclude=third_party/onnxruntime/objectivec \
   -cf - \
   --transform "s,^,$pkgname-$pkgver/," \
   -C "$repo_root" . | gzip -n > "$tarball"

@@ -12,14 +12,18 @@ depends="
 "
 makedepends="
 	cargo
+	clang-dev
+	clang-libclang
 	cmake
 	git
 	linux-headers
 	mesa-dev
 	pkgconf
+	python3
 	qt5-qtbase-dev
 	qt5-qtdeclarative-dev
 	rust
+	samurai
 "
 source="
 	$pkgname-$pkgver.tar.gz
@@ -53,6 +57,6 @@ package() {
 		"$pkgdir"/usr/share/icons/hicolor/512x512/apps/offline-translator-linux.png
 }
 sha512sums="
-bc6b30d73e58678db97d428bd0a247b12a0243b3901c93f02e6f6e4aa9f1051abe41365a75639183e6a657e2456a1c4b14212f29bbd9ee5f6b7c225c184b55c8  offline-translator-linux-0.1.0.tar.gz
+9b6a5a596550a633c0262a4b6caeb8186bb886c6495d800b395eebbd8606c9c916d94d45d52256d1b6a16eee3f6e06a0bf807136c8343f27375f0efabd80a282  offline-translator-linux-0.1.0.tar.gz
 a558abc8d57cd83c6edcfa3746ec538ce2f2c9464be3c92ac7a1ec98d562a8eded9b7552b25651875a2ae6472d07b38999f56d0eaeab63c27984ef2d0a42a0fc  offline-translator-linux.desktop
 "
