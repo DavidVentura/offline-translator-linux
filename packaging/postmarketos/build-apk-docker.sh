@@ -31,6 +31,7 @@ tar \
   --exclude=third_party/onnxruntime/docs \
   --exclude=third_party/onnxruntime/java \
   --exclude=third_party/onnxruntime/objectivec \
+  --exclude=.cache \
   -cf - \
   --transform "s,^,$pkgname-$pkgver/," \
   -C "$repo_root" . | gzip -n > "$tarball"

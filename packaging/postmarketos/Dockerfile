@@ -2,6 +2,7 @@ FROM alpine:edge
 
 RUN apk add --no-cache \
     alpine-sdk \
+    bash \
     cargo \
     rust \
     clang-dev \
@@ -11,6 +12,7 @@ RUN apk add --no-cache \
     linux-headers \
     mesa-dev \
     pkgconf \
+    pulseaudio-dev \
     python3 \
     qt5-qtbase-dev \
     qt5-qtdeclarative-dev \

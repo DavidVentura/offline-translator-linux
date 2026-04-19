@@ -1,5 +1,6 @@
 /target
 .cargo
+.cache/
 lang-data
 packaging/postmarketos/tmp/
 packaging/postmarketos/src/

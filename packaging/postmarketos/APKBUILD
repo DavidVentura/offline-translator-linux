@@ -5,12 +5,13 @@ pkgrel=0
 pkgdesc="On-device offline translator built with Slint"
 url="https://github.com/DavidVentura/offline-translator-linux"
 arch="aarch64 armv7 x86_64"
-license="TODO"
+license="GPL-3.0-or-later"
 depends="
 	qt5-qtbase
 	qt5-qtdeclarative
 "
 makedepends="
+	bash
 	cargo
 	clang-dev
 	clang-libclang
@@ -19,12 +20,15 @@ makedepends="
 	linux-headers
 	mesa-dev
 	pkgconf
+	pulseaudio-dev
 	python3
 	qt5-qtbase-dev
 	qt5-qtdeclarative-dev
 	rust
 	samurai
 "
+# For pmaports submission, replace the local tarball with:
+#   $pkgname-$pkgver.tar.gz::https://github.com/DavidVentura/offline-translator-linux/archive/refs/tags/v$pkgver.tar.gz
 source="
 	$pkgname-$pkgver.tar.gz
 	offline-translator-linux.desktop
@@ -40,6 +44,7 @@ prepare() {
 
 build() {
 	export CARGO_NET_GIT_FETCH_WITH_CLI=true
+	export CMAKE_POLICY_VERSION_MINIMUM=3.5
 	cargo build --frozen --release --target="$CHOST"
 }
 
@@ -57,6 +62,6 @@ package() {
 		"$pkgdir"/usr/share/icons/hicolor/512x512/apps/offline-translator-linux.png
 }
 sha512sums="
-9b6a5a596550a633c0262a4b6caeb8186bb886c6495d800b395eebbd8606c9c916d94d45d52256d1b6a16eee3f6e06a0bf807136c8343f27375f0efabd80a282  offline-translator-linux-0.1.0.tar.gz
+2d21c81d64ac40709af49b9325b4d2ce12126f5ed0034e6f69e03d139b73b7a09b3bd382cde30bf7358a773584f4064384c3915eedf59ae106e474084c0580e6  offline-translator-linux-0.1.0.tar.gz
 a558abc8d57cd83c6edcfa3746ec538ce2f2c9464be3c92ac7a1ec98d562a8eded9b7552b25651875a2ae6472d07b38999f56d0eaeab63c27984ef2d0a42a0fc  offline-translator-linux.desktop
 "
