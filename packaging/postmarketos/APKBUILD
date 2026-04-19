@@ -4,9 +4,12 @@ pkgver=0.1.0
 pkgrel=0
 pkgdesc="On-device offline translator built with Slint"
 url="https://github.com/DavidVentura/offline-translator-linux"
-arch="aarch64 armv7 x86_64"
+arch="aarch64 x86_64"
 license="GPL-3.0-or-later"
 depends="
+	libpulse
+	libstdc++
+	mesa-gl
 	qt5-qtbase
 	qt5-qtdeclarative
 "
@@ -52,6 +55,10 @@ package() {
 	install -Dm755 \
 		target/"$CHOST"/release/offline-translator-linux \
 		"$pkgdir"/usr/bin/offline-translator-linux
+
+	install -Dm755 \
+		runtime-lib/"$CARCH"/libonnxruntime.so \
+		"$pkgdir"/usr/lib/libonnxruntime.so
 
 	install -Dm644 \
 		"$srcdir"/offline-translator-linux.desktop \
