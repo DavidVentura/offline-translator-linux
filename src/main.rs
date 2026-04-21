@@ -191,6 +191,21 @@ fn find_main_qml() -> Result<String, Box<dyn Error>> {
         return Ok(qml_path.display().to_string());
     }
 
+    if let Some(qml_path) = exe
+        .parent()
+        .and_then(|bin_dir| bin_dir.parent())
+        .map(|prefix| {
+            prefix
+                .join("share")
+                .join(env!("CARGO_PKG_NAME"))
+                .join("qml")
+                .join("Main.qml")
+        })
+        .filter(|path| path.exists())
+    {
+        return Ok(qml_path.display().to_string());
+    }
+
     if dev_path.exists() {
         return Ok(dev_path.display().to_string());
     }

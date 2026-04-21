@@ -67,7 +67,7 @@ checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 [[package]]
 name = "bergamot-sys"
 version = "0.1.0"
-source = "git+https://github.com/DavidVentura/bergamot-sys#7ab9c71340fc7603d1a915758035b482ea65527e"
+source = "git+https://github.com/DavidVentura/bergamot-sys#d6edf233328d30663b7decbc1f60ac5fd3f0115a"
 dependencies = [
  "cmake",
 ]
@@ -546,7 +546,7 @@ dependencies = [
 [[package]]
 name = "espeak-rs"
 version = "0.1.9"
-source = "git+https://github.com/DavidVentura/piper-rs#d39461630ac061014e409743ad39206cd9a04d74"
+source = "git+https://github.com/DavidVentura/piper-rs#942c591f9b98c668397a25f3d7b767684f9b1023"
 dependencies = [
  "espeak-rs-sys",
 ]
@@ -554,7 +554,7 @@ dependencies = [
 [[package]]
 name = "espeak-rs-sys"
 version = "0.1.9"
-source = "git+https://github.com/DavidVentura/piper-rs#d39461630ac061014e409743ad39206cd9a04d74"
+source = "git+https://github.com/DavidVentura/piper-rs#942c591f9b98c668397a25f3d7b767684f9b1023"
 dependencies = [
  "bindgen 0.69.5",
  "cmake",
@@ -1405,7 +1405,7 @@ dependencies = [
  "num-complex",
  "num-traits",
  "py_literal",
- "zip 2.4.2",
+ "zip",
 ]
 
 [[package]]
@@ -1489,7 +1489,7 @@ dependencies = [
  "translator",
  "ureq",
  "whoami",
- "zip 2.4.2",
+ "zip",
 ]
 
 [[package]]
@@ -1611,7 +1611,7 @@ checksum = "a89322df9ebe1c1578d689c92318e070967d1042b512afbe49518723f4e6d5cd"
 [[package]]
 name = "piper-rs"
 version = "0.1.9"
-source = "git+https://github.com/DavidVentura/piper-rs#d39461630ac061014e409743ad39206cd9a04d74"
+source = "git+https://github.com/DavidVentura/piper-rs#942c591f9b98c668397a25f3d7b767684f9b1023"
 dependencies = [
  "espeak-rs",
  "mucab",
@@ -1622,7 +1622,6 @@ dependencies = [
  "serde",
  "serde_json",
  "unicode-normalization",
- "zip 0.6.6",
 ]
 
 [[package]]
@@ -1986,9 +1985,9 @@ dependencies = [
 
 [[package]]
 name = "rustls-webpki"
-version = "0.103.12"
+version = "0.103.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8279bb85272c9f10811ae6a6c547ff594d6a7f3c6c6b02ee9726d1d0dcfcdd06"
+checksum = "61c429a8649f110dddef65e2a5ad240f747e85f7758a6bccc7e5777bd33f756e"
 dependencies = [
  "ring",
  "rustls-pki-types",
@@ -2338,7 +2337,7 @@ dependencies = [
 [[package]]
 name = "translator"
 version = "0.1.0"
-source = "git+https://github.com/DavidVentura/translator-rs.git#2eecd09079faa01d7602dfa07ed778a44ae8f589"
+source = "git+https://github.com/DavidVentura/translator-rs.git#eb6c67620a22e9b41828df775d3dde4cfc5a7194"
 dependencies = [
  "bergamot-sys",
  "cld2",
@@ -2825,18 +2824,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.117",
-]
-
-[[package]]
-name = "zip"
-version = "0.6.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "760394e246e4c28189f19d488c058bf16f564016aefac5d32bb1f3b51d5e9261"
-dependencies = [
- "byteorder",
- "crc32fast",
- "crossbeam-utils",
- "flate2",
 ]
 
 [[package]]

@@ -67,6 +67,20 @@ if ! target_arch="$(canonicalize_arch "${target_arch_raw}")"; then
   exit 1
 fi
 
+target_env="${CARGO_CFG_TARGET_ENV:-}"
+if [ -z "${target_env}" ]; then
+  if ldd --version 2>&1 | grep -qi musl; then
+    target_env="musl"
+  else
+    target_env="gnu"
+  fi
+fi
+arch_suffix=""
+if [ "${target_env}" = "musl" ]; then
+  arch_suffix="-musl"
+fi
+target_arch_dir="${target_arch}${arch_suffix}"
+
 cmake_arch_flag=""
 cmake_cross_flags=()
 cross_build_dir_reset=0
@@ -93,8 +107,8 @@ case "${target_arch}" in
     ;;
 esac
 
-build_dir="${repo_root}/build/onnxruntime/${target_arch}"
-output_dir="${repo_root}/runtime-lib/${target_arch}"
+build_dir="${repo_root}/build/onnxruntime/${target_arch_dir}"
+output_dir="${repo_root}/runtime-lib/${target_arch_dir}"
 output_lib="${output_dir}/libonnxruntime.so"
 built_lib="${build_dir}/Release/libonnxruntime.so"
 

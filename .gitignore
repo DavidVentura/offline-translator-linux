@@ -5,5 +5,8 @@ lang-data
 packaging/postmarketos/tmp/
 packaging/postmarketos/src/
 packaging/postmarketos/**/*.gz
+packaging/postmarketos/pkg/*
+packaging/postmarketos/packages/*
 build/
-runtime-lib/libonnxruntime.so
+runtime-lib/*
+.clickable/*

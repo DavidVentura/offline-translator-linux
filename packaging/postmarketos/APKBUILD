@@ -57,7 +57,7 @@ package() {
 		"$pkgdir"/usr/bin/offline-translator-linux
 
 	install -Dm755 \
-		runtime-lib/"$CARCH"/libonnxruntime.so \
+		runtime-lib/"$CARCH"-musl/libonnxruntime.so \
 		"$pkgdir"/usr/lib/libonnxruntime.so
 
 	install -Dm644 \
@@ -67,8 +67,16 @@ package() {
 	install -Dm644 \
 		clickable/assets/logo.png \
 		"$pkgdir"/usr/share/icons/hicolor/512x512/apps/offline-translator-linux.png
+
+	mkdir -p "$pkgdir"/usr/share/offline-translator-linux/qml
+	install -m644 qml/*.qml \
+		"$pkgdir"/usr/share/offline-translator-linux/qml/
+
+	mkdir -p "$pkgdir"/usr/share/offline-translator-linux/assets
+	install -m644 assets/* \
+		"$pkgdir"/usr/share/offline-translator-linux/assets/
 }
 sha512sums="
-2d21c81d64ac40709af49b9325b4d2ce12126f5ed0034e6f69e03d139b73b7a09b3bd382cde30bf7358a773584f4064384c3915eedf59ae106e474084c0580e6  offline-translator-linux-0.1.0.tar.gz
+91ef6d7db1a360582f009f154e74103f5e823475629323f293d37411cc1dbd96ea718947637fe4ff991885dfbae0820d4bf1dc74aaa6335b14c4d012f26f8f29  offline-translator-linux-0.1.0.tar.gz
 a558abc8d57cd83c6edcfa3746ec538ce2f2c9464be3c92ac7a1ec98d562a8eded9b7552b25651875a2ae6472d07b38999f56d0eaeab63c27984ef2d0a42a0fc  offline-translator-linux.desktop
 "
