@@ -149,7 +149,6 @@ command=(
   "--disable_ml_ops"
   "--disable_generation_ops"
   "--no_kleidiai"
-  "--use_xnnpack"
   "--no_sve"
   "--skip_submodule_sync"
   "--compile_no_warning_as_error"

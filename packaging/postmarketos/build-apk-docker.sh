@@ -36,12 +36,19 @@ tar \
   --transform "s,^,$pkgname-$pkgver/," \
   -C "$repo_root" . | gzip -n > "$tarball"
 
-nice -n 19 docker build -t offline-translator-linux-apk -f "$script_dir/Dockerfile" "$repo_root"
+platform_args=()
+if [ -n "${DOCKER_PLATFORM:-}" ]; then
+  platform_args=(--platform "$DOCKER_PLATFORM")
+fi
 
-nice -n 19 docker run --rm \
+image_tag="offline-translator-linux-apk${DOCKER_PLATFORM:+-${DOCKER_PLATFORM//\//-}}"
+
+nice -n 19 docker build "${platform_args[@]}" -t "$image_tag" -f "$script_dir/Dockerfile" "$repo_root"
+
+nice -n 19 docker run --rm "${platform_args[@]}" \
   -v "$repo_root:/work" \
   -w /work/packaging/postmarketos \
-  offline-translator-linux-apk \
+  "$image_tag" \
   sh -lc '
     set -euo pipefail
     uid=$(stat -c %u /work)

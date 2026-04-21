@@ -1,6 +1,6 @@
 FROM alpine:edge
 
-RUN apk add --no-cache \
+RUN apk update && apk add \
     alpine-sdk \
     bash \
     cargo \

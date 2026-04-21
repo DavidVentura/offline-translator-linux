@@ -38,7 +38,6 @@ makedepends="
 source="
 	$pkgname-$pkgver.tar.gz
 	offline-translator-linux.desktop
-	ruy-cpuinfo-default.patch
 "
 builddir="$srcdir/$pkgname-$pkgver"
 options="net !check"
@@ -47,12 +46,6 @@ prepare() {
 	default_prepare
 	export CARGO_NET_GIT_FETCH_WITH_CLI=true
 	cargo fetch --target="$CHOST" --locked
-	local cpuinfo
-	cpuinfo="$(find "${CARGO_HOME:-$HOME/.cargo}"/git/checkouts -path '*/ruy/ruy/cpuinfo.cc' | head -n1)"
-	if [ -n "$cpuinfo" ]; then
-		patch -p1 -d "$(dirname "$cpuinfo" | sed 's|/bergamot-translator/.*||')" \
-			< "$srcdir"/ruy-cpuinfo-default.patch
-	fi
 }
 
 build() {
@@ -87,6 +80,6 @@ package() {
 		"$pkgdir"/usr/share/offline-translator-linux/assets/
 }
 sha512sums="
-18fae52587c4970183a3d65b12a99872c02886a26e4da806683bdbf6e5821bdd81a7aa8e50fc36b67da75f3cac60f38ce6fffc489b3df7a245c9057c1177f517  offline-translator-linux-0.1.0.tar.gz
+f96ae69ee0d40ac9d47b1cc31e874d3884eedae334f4f56e9d7a7c493606e183ef08c9729d4f5afd47fcd0c4d7a1f853faa8817bc06e7d112db51b7b7c08693a  offline-translator-linux-0.1.0.tar.gz
 a558abc8d57cd83c6edcfa3746ec538ce2f2c9464be3c92ac7a1ec98d562a8eded9b7552b25651875a2ae6472d07b38999f56d0eaeab63c27984ef2d0a42a0fc  offline-translator-linux.desktop
 "
