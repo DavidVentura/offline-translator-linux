@@ -12,6 +12,9 @@ depends="
 	mesa-gl
 	qt5-qtbase
 	qt5-qtdeclarative
+	qt5-qtquickcontrols2
+	qt5-qtsvg
+	qt5-qtwayland
 "
 makedepends="
 	bash
@@ -35,6 +38,7 @@ makedepends="
 source="
 	$pkgname-$pkgver.tar.gz
 	offline-translator-linux.desktop
+	ruy-cpuinfo-default.patch
 "
 builddir="$srcdir/$pkgname-$pkgver"
 options="net !check"
@@ -43,6 +47,12 @@ prepare() {
 	default_prepare
 	export CARGO_NET_GIT_FETCH_WITH_CLI=true
 	cargo fetch --target="$CHOST" --locked
+	local cpuinfo
+	cpuinfo="$(find "${CARGO_HOME:-$HOME/.cargo}"/git/checkouts -path '*/ruy/ruy/cpuinfo.cc' | head -n1)"
+	if [ -n "$cpuinfo" ]; then
+		patch -p1 -d "$(dirname "$cpuinfo" | sed 's|/bergamot-translator/.*||')" \
+			< "$srcdir"/ruy-cpuinfo-default.patch
+	fi
 }
 
 build() {
@@ -77,6 +87,6 @@ package() {
 		"$pkgdir"/usr/share/offline-translator-linux/assets/
 }
 sha512sums="
-91ef6d7db1a360582f009f154e74103f5e823475629323f293d37411cc1dbd96ea718947637fe4ff991885dfbae0820d4bf1dc74aaa6335b14c4d012f26f8f29  offline-translator-linux-0.1.0.tar.gz
+18fae52587c4970183a3d65b12a99872c02886a26e4da806683bdbf6e5821bdd81a7aa8e50fc36b67da75f3cac60f38ce6fffc489b3df7a245c9057c1177f517  offline-translator-linux-0.1.0.tar.gz
 a558abc8d57cd83c6edcfa3746ec538ce2f2c9464be3c92ac7a1ec98d562a8eded9b7552b25651875a2ae6472d07b38999f56d0eaeab63c27984ef2d0a42a0fc  offline-translator-linux.desktop
 "
