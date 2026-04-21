@@ -7,10 +7,10 @@ Canvas {
     property bool indeterminate: false
     property color progressColor: "#A8BCFF"
     property color trackColor: "#303240"
-    property real lineWidth: ui.dp(2.5)
+    property real lineWidth: ui.dp(2)
 
-    width: ui.dp(24)
-    height: ui.dp(24)
+    width: ui.dp(18)
+    height: ui.dp(18)
 
     property real _rotation: 0
 

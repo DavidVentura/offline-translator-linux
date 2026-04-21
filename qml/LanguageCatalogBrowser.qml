@@ -216,6 +216,7 @@ Item {
             text: appBridge.manage_filter_text
             color: theme.textPrimary
             placeholderTextColor: theme.textSecondary
+            font.pointSize: ui.pt(14)
             onTextChanged: appBridge.set_manage_filter(text)
 
             background: Rectangle {

@@ -205,6 +205,7 @@ Item {
                                 text: appBridge.catalog_index_url
                                 color: theme.textPrimary
                                 placeholderTextColor: theme.textSecondary
+                                font.pointSize: ui.pt(14)
                                 onEditingFinished: appBridge.set_catalog_index_url_value(text)
                                 background: Rectangle { radius: ui.dp(8); color: theme.backgroundElevated; border.width: 1; border.color: theme.borderColor }
                             }

@@ -121,6 +121,7 @@ Item {
                         bottomPadding: 0
                         text: appBridge.input_text
                         color: theme.textPrimary
+                        font.pointSize: ui.pt(16)
                         wrapMode: TextEdit.Wrap
                         verticalAlignment: TextEdit.AlignTop
                         activeFocusOnPress: true
