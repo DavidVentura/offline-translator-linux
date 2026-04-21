@@ -152,12 +152,14 @@ command=(
   "--use_xnnpack"
   "--no_sve"
   "--skip_submodule_sync"
+  "--compile_no_warning_as_error"
   "--cmake_extra_defines"
   "CMAKE_CXX_STANDARD=20"
   "CMAKE_CXX_STANDARD_REQUIRED=ON"
   "CMAKE_CXX_EXTENSIONS=OFF"
   "CMAKE_C_FLAGS=${path_remap_flags}"
   "CMAKE_CXX_FLAGS=${path_remap_flags}"
+  "onnxruntime_BUILD_UNIT_TESTS=OFF"
 )
 
 if [ -n "${cmake_arch_flag}" ]; then
