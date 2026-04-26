@@ -44,7 +44,7 @@ strip_tool_for_arch() {
       command -v x86_64-linux-gnu-strip >/dev/null 2>&1 && echo "x86_64-linux-gnu-strip" || echo "strip"
       ;;
     aarch64)
-      echo "aarch64-linux-gnu-strip"
+      command -v aarch64-linux-gnu-strip >/dev/null 2>&1 && echo "aarch64-linux-gnu-strip" || echo "strip"
       ;;
     *)
       return 1
